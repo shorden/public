@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -24,48 +23,57 @@
 #include "MoveSplineInit.h"
 #include "MoveSpline.h"
 
-void HomeMovementGenerator<Creature>::DoInitialize(Creature* owner)
+void HomeMovementGenerator<Creature>::DoInitialize(Creature & owner)
 {
     _setTargetLocation(owner);
 }
 
-void HomeMovementGenerator<Creature>::DoFinalize(Creature* owner)
+void HomeMovementGenerator<Creature>::DoReset(Creature &)
 {
-    if (arrived)
-    {
-        owner->ClearUnitState(UNIT_STATE_EVADE);
-        owner->SetWalk(true);
-        owner->LoadCreaturesAddon(true);
-        owner->AI()->JustReachedHome();
-    }
 }
 
-void HomeMovementGenerator<Creature>::DoReset(Creature*) { }
-
-void HomeMovementGenerator<Creature>::_setTargetLocation(Creature* owner)
+void HomeMovementGenerator<Creature>::_setTargetLocation(Creature & owner)
 {
-    if (owner->HasUnitState(UNIT_STATE_ROOT | UNIT_STATE_STUNNED | UNIT_STATE_DISTRACTED))
+    if (owner.HasUnitState(UNIT_STATE_ROOT | UNIT_STATE_STUNNED | UNIT_STATE_DISTRACTED))
         return;
 
     Movement::MoveSplineInit init(owner);
     float x, y, z, o;
     // at apply we can select more nice return points base at current movegen
-    if (owner->GetMotionMaster()->empty() || !owner->GetMotionMaster()->top()->GetResetPosition(owner, x, y, z))
+    if (owner.GetMotionMaster()->empty() || !owner.GetMotionMaster()->top()->GetResetPosition(owner,x,y,z))
     {
-        owner->GetHomePosition(x, y, z, o);
+        owner.GetHomePosition(x, y, z, o);
         init.SetFacing(o);
     }
-    init.MoveTo(x, y, z);
+
+    PathGenerator path(&owner);
+    path.CalculatePath(x, y, z);
+
+    if (path.GetPathType() & PATHFIND_NOPATH)
+        init.MoveTo(x, y, z);
+    else
+        init.MovebyPath(path.GetPath());
+
     init.SetWalk(false);
     init.Launch();
 
     arrived = false;
-
-    owner->ClearUnitState(uint32(UNIT_STATE_ALL_STATE & ~UNIT_STATE_EVADE));
+    owner.ClearUnitState(UNIT_STATE_ALL_STATE & ~UNIT_STATE_EVADE);
 }
 
-bool HomeMovementGenerator<Creature>::DoUpdate(Creature* owner, const uint32 /*time_diff*/)
+bool HomeMovementGenerator<Creature>::DoUpdate(Creature &owner, const uint32 /*time_diff*/)
 {
-    arrived = owner->movespline->Finalized();
+    arrived = owner.movespline->Finalized();
     return !arrived;
+}
+
+void HomeMovementGenerator<Creature>::DoFinalize(Creature& owner)
+{
+    if (arrived)
+    {
+        owner.ClearUnitState(UNIT_STATE_EVADE);
+        owner.SetWalk(true);
+        owner.LoadCreaturesAddon(true);
+        owner.AI()->JustReachedHome();
+    }
 }

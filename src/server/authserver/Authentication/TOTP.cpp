@@ -36,7 +36,7 @@ int base32_decode(const char* encoded, char* result, int bufSize)
             continue;
         buffer <<= 5;
 
-        // Deal with commonly mistyped characters
+        / Deal with commonly mistyped characters
         if (ch == '0')
             ch = 'O';
         else if (ch == '1')
@@ -44,7 +44,7 @@ int base32_decode(const char* encoded, char* result, int bufSize)
         else if (ch == '8')
             ch = 'B';
 
-        // Look up one base32 digit
+        / Look up one base32 digit
         if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z'))
             ch = (ch & 0x1F) - 1;
         else if (ch >= '2' && ch <= '7')

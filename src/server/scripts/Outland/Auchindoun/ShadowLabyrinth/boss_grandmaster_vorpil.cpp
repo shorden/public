@@ -1,12 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -54,7 +52,6 @@ enum GrandmasterVorpil
     SPELL_SACRIFICE             = 33587,
     SPELL_SHADOW_NOVA           = 33846,
     SPELL_EMPOWERING_SHADOWS    = 33783,
-    H_SPELL_EMPOWERING_SHADOWS  = 39364,
 
     NPC_VOID_PORTAL             = 19224,
     SPELL_SUMMON_PORTAL         = 33566,
@@ -92,7 +89,7 @@ class boss_grandmaster_vorpil : public CreatureScript
                 _intro = false;
             }
 
-            void Reset() OVERRIDE
+            void Reset()
             {
                 _Reset();
                 _helpYell = false;
@@ -101,7 +98,7 @@ class boss_grandmaster_vorpil : public CreatureScript
             void SummonPortals()
             {
                 for (uint8 i = 0; i < 5; ++i)
-                    if (Creature* portal = me->SummonCreature(NPC_VOID_PORTAL, VoidPortalCoords[i][0], VoidPortalCoords[i][1], VoidPortalCoords[i][2], 0, TempSummonType::TEMPSUMMON_CORPSE_DESPAWN, 3000000))
+                    if (Creature* portal = me->SummonCreature(NPC_VOID_PORTAL, VoidPortalCoords[i][0], VoidPortalCoords[i][1], VoidPortalCoords[i][2], 0, TEMPSUMMON_CORPSE_DESPAWN, 3000000))
                         portal->CastSpell(portal, SPELL_VOID_PORTAL_VISUAL, true);
 
                 events.ScheduleEvent(EVENT_SUMMON_TRAVELER, 5000);
@@ -110,7 +107,7 @@ class boss_grandmaster_vorpil : public CreatureScript
             void spawnVoidTraveler()
             {
                 uint8 pos = urand(0, 4);
-                me->SummonCreature(NPC_VOID_TRAVELER, VoidPortalCoords[pos][0], VoidPortalCoords[pos][1], VoidPortalCoords[pos][2], 0, TempSummonType::TEMPSUMMON_CORPSE_TIMED_DESPAWN, 5000);
+                me->SummonCreature(NPC_VOID_TRAVELER, VoidPortalCoords[pos][0], VoidPortalCoords[pos][1], VoidPortalCoords[pos][2], 0, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 5000);
                 if (!_helpYell)
                 {
                     Talk(SAY_HELP);
@@ -118,19 +115,19 @@ class boss_grandmaster_vorpil : public CreatureScript
                 }
             }
 
-            void KilledUnit(Unit* who) OVERRIDE
+            void KilledUnit(Unit* who)
             {
-                if (who->GetTypeId() == TypeID::TYPEID_PLAYER)
+                if (who->GetTypeId() == TYPEID_PLAYER)
                     Talk(SAY_SLAY);
             }
 
-            void JustDied(Unit* /*killer*/) OVERRIDE
+            void JustDied(Unit* /*killer*/)
             {
                 _JustDied();
                 Talk(SAY_DEATH);
             }
 
-            void EnterCombat(Unit* /*who*/) OVERRIDE
+            void EnterCombat(Unit* /*who*/)
             {
                 _EnterCombat();
                 events.ScheduleEvent(EVENT_SHADOWBOLT_VOLLEY, urand(7000, 14000));
@@ -143,7 +140,7 @@ class boss_grandmaster_vorpil : public CreatureScript
                 SummonPortals();
             }
 
-            void MoveInLineOfSight(Unit* who) OVERRIDE
+            void MoveInLineOfSight(Unit* who)
             {
                 BossAI::MoveInLineOfSight(who);
 
@@ -154,7 +151,7 @@ class boss_grandmaster_vorpil : public CreatureScript
                 }
             }
 
-            void UpdateAI(uint32 diff) OVERRIDE
+            void UpdateAI(uint32 diff)
             {
                 if (!UpdateVictim())
                     return;
@@ -182,8 +179,8 @@ class boss_grandmaster_vorpil : public CreatureScript
                                 Map* map = me->GetMap();
                                 Map::PlayerList const &PlayerList = map->GetPlayers();
                                 for (Map::PlayerList::const_iterator i = PlayerList.begin(); i != PlayerList.end(); ++i)
-                                    if (Player* i_pl = i->GetSource())
-                                        if (i_pl->IsAlive() && !i_pl->HasAura(SPELL_BANISH))
+                                    if (Player* i_pl = i->getSource())
+                                        if (i_pl->isAlive() && !i_pl->HasAura(SPELL_BANISH))
                                             i_pl->TeleportTo(me->GetMapId(), VorpilPosition.GetPositionX(), VorpilPosition.GetPositionY(), VorpilPosition.GetPositionZ(), VorpilPosition.GetOrientation(), TELE_TO_NOT_LEAVE_COMBAT);
 
                                 me->SetPosition(VorpilPosition);
@@ -211,9 +208,9 @@ class boss_grandmaster_vorpil : public CreatureScript
                 bool _helpYell;
         };
 
-        CreatureAI* GetAI(Creature* creature) const OVERRIDE
+        CreatureAI* GetAI(Creature* creature) const
         {
-            return GetShadowLabyrinthAI<boss_grandmaster_vorpilAI>(creature);
+            return new boss_grandmaster_vorpilAI(creature);
         }
 };
 
@@ -229,25 +226,25 @@ class npc_voidtraveler : public CreatureScript
                 _instance = creature->GetInstanceScript();
             }
 
-            void Reset() OVERRIDE
+            void Reset()
             {
                 _moveTimer = 0;
                 _sacrificed = false;
             }
 
-            void EnterCombat(Unit* /*who*/) OVERRIDE { }
+            void EnterCombat(Unit* /*who*/) { }
 
-            void UpdateAI(uint32 diff) OVERRIDE
+            void UpdateAI(uint32 diff)
             {
                 if (_moveTimer <= diff)
                 {
-                    Creature* Vorpil = ObjectAccessor::GetCreature(*me, _instance->GetData64(DATA_GRANDMASTER_VORPIL));
+                    Creature* Vorpil = ObjectAccessor::GetCreature(*me, _instance->GetGuidData(DATA_GRANDMASTER_VORPIL));
                     if (!Vorpil)
                         return;
 
                     if (_sacrificed)
                     {
-                        DoCastAOE(DUNGEON_MODE(SPELL_EMPOWERING_SHADOWS, H_SPELL_EMPOWERING_SHADOWS), true);
+                        DoCastAOE(SPELL_EMPOWERING_SHADOWS, true);
                         DoCast(me, SPELL_SHADOW_NOVA, true);
                         me->Kill(me);
                         return;
@@ -272,9 +269,9 @@ class npc_voidtraveler : public CreatureScript
             bool _sacrificed;
         };
 
-        CreatureAI* GetAI(Creature* creature) const OVERRIDE
+        CreatureAI* GetAI(Creature* creature) const
         {
-            return GetShadowLabyrinthAI<npc_voidtravelerAI>(creature);
+            return new npc_voidtravelerAI (creature);
         }
 };
 

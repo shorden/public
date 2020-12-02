@@ -29,7 +29,7 @@
 #include <unordered_map>
 #include <set>
 
-// move map related classes
+/ move map related classes
 namespace MMAP
 {
     typedef UNORDERED_MAP<uint32, dtTileRef> MMapTileSet;
@@ -40,10 +40,10 @@ namespace MMAP
 
     struct NavMeshHolder
     {
-        // Pre-built navMesh
+        / Pre-built navMesh
         dtNavMesh* navMesh;
 
-        // List of terrain swap map ids used to build the navMesh
+        / List of terrain swap map ids used to build the navMesh
         TerrainSet terrainIds;
 
         MMapTileSet loadedTileRefs;
@@ -70,8 +70,8 @@ namespace MMAP
 
         dtNavMesh* GetNavMesh(TerrainSet swaps);
 
-        // we have to use single dtNavMeshQuery for every instance, since those are not thread safe
-        NavMeshQuerySet navMeshQueries;     // instanceId to query
+        / we have to use single dtNavMeshQuery for every instance, since those are not thread safe
+        NavMeshQuerySet navMeshQueries;     / instanceId to query
 
         dtNavMesh* navMesh;
         MMapTileSet loadedTileRefs;
@@ -88,8 +88,8 @@ namespace MMAP
 
     typedef UNORDERED_MAP<uint32, MMapData*> MMapDataSet;
 
-    // singleton class
-    // holds all all access to mmap loading unloading and meshes
+    / singleton class
+    / holds all all access to mmap loading unloading and meshes
     class MMapManager
     {
     public:
@@ -101,7 +101,7 @@ namespace MMAP
         bool unloadMap(uint32 mapId);
         bool unloadMapInstance(uint32 mapId, uint32 instanceId);
 
-        // the returned [dtNavMeshQuery const*] is NOT threadsafe
+        / the returned [dtNavMeshQuery const*] is NOT threadsafe
         dtNavMeshQuery const* GetNavMeshQuery(uint32 mapId, uint32 instanceId, TerrainSet swaps);
         dtNavMesh const* GetNavMesh(uint32 mapId, TerrainSet swaps);
 

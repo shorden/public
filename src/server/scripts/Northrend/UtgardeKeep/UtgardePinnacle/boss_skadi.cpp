@@ -1,12 +1,9 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -28,21 +25,17 @@ SDComment: <Known Bugs>
 SDCategory: Utgarde Pinnacle
 Script Data End */
 
-#include "ScriptMgr.h"
-#include "ScriptedCreature.h"
 #include "utgarde_pinnacle.h"
-#include "Player.h"
-#include "SpellInfo.h"
 
-enum Yells
+enum Texts
 {
     SAY_AGGRO                           = 0,
     SAY_KILL                            = 1,
-    EMOTE_RANGE                         = 2,
+    SAY_RANGE                           = 2,
     SAY_DEATH                           = 3,
-    SAY_DRAKE_DEATH                     = 4,
-    EMOTE_BREATH                        = 5,
-    SAY_DRAKE_BREATH                    = 6
+    SAY_DRAKE_DEATH                     = 5,
+    SAY_DRAKE_BREATH                    = 6,
+    SAY_DRAKE_EMOTE                     = 7,
 };
 
 static Position SpawnLoc = {468.931f, -513.555f, 104.723f, 0};
@@ -126,15 +119,15 @@ static Position Location[]=
     {413.9327f, -540.9407f, 138.2614f, 0},      //71
 };
 
-enum CombatPhase
+enum eCombatPhase
 {
     FLYING,
     SKADI
 };
 
-enum Spells
+enum eSpells
 {
-    // Skadi Spells
+    //Skadi Spells
     SPELL_CRUSH             = 50234,
     SPELL_POISONED_SPEAR    = 50225, //isn't being casted =/
     SPELL_WHIRLWIND         = 50228, //random target, but not the tank approx. every 20s
@@ -143,17 +136,17 @@ enum Spells
     SPELL_FREEZING_CLOUD    = 47579,
 };
 
-enum Creatures
+enum eCreature
 {
-    NPC_YMIRJAR_WARRIOR       = 26690,
-    NPC_YMIRJAR_WITCH_DOCTOR  = 26691,
-    NPC_YMIRJAR_HARPOONER     = 26692,
-    NPC_GRAUF                 = 26893,
-    NPC_TRIGGER               = 28351,
+    CREATURE_YMIRJAR_WARRIOR       = 26690,
+    CREATURE_YMIRJAR_WITCH_DOCTOR  = 26691,
+    CREATURE_YMIRJAR_HARPOONER     = 26692,
+    CREATURE_GRAUF                 = 26893,
+    CREATURE_TRIGGER               = 28351,
     DATA_MOUNT                     = 27043,
 };
 
-enum Achievments
+enum eAchievments
 {
     ACHIEV_TIMED_START_EVENT                      = 17726,
 };
@@ -163,9 +156,9 @@ class boss_skadi : public CreatureScript
 public:
     boss_skadi() : CreatureScript("boss_skadi") { }
 
-    CreatureAI* GetAI(Creature* creature) const OVERRIDE
+    CreatureAI* GetAI(Creature* creature) const override
     {
-        return new boss_skadiAI(creature);
+        return new boss_skadiAI (creature);
     }
 
     struct boss_skadiAI : public ScriptedAI
@@ -173,13 +166,13 @@ public:
         boss_skadiAI(Creature* creature) : ScriptedAI(creature), Summons(me)
         {
             instance = creature->GetInstanceScript();
-            m_uiGraufGUID = 0;
+            m_uiGraufGUID.Clear();
         }
 
         InstanceScript* instance;
         SummonList Summons;
-        uint64 m_uiGraufGUID;
-        std::vector<uint64> triggersGUID;
+        ObjectGuid m_uiGraufGUID;
+        GuidVector triggersGUID;
 
         uint32 m_uiCrushTimer;
         uint32 m_uiPoisonedSpearTimer;
@@ -189,11 +182,19 @@ public:
         uint32 m_uiMountTimer;
         uint32 m_uiSummonTimer;
         uint8  m_uiSpellHitCount;
+        uint8  firsthit;
+        uint8  tryval;
         bool   m_bSaidEmote;
+        bool   skadiachiv;
 
-        CombatPhase Phase;
+        eCombatPhase Phase;
 
-        void Reset() OVERRIDE
+        bool Getskadiachiv()
+        {
+            return skadiachiv;
+        }
+        
+        void Reset() override
         {
             triggersGUID.clear();
 
@@ -203,35 +204,42 @@ public:
             m_uiMountTimer = 3000;
             m_uiWaypointId = 0;
             m_bSaidEmote = false;
+            skadiachiv = false;
+            tryval = 0;
+            firsthit = 0;
             m_uiSpellHitCount = 0;
 
             Phase = SKADI;
 
             Summons.DespawnAll();
             me->SetSpeed(MOVE_FLIGHT, 3.0f);
+
             if ((Unit::GetCreature(*me, m_uiGraufGUID) == NULL) && !me->IsMounted())
-                 me->SummonCreature(NPC_GRAUF, Location[0].GetPositionX(), Location[0].GetPositionY(), Location[0].GetPositionZ(), 3.0f);
+                me->SummonCreature(CREATURE_GRAUF, Location[0].GetPositionX(), Location[0].GetPositionY(), Location[0].GetPositionZ(), 3.0f);
+
             if (instance)
             {
+                instance->SendEncounterUnit(ENCOUNTER_FRAME_DISENGAGE, me);
                 instance->SetData(DATA_SKADI_THE_RUTHLESS_EVENT, NOT_STARTED);
-                instance->DoStopTimedAchievement(ACHIEVEMENT_TIMED_TYPE_EVENT, ACHIEV_TIMED_START_EVENT);
+                instance->DoStopTimedAchievement(CRITERIA_TIMED_TYPE_EVENT2, ACHIEV_TIMED_START_EVENT);
             }
         }
 
-        void JustReachedHome() OVERRIDE
+        void JustReachedHome() override
         {
-            me->SetCanFly(false);
+            SetFlyMode(false);
             me->Dismount();
             me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_NON_ATTACKABLE);
             if (!Unit::GetCreature(*me, m_uiGraufGUID))
-                me->SummonCreature(NPC_GRAUF, Location[0].GetPositionX(), Location[0].GetPositionY(), Location[0].GetPositionZ(), 3.0f);
+                me->SummonCreature(CREATURE_GRAUF, Location[0].GetPositionX(), Location[0].GetPositionY(), Location[0].GetPositionZ(), 3.0f);
         }
 
-        void EnterCombat(Unit* /*who*/) OVERRIDE
+        void EnterCombat(Unit* /*who*/) override
         {
             Talk(SAY_AGGRO);
 
             me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_NON_ATTACKABLE);
+            instance->SendEncounterUnit(ENCOUNTER_FRAME_ENGAGE, me);
 
             Phase = FLYING;
 
@@ -241,30 +249,30 @@ public:
             if (instance)
             {
                 instance->SetData(DATA_SKADI_THE_RUTHLESS_EVENT, IN_PROGRESS);
-                instance->DoStartTimedAchievement(ACHIEVEMENT_TIMED_TYPE_EVENT, ACHIEV_TIMED_START_EVENT);
+                instance->DoStartTimedAchievement(CRITERIA_TIMED_TYPE_EVENT2, ACHIEV_TIMED_START_EVENT);
                 me->GetMotionMaster()->MoveJump(Location[0].GetPositionX(), Location[0].GetPositionY(), Location[0].GetPositionZ(), 5.0f, 10.0f);
                 me->SetWalk(false);
                 m_uiMountTimer = 1000;
-                Summons.DespawnEntry(NPC_GRAUF);
+                Summons.DespawnEntry(CREATURE_GRAUF);
             }
         }
 
-        void JustSummoned(Creature* summoned) OVERRIDE
+        void JustSummoned(Creature* summoned) override
         {
             switch (summoned->GetEntry())
             {
-                case NPC_GRAUF:
+                case CREATURE_GRAUF:
                     m_uiGraufGUID = summoned->GetGUID();
                     break;
-                case NPC_YMIRJAR_WARRIOR:
-                case NPC_YMIRJAR_WITCH_DOCTOR:
-                case NPC_YMIRJAR_HARPOONER:
+                case CREATURE_YMIRJAR_WARRIOR:
+                case CREATURE_YMIRJAR_WITCH_DOCTOR:
+                case CREATURE_YMIRJAR_HARPOONER:
                     summoned->setActive(true);
                     summoned->SetInCombatWithZone();
                     if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
                         summoned->AI()->AttackStart(target);
                     break;
-                case NPC_TRIGGER:
+                case CREATURE_TRIGGER:
                     summoned->CastSpell((Unit*)NULL, SPELL_FREEZING_CLOUD, true);
                     summoned->DespawnOrUnsummon(10*IN_MILLISECONDS);
                     break;
@@ -272,29 +280,35 @@ public:
             Summons.Summon(summoned);
         }
 
-        void SummonedCreatureDespawn(Creature* summoned) OVERRIDE
+        void SummonedCreatureDespawn(Creature* summoned) override
         {
-            if (summoned->GetEntry() == NPC_GRAUF)
-                m_uiGraufGUID = 0;
+            if (summoned->GetEntry() == CREATURE_GRAUF)
+                m_uiGraufGUID.Clear();
             Summons.Despawn(summoned);
         }
 
-        void SpellHit(Unit* /*caster*/, const SpellInfo* spell) OVERRIDE
+        void SpellHit(Unit* /*caster*/, const SpellInfo* spell) override
         {
             if (spell->Id == SPELL_HARPOON_DAMAGE)
             {
-                m_uiSpellHitCount++;
-                if (m_uiSpellHitCount >= 3)
+                if (!firsthit && tryval)
                 {
+                    firsthit = tryval;
+                }
+                m_uiSpellHitCount++;
+                if (m_uiSpellHitCount == 3)
+                {
+                    if (firsthit == tryval)
+                        skadiachiv = true;
                     Phase = SKADI;
-                    me->SetCanFly(false);
+                    SetFlyMode(false);
                     me->Dismount();
-                    if (Creature* pGrauf = me->SummonCreature(NPC_GRAUF, me->GetPositionX(), me->GetPositionY(), me->GetPositionZ(), 0, TempSummonType::TEMPSUMMON_CORPSE_TIMED_DESPAWN, 3*IN_MILLISECONDS))
+                    if (Creature* pGrauf = me->SummonCreature(CREATURE_GRAUF, me->GetPositionX(), me->GetPositionY(), me->GetPositionZ(), 0, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 3*IN_MILLISECONDS))
                     {
                         pGrauf->GetMotionMaster()->MoveFall();
                         pGrauf->HandleEmoteCommand(EMOTE_ONESHOT_FLYDEATH);
                     }
-                    me->GetMotionMaster()->MoveJump(Location[4].GetPositionX(), Location[4].GetPositionY(), Location[4].GetPositionZ(), 5.0f, 10.0f);
+                    me->GetMotionMaster()->MoveJump(Location[4].GetPositionX(), Location[4].GetPositionY(), Location[4].GetPositionZ(), 15.0f, 15.0f);
                     me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_NON_ATTACKABLE);
                     Talk(SAY_DRAKE_DEATH);
                     m_uiCrushTimer = 8000;
@@ -305,7 +319,16 @@ public:
             }
         }
 
-        void UpdateAI(uint32 diff) OVERRIDE
+        void DamageTaken(Unit* /*done_by*/, uint32 &damage, DamageEffectType dmgType) override
+        {
+            if (m_uiSpellHitCount < 3)
+            {
+                damage = 0;
+                me->SetHealth(me->GetMaxHealth());
+            }
+        }
+
+        void UpdateAI(uint32 diff) override
         {
             switch (Phase)
             {
@@ -318,7 +341,7 @@ public:
                         me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_NON_ATTACKABLE);
                         if (!m_bSaidEmote)
                         {
-                            Talk(EMOTE_RANGE);
+                            Talk(SAY_RANGE);
                             m_bSaidEmote = true;
                         }
                     }
@@ -331,7 +354,7 @@ public:
                     if (m_uiMountTimer && m_uiMountTimer <= diff)
                     {
                         me->Mount(DATA_MOUNT);
-                        me->SetCanFly(true);
+                        SetFlyMode(true);
                         m_uiMountTimer = 0;
                     } else m_uiMountTimer -= diff;
 
@@ -346,34 +369,34 @@ public:
                         switch (m_uiWaypointId)
                         {
                             case 0:
-                                me->GetMotionMaster()->MovePoint(0, Location[1].GetPositionX(), Location[1].GetPositionY(), Location[1].GetPositionZ());
+                                me->GetMotionMaster()->MovePoint(0, Location[1].GetPositionX(), Location[1].GetPositionY(), Location[1].GetPositionZ(), false);
                                 m_uiMovementTimer = 5000;
                                 break;
                             case 1:
-                                me->GetMotionMaster()->MovePoint(0, Location[2].GetPositionX(), Location[2].GetPositionY(), Location[2].GetPositionZ());
+                                me->GetMotionMaster()->MovePoint(0, Location[2].GetPositionX(), Location[2].GetPositionY(), Location[2].GetPositionZ(), false);
                                 m_uiMovementTimer = 2000;
                                 break;
                             case 2:
-                                me->GetMotionMaster()->MovePoint(0, Location[3].GetPositionX(), Location[3].GetPositionY(), Location[3].GetPositionZ());
+                                me->GetMotionMaster()->MovePoint(0, Location[3].GetPositionX(), Location[3].GetPositionY(), Location[3].GetPositionZ(), false);
                                 m_uiMovementTimer = 15000;
                                 break;
                             case 3:
-                                me->GetMotionMaster()->MovePoint(0, Location[69].GetPositionX(), Location[69].GetPositionY(), Location[69].GetPositionZ());
+                                me->GetMotionMaster()->MovePoint(0, Location[69].GetPositionX(), Location[69].GetPositionY(), Location[69].GetPositionZ(), false);
                                 Talk(SAY_DRAKE_BREATH);
-                                Talk(EMOTE_BREATH);
+                                Talk(SAY_DRAKE_EMOTE);
                                 m_uiMovementTimer = 2500;
                                 break;
                             case 4:
-                                me->GetMotionMaster()->MovePoint(0, Location[70].GetPositionX(), Location[70].GetPositionY(), Location[70].GetPositionZ());
+                                me->GetMotionMaster()->MovePoint(0, Location[70].GetPositionX(), Location[70].GetPositionY(), Location[70].GetPositionZ(), false);
                                 m_uiMovementTimer = 2000;
                                 SpawnTrigger();
                                 break;
                             case 5:
-                                me->GetMotionMaster()->MovePoint(0, Location[71].GetPositionX(), Location[71].GetPositionY(), Location[71].GetPositionZ());
+                                me->GetMotionMaster()->MovePoint(0, Location[71].GetPositionX(), Location[71].GetPositionY(), Location[71].GetPositionZ(), false);
                                 m_uiMovementTimer = 3000;
                                 break;
                             case 6:
-                                me->GetMotionMaster()->MovePoint(0, Location[3].GetPositionX(), Location[3].GetPositionY(), Location[3].GetPositionZ());
+                                me->GetMotionMaster()->MovePoint(0, Location[3].GetPositionX(), Location[3].GetPositionY(), Location[3].GetPositionZ(), false);
                                 m_uiWaypointId = 2;
                                 m_uiMovementTimer = 15000;
                                 break;
@@ -388,7 +411,7 @@ public:
 
                     if (m_uiCrushTimer <= diff)
                     {
-                        DoCastVictim(SPELL_CRUSH);
+                        DoCast(SPELL_CRUSH);
                         m_uiCrushTimer = 8000;
                     } else m_uiCrushTimer -= diff;
 
@@ -401,7 +424,7 @@ public:
 
                     if (m_uiWhirlwindTimer <= diff)
                     {
-                        DoCastAOE(SPELL_WHIRLWIND);
+                        DoCast(SPELL_WHIRLWIND);
                         m_uiWhirlwindTimer = 20000;
                     } else m_uiWhirlwindTimer -= diff;
 
@@ -410,15 +433,18 @@ public:
             }
         }
 
-        void JustDied(Unit* /*killer*/) OVERRIDE
+        void JustDied(Unit* /*killer*/) override
         {
             Talk(SAY_DEATH);
             Summons.DespawnAll();
             if (instance)
+            {
+                instance->SendEncounterUnit(ENCOUNTER_FRAME_DISENGAGE, me);
                 instance->SetData(DATA_SKADI_THE_RUTHLESS_EVENT, DONE);
+            }
         }
 
-        void KilledUnit(Unit* /*victim*/) OVERRIDE
+        void KilledUnit(Unit* /*victim*/) override
         {
             Talk(SAY_KILL);
         }
@@ -430,15 +456,15 @@ public:
                 switch (urand(0, 2))
                 {
                     case 0:
-                        me->SummonCreature(NPC_YMIRJAR_WARRIOR, SpawnLoc.GetPositionX()+rand()%5, SpawnLoc.GetPositionY()+rand()%5, SpawnLoc.GetPositionZ(), 0, TempSummonType::TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
+                        me->SummonCreature(CREATURE_YMIRJAR_WARRIOR, SpawnLoc.GetPositionX()+rand()%5, SpawnLoc.GetPositionY()+rand()%5, SpawnLoc.GetPositionZ(), 0, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
                         break;
 
                     case 1:
-                        me->SummonCreature(NPC_YMIRJAR_WITCH_DOCTOR, SpawnLoc.GetPositionX()+rand()%5, SpawnLoc.GetPositionY()+rand()%5, SpawnLoc.GetPositionZ(), 0, TempSummonType::TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
+                        me->SummonCreature(CREATURE_YMIRJAR_WITCH_DOCTOR, SpawnLoc.GetPositionX()+rand()%5, SpawnLoc.GetPositionY()+rand()%5, SpawnLoc.GetPositionZ(), 0, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
                         break;
 
                     case 2:
-                        me->SummonCreature(NPC_YMIRJAR_HARPOONER, SpawnLoc.GetPositionX()+rand()%5, SpawnLoc.GetPositionY()+rand()%5, SpawnLoc.GetPositionZ(), 0, TempSummonType::TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
+                        me->SummonCreature(CREATURE_YMIRJAR_HARPOONER, SpawnLoc.GetPositionX()+rand()%5, SpawnLoc.GetPositionY()+rand()%5, SpawnLoc.GetPositionZ(), 0, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
                         break;
                 }
             }
@@ -461,9 +487,10 @@ public:
                     break;
             }
             for (uint32 i = iStart; i < iEnd; ++i)
-                me->SummonCreature(NPC_TRIGGER, Location[i]);
+                me->SummonCreature(CREATURE_TRIGGER, Location[i]);
         }
     };
+
 };
 
 class go_harpoon_launcher : public GameObjectScript
@@ -471,21 +498,44 @@ class go_harpoon_launcher : public GameObjectScript
 public:
     go_harpoon_launcher() : GameObjectScript("go_harpoon_launcher") { }
 
-    bool OnGossipHello(Player* player, GameObject* go) OVERRIDE
+    bool OnGossipHello(Player* player, GameObject* go) override
     {
         InstanceScript* instance = go->GetInstanceScript();
         if (!instance)
             return false;
 
-        if (Creature* pSkadi = Unit::GetCreature(*go, instance->GetData64(DATA_SKADI_THE_RUTHLESS)))
+        if (Creature* pSkadi = Unit::GetCreature(*go, instance->GetGuidData(DATA_SKADI_THE_RUTHLESS)))
             player->CastSpell(pSkadi, SPELL_RAPID_FIRE, true);
 
         return false;
     }
+
+};
+
+class achievement_my_girls_loves_to_skadi : public AchievementCriteriaScript
+{
+    public:
+        achievement_my_girls_loves_to_skadi() : AchievementCriteriaScript("achievement_my_girls_loves_to_skadi")
+        {
+        }
+
+        bool OnCheck(Player* player, Unit* target) override
+        {
+            if (!target)
+                return false;
+
+            if (Creature * sk = target->ToCreature())
+                if (boss_skadi::boss_skadiAI* skAI = CAST_AI(boss_skadi::boss_skadiAI, sk->AI()))
+                    if (skAI->Getskadiachiv())
+                        return true;
+
+            return false;
+        }
 };
 
 void AddSC_boss_skadi()
 {
     new boss_skadi();
     new go_harpoon_launcher();
+    new achievement_my_girls_loves_to_skadi();
 }

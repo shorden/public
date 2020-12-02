@@ -1,12 +1,9 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -20,8 +17,6 @@
 
 #ifndef DRAK_THARON_KEEP_H_
 #define DRAK_THARON_KEEP_H_
-
-#define DrakTharonKeepScriptName "instance_drak_tharon_keep"
 
 uint32 const EncounterCount = 4;
 
@@ -87,9 +82,13 @@ enum GameObjectIds
 };
 
 template<class AI>
-AI* GetDrakTharonKeepAI(Creature* creature)
+CreatureAI* GetInstanceAI(Creature* creature)
 {
-    return GetInstanceAI<AI>(creature, DrakTharonKeepScriptName);
+    if (InstanceMap* instance = creature->GetMap()->ToInstanceMap())
+        if (instance->GetInstanceScript())
+            if (instance->GetScriptId() == sObjectMgr->GetScriptId("instance_drak_tharon_keep"))
+                return new AI(creature);
+    return NULL;
 }
 
 #endif // DRAK_THARON_KEEP_H_

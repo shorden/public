@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -17,8 +16,8 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SF_MAPREFERENCE_H
-#define SF_MAPREFERENCE_H
+#ifndef _MAPREFERENCE_H
+#define _MAPREFERENCE_H
 
 #include "Reference.h"
 #include "Map.h"
@@ -26,24 +25,24 @@
 class MapReference : public Reference<Map, Player>
 {
     protected:
-        void targetObjectBuildLink()
+        void targetObjectBuildLink() override
         {
             // called from link()
             getTarget()->m_mapRefManager.insertFirst(this);
             getTarget()->m_mapRefManager.incSize();
         }
-        void targetObjectDestroyLink()
+        void targetObjectDestroyLink() override
         {
             // called from unlink()
             if (isValid()) getTarget()->m_mapRefManager.decSize();
         }
-        void sourceObjectDestroyLink()
+        void sourceObjectDestroyLink() override
         {
             // called from invalidate()
             getTarget()->m_mapRefManager.decSize();
         }
     public:
-        MapReference() : Reference<Map, Player>() { }
+        MapReference() : Reference<Map, Player>() {}
         ~MapReference() { unlink(); }
         MapReference* next() { return (MapReference*)Reference<Map, Player>::next(); }
         MapReference const* next() const { return (MapReference const*)Reference<Map, Player>::next(); }
@@ -51,3 +50,4 @@ class MapReference : public Reference<Map, Player>
         MapReference const* nocheck_prev() const { return (MapReference const*)Reference<Map, Player>::nocheck_prev(); }
 };
 #endif
+

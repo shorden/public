@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -17,68 +16,66 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SF_FORMATIONS_H
-#define SF_FORMATIONS_H
-
-#include "Define.h"
-#include "UnorderedMap.h"
-#include <map>
+#ifndef _FORMATIONS_H
+#define _FORMATIONS_H
 
 class Creature;
 class CreatureGroup;
 
 struct FormationInfo
 {
-    uint32 leaderGUID;
+    ObjectGuid::LowType leaderGUID;
     float follow_dist;
     float follow_angle;
     uint8 groupAI;
-    uint16 point_1;
-    uint16 point_2;
 };
 
-typedef UNORDERED_MAP<uint32/*memberDBGUID*/, FormationInfo*>   CreatureGroupInfoType;
+typedef std::unordered_map<ObjectGuid::LowType/*memberDBGUID*/, FormationInfo*>   CreatureGroupInfoType;
 
 class FormationMgr
 {
-    friend class ACE_Singleton<FormationMgr, ACE_Null_Mutex>;
-    public:
         FormationMgr() { }
         ~FormationMgr();
-        void AddCreatureToGroup(uint32 group_id, Creature* creature);
+
+    public:
+        static FormationMgr* instance();
+
+        void AddCreatureToGroup(ObjectGuid::LowType const& group_id, Creature* creature);
         void RemoveCreatureFromGroup(CreatureGroup* group, Creature* creature);
         void LoadCreatureFormations();
         CreatureGroupInfoType CreatureGroupMap;
+        FormationInfo* CreateCustomFormation(Creature* c);
 };
 
 class CreatureGroup
 {
-    private:
         Creature* m_leader; //Important do not forget sometimes to work with pointers instead synonims :D:D
         typedef std::map<Creature*, FormationInfo*>  CreatureGroupMemberType;
         CreatureGroupMemberType m_members;
 
-        uint32 m_groupID;
+        ObjectGuid::LowType m_groupID;
         bool m_Formed;
 
     public:
         //Group cannot be created empty
-        explicit CreatureGroup(uint32 id) : m_leader(NULL), m_groupID(id), m_Formed(false) { }
-        ~CreatureGroup() { }
+        explicit CreatureGroup(ObjectGuid::LowType const& id);
+        ~CreatureGroup() {}
 
         Creature* getLeader() const { return m_leader; }
-        uint32 GetId() const { return m_groupID; }
+        ObjectGuid::LowType GetId() const { return m_groupID; }
         bool isEmpty() const { return m_members.empty(); }
         bool isFormed() const { return m_Formed; }
 
-        void AddMember(Creature* member);
+        void AddMember(Creature* member, FormationInfo* f = nullptr);
         void RemoveMember(Creature* member);
         void FormationReset(bool dismiss);
 
         void LeaderMoveTo(float x, float y, float z);
         void MemberAttackStart(Creature* member, Unit* target);
+
+        CreatureGroupMemberType& GetMembers() { return m_members; }
 };
 
-#define sFormationMgr ACE_Singleton<FormationMgr, ACE_Null_Mutex>::instance()
+#define sFormationMgr FormationMgr::instance()
 
 #endif

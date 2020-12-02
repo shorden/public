@@ -1,12 +1,9 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -44,18 +41,22 @@ enum Creatures
     DISPLAY_INVISIBLE                             = 11686
 };
 
-// not in db
 enum Yells
 {
     SAY_AGGRO                                     = 0,
     SAY_SLAY                                      = 1,
     SAY_DEATH                                     = 2,
-    SAY_LOCUST                                    = 3,
-    SAY_SUBMERGE                                  = 4,
-    SAY_INTRO                                     = 5
+
+    // not in db
+    SAY_INTRO = -1601010,
+    SAY_LOCUST_1                                  = -1601005,
+    SAY_LOCUST_2                                  = -1601006,
+    SAY_LOCUST_3                                  = -1601007,
+    SAY_SUBMERGE_1                                = -1601008,
+    SAY_SUBMERGE_2                                = -1601009
 };
 
-enum Misc
+enum
 {
     ACHIEV_TIMED_START_EVENT                      = 20381,
 };
@@ -112,11 +113,11 @@ public:
 
         uint32 ImpaleTimer;
         uint32 ImpalePhase;
-        uint64 ImpaleTarget;
+        ObjectGuid ImpaleTarget;
 
         SummonList Summons;
 
-        void Reset() OVERRIDE
+        void Reset() override
         {
             CarrionBeetlesTimer = 8*IN_MILLISECONDS;
             LeechingSwarmTimer = 20*IN_MILLISECONDS;
@@ -135,8 +136,8 @@ public:
 
             if (instance)
             {
-                instance->SetBossState(DATA_ANUBARAK, NOT_STARTED);
-                instance->DoStopTimedAchievement(ACHIEVEMENT_TIMED_TYPE_EVENT, ACHIEV_TIMED_START_EVENT);
+                instance->SetData(DATA_ANUBARAK_EVENT, NOT_STARTED);
+                instance->DoStopTimedAchievement(CRITERIA_TIMED_TYPE_EVENT2, ACHIEV_TIMED_START_EVENT);
             }
         }
 
@@ -145,33 +146,33 @@ public:
             Position targetPos;
             target->GetPosition(&targetPos);
 
-            if (TempSummon* impaleTarget = me->SummonCreature(CREATURE_IMPALE_TARGET, targetPos, TempSummonType::TEMPSUMMON_TIMED_OR_CORPSE_DESPAWN, 6*IN_MILLISECONDS))
+            if (TempSummon* impaleTarget = me->SummonCreature(CREATURE_IMPALE_TARGET, targetPos, TEMPSUMMON_TIMED_OR_CORPSE_DESPAWN, 6*IN_MILLISECONDS))
             {
                 ImpaleTarget = impaleTarget->GetGUID();
                 impaleTarget->SetReactState(REACT_PASSIVE);
                 impaleTarget->SetDisplayId(DISPLAY_INVISIBLE);
-                impaleTarget->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISABLE_MOVE|UNIT_FLAG_NON_ATTACKABLE|UNIT_FLAG_NOT_SELECTABLE);
+                impaleTarget->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_REMOVE_CLIENT_CONTROL|UNIT_FLAG_NON_ATTACKABLE|UNIT_FLAG_NOT_SELECTABLE);
                 return impaleTarget;
             }
 
             return NULL;
         }
 
-        void EnterCombat(Unit* /*who*/) OVERRIDE
+        void EnterCombat(Unit* /*who*/) override
         {
             Talk(SAY_AGGRO);
             DelayTimer = 0;
             if (instance)
-                instance->DoStartTimedAchievement(ACHIEVEMENT_TIMED_TYPE_EVENT, ACHIEV_TIMED_START_EVENT);
+                instance->DoStartTimedAchievement(CRITERIA_TIMED_TYPE_EVENT2, ACHIEV_TIMED_START_EVENT);
         }
 
         void DelayEventStart()
         {
             if (instance)
-                instance->SetBossState(DATA_ANUBARAK, IN_PROGRESS);
+                instance->SetData(DATA_ANUBARAK_EVENT, IN_PROGRESS);
         }
 
-        void UpdateAI(uint32 diff) OVERRIDE
+        void UpdateAI(uint32 diff) override
         {
             if (!UpdateVictim())
                 return;
@@ -218,9 +219,9 @@ public:
                 {
                     for (uint8 i = 0; i < 2; ++i)
                     {
-                        if (Creature* Guardian = me->SummonCreature(CREATURE_GUARDIAN, SpawnPointGuardian[i], TempSummonType::TEMPSUMMON_CORPSE_DESPAWN, 0))
+                        if (Creature* Guardian = me->SummonCreature(CREATURE_GUARDIAN, SpawnPointGuardian[i], TEMPSUMMON_CORPSE_DESPAWN, 0))
                         {
-                            Guardian->AddThreat(me->GetVictim(), 0.0f);
+                            Guardian->AddThreat(me->getVictim(), 0.0f);
                             DoZoneInCombat(Guardian);
                         }
                     }
@@ -235,9 +236,9 @@ public:
                         {
                             for (uint8 i = 0; i < 2; ++i)
                             {
-                                if (Creature* Venomancer = me->SummonCreature(CREATURE_VENOMANCER, SpawnPoint[i], TempSummonType::TEMPSUMMON_CORPSE_DESPAWN, 0))
+                                if (Creature* Venomancer = me->SummonCreature(CREATURE_VENOMANCER, SpawnPoint[i], TEMPSUMMON_CORPSE_DESPAWN, 0))
                                 {
-                                    Venomancer->AddThreat(me->GetVictim(), 0.0f);
+                                    Venomancer->AddThreat(me->getVictim(), 0.0f);
                                     DoZoneInCombat(Venomancer);
                                 }
                             }
@@ -254,9 +255,9 @@ public:
                         {
                             for (uint8 i = 0; i < 2; ++i)
                             {
-                                if (Creature* Datter = me->SummonCreature(CREATURE_DATTER, SpawnPoint[i], TempSummonType::TEMPSUMMON_CORPSE_DESPAWN, 0))
+                                if (Creature* Datter = me->SummonCreature(CREATURE_DATTER, SpawnPoint[i], TEMPSUMMON_CORPSE_DESPAWN, 0))
                                 {
-                                    Datter->AddThreat(me->GetVictim(), 0.0f);
+                                    Datter->AddThreat(me->getVictim(), 0.0f);
                                     DoZoneInCombat(Datter);
                                 }
                             }
@@ -303,7 +304,7 @@ public:
                 if (Channeling == true)
                 {
                     for (uint8 i = 0; i < 8; ++i)
-                    DoCastVictim(SPELL_SUMMON_CARRION_BEETLES, true);
+                    DoCast(me->getVictim(), SPELL_SUMMON_CARRION_BEETLES, true);
                     Channeling = false;
                 }
                 else if (CarrionBeetlesTimer <= diff)
@@ -321,7 +322,7 @@ public:
 
                 if (PoundTimer <= diff)
                 {
-                    if (Unit* target = me->GetVictim())
+                    if (Unit* target = me->getVictim())
                     {
                         if (Creature* pImpaleTarget = DoSummonImpaleTarget(target))
                             me->CastSpell(pImpaleTarget, SPELL_POUND, false);
@@ -334,29 +335,30 @@ public:
             }
         }
 
-        void JustDied(Unit* /*killer*/) OVERRIDE
+        void JustDied(Unit* /*killer*/) override
         {
             Talk(SAY_DEATH);
             Summons.DespawnAll();
+
             if (instance)
-                instance->SetBossState(DATA_ANUBARAK, DONE);
+                instance->SetData(DATA_ANUBARAK_EVENT, DONE);
         }
 
-        void KilledUnit(Unit* victim) OVERRIDE
+        void KilledUnit(Unit* victim) override
         {
-            if (victim->GetTypeId() != TypeID::TYPEID_PLAYER)
+            if (victim == me)
                 return;
 
             Talk(SAY_SLAY);
         }
 
-        void JustSummoned(Creature* summon) OVERRIDE
+        void JustSummoned(Creature* summon) override
         {
             Summons.Summon(summon);
         }
     };
 
-    CreatureAI* GetAI(Creature* creature) const OVERRIDE
+    CreatureAI* GetAI(Creature* creature) const override
     {
         return new boss_anub_arakAI(creature);
     }
@@ -364,5 +366,5 @@ public:
 
 void AddSC_boss_anub_arak()
 {
-    new boss_anub_arak();
+    new boss_anub_arak;
 }

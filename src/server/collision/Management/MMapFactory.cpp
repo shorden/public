@@ -24,8 +24,8 @@
 
 namespace MMAP
 {
-    // ######################## MMapFactory ########################
-    // our global singleton copy
+    / ######################## MMapFactory ########################
+    / our global singleton copy
     MMapManager* g_MMapManager = NULL;
 
     MMapManager* MMapFactory::createOrGetMMapManager()

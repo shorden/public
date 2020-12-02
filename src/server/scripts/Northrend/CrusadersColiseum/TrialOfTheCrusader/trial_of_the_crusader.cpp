@@ -1,12 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -117,7 +115,7 @@ class npc_announcer_toc10 : public CreatureScript
             {
             }
 
-            void Reset() OVERRIDE
+            void Reset() override
             {
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
                 if (Creature* pAlly = GetClosestCreatureWithEntry(me, NPC_THRALL, 300.0f))
@@ -126,10 +124,10 @@ class npc_announcer_toc10 : public CreatureScript
                     pAlly->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
             }
 
-            void AttackStart(Unit* /*who*/) OVERRIDE { }
+            void AttackStart(Unit* /*who*/) override { }
         };
 
-        bool OnGossipHello(Player* player, Creature* creature) OVERRIDE
+        bool OnGossipHello(Player* player, Creature* creature) override
         {
             InstanceScript* instance = creature->GetInstanceScript();
             if (!instance)
@@ -137,7 +135,7 @@ class npc_announcer_toc10 : public CreatureScript
 
             char const* _message = "We are ready!";
 
-            if (player->IsInCombat() || instance->IsEncounterInProgress() || instance->GetData(TYPE_EVENT))
+            if (player->isInCombat() || instance->IsEncounterInProgress() || instance->GetData(TYPE_EVENT))
                 return true;
 
             uint8 i = 0;
@@ -154,11 +152,12 @@ class npc_announcer_toc10 : public CreatureScript
             if (i >= NUM_MESSAGES)
                 return false;
 
-            player->SEND_GOSSIP_MENU(_GossipMessage[i].msgnum, creature->GetGUID());
+            //Need sniff
+            player->SEND_GOSSIP_MENU(/*_GossipMessage[i].msgnum*/DEFAULT_GOSSIP_MESSAGE, creature->GetGUID());
             return true;
         }
 
-        bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 /*action*/) OVERRIDE
+        bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 /*action*/) override
         {
             player->PlayerTalkClass->ClearMenus();
             player->CLOSE_GOSSIP_MENU();
@@ -175,7 +174,7 @@ class npc_announcer_toc10 : public CreatureScript
             else if (instance->GetBossState(BOSS_JARAXXUS) != DONE)
             {
                 // if Jaraxxus is spawned, but the raid wiped
-                if (Creature* jaraxxus = Unit::GetCreature(*player, instance->GetData64(NPC_JARAXXUS)))
+                if (Creature* jaraxxus = Unit::GetCreature(*player, instance->GetGuidData(NPC_JARAXXUS)))
                 {
                     jaraxxus->RemoveAurasDueToSpell(SPELL_JARAXXUS_CHAINS);
                     jaraxxus->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
@@ -203,15 +202,15 @@ class npc_announcer_toc10 : public CreatureScript
             }
             else if (instance->GetBossState(BOSS_LICH_KING) != DONE)
             {
-                if (GameObject* floor = GameObject::GetGameObject(*player, instance->GetData64(GO_ARGENT_COLISEUM_FLOOR)))
+                if (GameObject* floor = GameObject::GetGameObject(*player, instance->GetGuidData(GO_ARGENT_COLISEUM_FLOOR)))
                     floor->SetDestructibleState(GO_DESTRUCTIBLE_DAMAGED);
 
                 creature->CastSpell(creature, SPELL_CORPSE_TELEPORT, false);
                 creature->CastSpell(creature, SPELL_DESTROY_FLOOR_KNOCKUP, false);
 
-                Creature* anubArak = Unit::GetCreature(*creature, instance->GetData64(NPC_ANUBARAK));
-                if (!anubArak || !anubArak->IsAlive())
-                    anubArak = creature->SummonCreature(NPC_ANUBARAK, AnubarakLoc[0].GetPositionX(), AnubarakLoc[0].GetPositionY(), AnubarakLoc[0].GetPositionZ(), 3, TempSummonType::TEMPSUMMON_CORPSE_TIMED_DESPAWN, DESPAWN_TIME);
+                Creature* anubArak = Unit::GetCreature(*creature, instance->GetGuidData(NPC_ANUBARAK));
+                if (!anubArak || !anubArak->isAlive())
+                    anubArak = creature->SummonCreature(NPC_ANUBARAK, AnubarakLoc[0].GetPositionX(), AnubarakLoc[0].GetPositionY(), AnubarakLoc[0].GetPositionZ(), 3, TEMPSUMMON_CORPSE_TIMED_DESPAWN, DESPAWN_TIME);
 
                 instance->SetBossState(BOSS_ANUBARAK, NOT_STARTED);
 
@@ -222,7 +221,7 @@ class npc_announcer_toc10 : public CreatureScript
             return true;
         }
 
-        CreatureAI* GetAI(Creature* creature) const OVERRIDE
+        CreatureAI* GetAI(Creature* creature) const override
         {
             return new npc_announcer_toc10AI(creature);
         }
@@ -240,21 +239,20 @@ class boss_lich_king_toc : public CreatureScript
                 _instance = creature->GetInstanceScript();
             }
 
-            void Reset() OVERRIDE
+            void Reset() override
             {
-                _updateTimer = 0;
                 me->SetReactState(REACT_PASSIVE);
-                if (Creature* summoned = me->SummonCreature(NPC_TRIGGER, ToCCommonLoc[2].GetPositionX(), ToCCommonLoc[2].GetPositionY(), ToCCommonLoc[2].GetPositionZ(), 5, TempSummonType::TEMPSUMMON_TIMED_DESPAWN, 1*MINUTE*IN_MILLISECONDS))
+                if (Creature* summoned = me->SummonCreature(NPC_TRIGGER, ToCCommonLoc[2].GetPositionX(), ToCCommonLoc[2].GetPositionY(), ToCCommonLoc[2].GetPositionZ(), 5, TEMPSUMMON_TIMED_DESPAWN, 1*MINUTE*IN_MILLISECONDS))
                 {
                     summoned->CastSpell(summoned, 51807, false);
-                    summoned->SetDisplayId(summoned->GetCreatureTemplate()->Modelid2);
+                    summoned->SetDisplayId(summoned->GetCreatureTemplate()->Modelid[1]);
                 }
-                if (_instance)
-                    _instance->SetBossState(BOSS_LICH_KING, IN_PROGRESS);
+
+                _instance->SetBossState(BOSS_LICH_KING, IN_PROGRESS);
                 me->SetWalk(true);
             }
 
-            void MovementInform(uint32 uiType, uint32 uiId) OVERRIDE
+            void MovementInform(uint32 uiType, uint32 uiId) override
             {
                 if (uiType != POINT_MOTION_TYPE || !_instance)
                     return;
@@ -272,12 +270,12 @@ class boss_lich_king_toc : public CreatureScript
                 }
             }
 
-            void UpdateAI(uint32 uiDiff) OVERRIDE
+            void UpdateAI(uint32 uiDiff) override
             {
                 if (!_instance)
                     return;
 
-                if (_instance->GetData(TYPE_EVENT_NPC) != NPC_LICH_KING_1)
+                if (_instance->GetData(TYPE_EVENT_NPC) != NPC_LICH_KING)
                     return;
 
                 _updateTimer = _instance->GetData(TYPE_EVENT_TIMER);
@@ -288,18 +286,18 @@ class boss_lich_king_toc : public CreatureScript
                         case 5010:
                             Talk(SAY_STAGE_4_02);
                             _updateTimer = 3*IN_MILLISECONDS;
-                            me->GetMotionMaster()->MovePoint(0, LichKingLoc[0]);
+                            me->GetMotionMaster()->MovePoint(0, LichKingLoc[0], false);
                             _instance->SetData(TYPE_EVENT, 5020);
                             break;
                         case 5030:
                             Talk(SAY_STAGE_4_04);
-                            me->SetUInt32Value(UNIT_FIELD_NPC_EMOTESTATE, EMOTE_STATE_TALK);
+                            me->SetUInt32Value(UNIT_FIELD_EMOTE_STATE, EMOTE_STATE_TALK);
                             _updateTimer = 10*IN_MILLISECONDS;
                             _instance->SetData(TYPE_EVENT, 5040);
                             break;
                         case 5040:
-                            me->SetUInt32Value(UNIT_FIELD_NPC_EMOTESTATE, EMOTE_ONESHOT_NONE);
-                            me->GetMotionMaster()->MovePoint(1, LichKingLoc[1]);
+                            me->SetUInt32Value(UNIT_FIELD_EMOTE_STATE, EMOTE_ONESHOT_NONE);
+                            me->GetMotionMaster()->MovePoint(1, LichKingLoc[1], false);
                             _updateTimer = 1*IN_MILLISECONDS;
                             _instance->SetData(TYPE_EVENT, 0);
                             break;
@@ -311,30 +309,30 @@ class boss_lich_king_toc : public CreatureScript
                         case 5060:
                             Talk(SAY_STAGE_4_05);
                             me->HandleEmoteCommand(EMOTE_ONESHOT_KNEEL);
-                            _updateTimer = 2500;
+                            _updateTimer = 2.5*IN_MILLISECONDS;
                             _instance->SetData(TYPE_EVENT, 5070);
                             break;
                         case 5070:
                             me->CastSpell(me, 68198, false);
-                            _updateTimer = 1500;
+                            _updateTimer = 1.5*IN_MILLISECONDS;
                             _instance->SetData(TYPE_EVENT, 5080);
                             break;
                         case 5080:
                         {
-                            if (GameObject* go = GameObject::GetGameObject(*me, _instance->GetData64(GO_ARGENT_COLISEUM_FLOOR)))
+                            if (GameObject* go = ObjectAccessor::GetGameObject(*me, _instance->GetGuidData(GO_ARGENT_COLISEUM_FLOOR)))
                             {
                                 go->SetDisplayId(DISPLAYID_DESTROYED_FLOOR);
                                 go->SetFlag(GAMEOBJECT_FIELD_FLAGS, GO_FLAG_DAMAGED | GO_FLAG_NODESPAWN);
-                                go->SetGoState(GOState::GO_STATE_ACTIVE);
+                                go->SetGoState(GO_STATE_ACTIVE);
                             }
 
                             me->CastSpell(me, SPELL_CORPSE_TELEPORT, false);
                             me->CastSpell(me, SPELL_DESTROY_FLOOR_KNOCKUP, false);
 
                             _instance->SetBossState(BOSS_LICH_KING, DONE);
-                            Creature* temp = Unit::GetCreature(*me, _instance->GetData64(NPC_ANUBARAK));
-                            if (!temp || !temp->IsAlive())
-                                temp = me->SummonCreature(NPC_ANUBARAK, AnubarakLoc[0].GetPositionX(), AnubarakLoc[0].GetPositionY(), AnubarakLoc[0].GetPositionZ(), 3, TempSummonType::TEMPSUMMON_CORPSE_TIMED_DESPAWN, DESPAWN_TIME);
+                            Creature* temp = ObjectAccessor::GetCreature(*me, _instance->GetGuidData(NPC_ANUBARAK));
+                            if (!temp || !temp->isAlive())
+                                temp = me->SummonCreature(NPC_ANUBARAK, AnubarakLoc[0].GetPositionX(), AnubarakLoc[0].GetPositionY(), AnubarakLoc[0].GetPositionZ(), 3, TEMPSUMMON_CORPSE_TIMED_DESPAWN, DESPAWN_TIME);
 
                             _instance->SetData(TYPE_EVENT, 0);
 
@@ -357,7 +355,7 @@ class boss_lich_king_toc : public CreatureScript
                 uint32 _updateTimer;
         };
 
-        CreatureAI* GetAI(Creature* creature) const OVERRIDE
+        CreatureAI* GetAI(Creature* creature) const override
         {
             return new boss_lich_king_tocAI(creature);
         }
@@ -372,14 +370,21 @@ class npc_fizzlebang_toc : public CreatureScript
         {
             npc_fizzlebang_tocAI(Creature* creature) : ScriptedAI(creature), _summons(me)
             {
+                Initialize();
                 _instance = me->GetInstanceScript();
+                _triggerGUID.Clear();
             }
 
-            void JustDied(Unit* killer) OVERRIDE
+            void Initialize()
             {
-                Talk(SAY_STAGE_1_06, killer);
+                _portalGUID.Clear();
+            }
+
+            void JustDied(Unit* killer) override
+            {
+                Talk(SAY_STAGE_1_06, killer->GetGUID());
                 _instance->SetData(TYPE_EVENT, 1180);
-                if (Creature* temp = Unit::GetCreature(*me, _instance->GetData64(NPC_JARAXXUS)))
+                if (Creature* temp = ObjectAccessor::GetCreature(*me, _instance->GetGuidData(NPC_JARAXXUS)))
                 {
                     temp->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
                     temp->SetReactState(REACT_AGGRESSIVE);
@@ -387,14 +392,14 @@ class npc_fizzlebang_toc : public CreatureScript
                 }
             }
 
-            void Reset() OVERRIDE
+            void Reset() override
             {
                 me->SetWalk(true);
-                _portalGUID = 0;
-                me->GetMotionMaster()->MovePoint(1, ToCCommonLoc[10].GetPositionX(), ToCCommonLoc[10].GetPositionY()-60, ToCCommonLoc[10].GetPositionZ());
+                Initialize();
+                me->GetMotionMaster()->MovePoint(1, ToCCommonLoc[10].GetPositionX(), ToCCommonLoc[10].GetPositionY()-60, ToCCommonLoc[10].GetPositionZ(), false);
             }
 
-            void MovementInform(uint32 uiType, uint32 uiId) OVERRIDE
+            void MovementInform(uint32 uiType, uint32 uiId) override
             {
                 if (uiType != POINT_MOTION_TYPE)
                     return;
@@ -403,24 +408,21 @@ class npc_fizzlebang_toc : public CreatureScript
                 {
                     case 1:
                         me->SetWalk(false);
-                        if (_instance)
-                        {
-                            _instance->DoUseDoorOrButton(_instance->GetData64(GO_MAIN_GATE_DOOR));
-                            _instance->SetData(TYPE_EVENT, 1120);
-                            _instance->SetData(TYPE_EVENT_TIMER, 1*IN_MILLISECONDS);
-                        }
+                        _instance->DoUseDoorOrButton(_instance->GetGuidData(GO_MAIN_GATE_DOOR));
+                        _instance->SetData(TYPE_EVENT, 1120);
+                        _instance->SetData(TYPE_EVENT_TIMER, 1*IN_MILLISECONDS);
                         break;
                     default:
                         break;
                 }
             }
 
-            void JustSummoned(Creature* summoned) OVERRIDE
+            void JustSummoned(Creature* summoned) override
             {
                 _summons.Summon(summoned);
             }
 
-            void UpdateAI(uint32 uiDiff) OVERRIDE
+            void UpdateAI(uint32 uiDiff) override
             {
                 if (!_instance)
                     return;
@@ -446,11 +448,11 @@ class npc_fizzlebang_toc : public CreatureScript
                             me->GetMotionMaster()->MovementExpired();
                             Talk(SAY_STAGE_1_03);
                             me->HandleEmoteCommand(EMOTE_ONESHOT_SPELL_CAST_OMNI);
-                            if (Unit* pTrigger =  me->SummonCreature(NPC_TRIGGER, ToCCommonLoc[1].GetPositionX(), ToCCommonLoc[1].GetPositionY(), ToCCommonLoc[1].GetPositionZ(), 4.69494f, TempSummonType::TEMPSUMMON_MANUAL_DESPAWN))
+                            if (Unit* pTrigger =  me->SummonCreature(NPC_TRIGGER, ToCCommonLoc[1].GetPositionX(), ToCCommonLoc[1].GetPositionY(), ToCCommonLoc[1].GetPositionZ(), 4.69494f, TEMPSUMMON_MANUAL_DESPAWN))
                             {
                                 _triggerGUID = pTrigger->GetGUID();
                                 pTrigger->SetObjectScale(2.0f);
-                                pTrigger->SetDisplayId(pTrigger->ToCreature()->GetCreatureTemplate()->Modelid1);
+                                pTrigger->SetDisplayId(pTrigger->ToCreature()->GetCreatureTemplate()->Modelid[0]);
                                 pTrigger->CastSpell(pTrigger, SPELL_WILFRED_PORTAL, false);
                             }
                             _instance->SetData(TYPE_EVENT, 1132);
@@ -463,7 +465,7 @@ class npc_fizzlebang_toc : public CreatureScript
                             break;
                         case 1134:
                             me->HandleEmoteCommand(EMOTE_ONESHOT_SPELL_CAST_OMNI);
-                            if (Creature* pPortal = me->SummonCreature(NPC_WILFRED_PORTAL, ToCCommonLoc[1].GetPositionX(), ToCCommonLoc[1].GetPositionY(), ToCCommonLoc[1].GetPositionZ(), 4.71239f, TempSummonType::TEMPSUMMON_MANUAL_DESPAWN))
+                            if (Creature* pPortal = me->SummonCreature(NPC_WILFRED_PORTAL, ToCCommonLoc[1].GetPositionX(), ToCCommonLoc[1].GetPositionY(), ToCCommonLoc[1].GetPositionZ(), 4.71239f, TEMPSUMMON_MANUAL_DESPAWN))
                             {
                                 pPortal->SetReactState(REACT_PASSIVE);
                                 pPortal->SetObjectScale(2.0f);
@@ -479,7 +481,7 @@ class npc_fizzlebang_toc : public CreatureScript
                             break;
                         case 1140:
                             Talk(SAY_STAGE_1_04);
-                            if (Creature* temp = me->SummonCreature(NPC_JARAXXUS, ToCCommonLoc[1].GetPositionX(), ToCCommonLoc[1].GetPositionY(), ToCCommonLoc[1].GetPositionZ(), 5.0f, TempSummonType::TEMPSUMMON_CORPSE_TIMED_DESPAWN, DESPAWN_TIME))
+                            if (Creature* temp = me->SummonCreature(NPC_JARAXXUS, ToCCommonLoc[1].GetPositionX(), ToCCommonLoc[1].GetPositionY(), ToCCommonLoc[1].GetPositionZ(), 5.0f, TEMPSUMMON_CORPSE_TIMED_DESPAWN, DESPAWN_TIME))
                             {
                                 temp->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
                                 temp->SetReactState(REACT_PASSIVE);
@@ -489,23 +491,23 @@ class npc_fizzlebang_toc : public CreatureScript
                             _updateTimer = 5*IN_MILLISECONDS;
                             break;
                         case 1142:
-                            if (Creature* temp = Unit::GetCreature(*me, _instance->GetData64(NPC_JARAXXUS)))
+                            if (Creature* temp = ObjectAccessor::GetCreature(*me, _instance->GetGuidData(NPC_JARAXXUS)))
                                 temp->SetTarget(me->GetGUID());
-                            if (Creature* pTrigger = Unit::GetCreature(*me, _triggerGUID))
+                            if (Creature* pTrigger = ObjectAccessor::GetCreature(*me, _triggerGUID))
                                 pTrigger->DespawnOrUnsummon();
-                            if (Creature* pPortal = Unit::GetCreature(*me, _portalGUID))
+                            if (Creature* pPortal = ObjectAccessor::GetCreature(*me, _portalGUID))
                                 pPortal->DespawnOrUnsummon();
                             _instance->SetData(TYPE_EVENT, 1144);
                             _updateTimer = 10*IN_MILLISECONDS;
                             break;
                         case 1144:
-                            if (Creature* temp = Unit::GetCreature(*me, _instance->GetData64(NPC_JARAXXUS)))
+                            if (Creature* temp = ObjectAccessor::GetCreature(*me, _instance->GetGuidData(NPC_JARAXXUS)))
                                 temp->AI()->Talk(SAY_STAGE_1_05);
                             _instance->SetData(TYPE_EVENT, 1150);
                             _updateTimer = 5*IN_MILLISECONDS;
                             break;
                         case 1150:
-                            if (Creature* temp = Unit::GetCreature(*me, _instance->GetData64(NPC_JARAXXUS)))
+                            if (Creature* temp = ObjectAccessor::GetCreature(*me, _instance->GetGuidData(NPC_JARAXXUS)))
                             {
                                 //1-shot Fizzlebang
                                 temp->CastSpell(me, 67888, false);
@@ -527,11 +529,11 @@ class npc_fizzlebang_toc : public CreatureScript
                 InstanceScript* _instance;
                 SummonList _summons;
                 uint32 _updateTimer;
-                uint64 _portalGUID;
-                uint64 _triggerGUID;
+                ObjectGuid _portalGUID;
+                ObjectGuid _triggerGUID;
         };
 
-        CreatureAI* GetAI(Creature* creature) const OVERRIDE
+        CreatureAI* GetAI(Creature* creature) const override
         {
             return new npc_fizzlebang_tocAI(creature);
         }
@@ -549,11 +551,11 @@ class npc_tirion_toc : public CreatureScript
                 _instance = me->GetInstanceScript();
             }
 
-            void Reset() OVERRIDE { }
+            void Reset() override { }
 
-            void AttackStart(Unit* /*who*/) OVERRIDE { }
+            void AttackStart(Unit* /*who*/) override { }
 
-            void UpdateAI(uint32 uiDiff) OVERRIDE
+            void UpdateAI(uint32 uiDiff) override
             {
                 if (!_instance)
                     return;
@@ -567,26 +569,26 @@ class npc_tirion_toc : public CreatureScript
                     switch (_instance->GetData(TYPE_EVENT))
                     {
                         case 110:
-                            me->SetUInt32Value(UNIT_FIELD_NPC_EMOTESTATE, EMOTE_ONESHOT_TALK);
+                            me->SetUInt32Value(UNIT_FIELD_EMOTE_STATE, EMOTE_ONESHOT_TALK);
                             Talk(SAY_STAGE_0_01);
                             _updateTimer = 22*IN_MILLISECONDS;
                             _instance->SetData(TYPE_EVENT, 120);
                             break;
                         case 140:
-                            me->SetUInt32Value(UNIT_FIELD_NPC_EMOTESTATE, EMOTE_ONESHOT_TALK);
+                            me->SetUInt32Value(UNIT_FIELD_EMOTE_STATE, EMOTE_ONESHOT_TALK);
                             Talk(SAY_STAGE_0_02);
                             _updateTimer = 5*IN_MILLISECONDS;
                             _instance->SetData(TYPE_EVENT, 150);
                             break;
                         case 150:
-                            me->SetUInt32Value(UNIT_FIELD_NPC_EMOTESTATE, EMOTE_STATE_NONE);
+                            me->SetUInt32Value(UNIT_FIELD_EMOTE_STATE, EMOTE_STATE_NONE);
                             if (_instance->GetBossState(BOSS_BEASTS) != DONE)
                             {
-                                _instance->DoUseDoorOrButton(_instance->GetData64(GO_MAIN_GATE_DOOR));
+                                _instance->DoUseDoorOrButton(_instance->GetGuidData(GO_MAIN_GATE_DOOR));
 
-                                if (Creature* temp = me->SummonCreature(NPC_GORMOK, ToCSpawnLoc[0].GetPositionX(), ToCSpawnLoc[0].GetPositionY(), ToCSpawnLoc[0].GetPositionZ(), 5, TempSummonType::TEMPSUMMON_CORPSE_TIMED_DESPAWN, 30*IN_MILLISECONDS))
+                                if (Creature* temp = me->SummonCreature(NPC_GORMOK, ToCSpawnLoc[0].GetPositionX(), ToCSpawnLoc[0].GetPositionY(), ToCSpawnLoc[0].GetPositionZ(), 5, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 30*IN_MILLISECONDS))
                                 {
-                                    temp->GetMotionMaster()->MovePoint(0, ToCCommonLoc[5].GetPositionX(), ToCCommonLoc[5].GetPositionY(), ToCCommonLoc[5].GetPositionZ());
+                                    temp->GetMotionMaster()->MovePoint(0, ToCCommonLoc[5], false);
                                     temp->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NOT_SELECTABLE);
                                     temp->SetReactState(REACT_PASSIVE);
                                 }
@@ -604,10 +606,10 @@ class npc_tirion_toc : public CreatureScript
                             Talk(SAY_STAGE_0_04);
                             if (_instance->GetBossState(BOSS_BEASTS) != DONE)
                             {
-                                _instance->DoUseDoorOrButton(_instance->GetData64(GO_MAIN_GATE_DOOR));
-                                if (Creature* temp = me->SummonCreature(NPC_DREADSCALE, ToCSpawnLoc[1].GetPositionX(), ToCSpawnLoc[1].GetPositionY(), ToCSpawnLoc[1].GetPositionZ(), 5, TempSummonType::TEMPSUMMON_MANUAL_DESPAWN))
+                                _instance->DoUseDoorOrButton(_instance->GetGuidData(GO_MAIN_GATE_DOOR));
+                                if (Creature* temp = me->SummonCreature(NPC_DREADSCALE, ToCSpawnLoc[1].GetPositionX(), ToCSpawnLoc[1].GetPositionY(), ToCSpawnLoc[1].GetPositionZ(), 5, TEMPSUMMON_MANUAL_DESPAWN))
                                 {
-                                    temp->GetMotionMaster()->MovePoint(0, ToCCommonLoc[5].GetPositionX(), ToCCommonLoc[5].GetPositionY(), ToCCommonLoc[5].GetPositionZ());
+                                    temp->GetMotionMaster()->MovePoint(0, ToCCommonLoc[5], false);
                                     temp->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NOT_SELECTABLE);
                                     temp->SetReactState(REACT_PASSIVE);
                                 }
@@ -622,10 +624,10 @@ class npc_tirion_toc : public CreatureScript
                             Talk(SAY_STAGE_0_05);
                             if (_instance->GetBossState(BOSS_BEASTS) != DONE)
                             {
-                                _instance->DoUseDoorOrButton(_instance->GetData64(GO_MAIN_GATE_DOOR));
-                                if (Creature* temp = me->SummonCreature(NPC_ICEHOWL, ToCSpawnLoc[0].GetPositionX(), ToCSpawnLoc[0].GetPositionY(), ToCSpawnLoc[0].GetPositionZ(), 5, TempSummonType::TEMPSUMMON_DEAD_DESPAWN))
+                                _instance->DoUseDoorOrButton(_instance->GetGuidData(GO_MAIN_GATE_DOOR));
+                                if (Creature* temp = me->SummonCreature(NPC_ICEHOWL, ToCSpawnLoc[0].GetPositionX(), ToCSpawnLoc[0].GetPositionY(), ToCSpawnLoc[0].GetPositionZ(), 5, TEMPSUMMON_DEAD_DESPAWN))
                                 {
-                                    temp->GetMotionMaster()->MovePoint(2, ToCCommonLoc[5].GetPositionX(), ToCCommonLoc[5].GetPositionY(), ToCCommonLoc[5].GetPositionZ());
+                                    temp->GetMotionMaster()->MovePoint(2, ToCCommonLoc[5], false);
                                     me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NOT_SELECTABLE);
                                     me->SetReactState(REACT_PASSIVE);
                                 }
@@ -650,8 +652,8 @@ class npc_tirion_toc : public CreatureScript
                         case 1010:
                             Talk(SAY_STAGE_1_01);
                             _updateTimer = 7*IN_MILLISECONDS;
-                            _instance->DoUseDoorOrButton(_instance->GetData64(GO_MAIN_GATE_DOOR));
-                            me->SummonCreature(NPC_FIZZLEBANG, ToCSpawnLoc[0].GetPositionX(), ToCSpawnLoc[0].GetPositionY(), ToCSpawnLoc[0].GetPositionZ(), 2, TempSummonType::TEMPSUMMON_CORPSE_TIMED_DESPAWN, DESPAWN_TIME);
+                            _instance->DoUseDoorOrButton(_instance->GetGuidData(GO_MAIN_GATE_DOOR));
+                            me->SummonCreature(NPC_FIZZLEBANG, ToCSpawnLoc[0].GetPositionX(), ToCSpawnLoc[0].GetPositionY(), ToCSpawnLoc[0].GetPositionZ(), 2, TEMPSUMMON_CORPSE_TIMED_DESPAWN, DESPAWN_TIME);
                             _instance->SetData(TYPE_EVENT, 0);
                             break;
                         case 1180:
@@ -704,7 +706,7 @@ class npc_tirion_toc : public CreatureScript
                             _instance->SetData(TYPE_EVENT, 3092);
                             break;
                         case 3092:
-                            if (Creature* pChampionController = Unit::GetCreature((*me), _instance->GetData64(NPC_CHAMPIONS_CONTROLLER)))
+                            if (Creature* pChampionController = ObjectAccessor::GetCreature((*me), _instance->GetGuidData(NPC_CHAMPIONS_CONTROLLER)))
                                 pChampionController->AI()->SetData(1, NOT_STARTED);
                             _instance->SetData(TYPE_EVENT, 3095);
                             break;
@@ -721,14 +723,14 @@ class npc_tirion_toc : public CreatureScript
                             break;
                         case 4010:
                             Talk(SAY_STAGE_3_02);
-                            if (Creature* temp = me->SummonCreature(NPC_LIGHTBANE, ToCSpawnLoc[1].GetPositionX(), ToCSpawnLoc[1].GetPositionY(), ToCSpawnLoc[1].GetPositionZ(), 5, TempSummonType::TEMPSUMMON_CORPSE_TIMED_DESPAWN, DESPAWN_TIME))
+                            if (Creature* temp = me->SummonCreature(NPC_LIGHTBANE, ToCSpawnLoc[1].GetPositionX(), ToCSpawnLoc[1].GetPositionY(), ToCSpawnLoc[1].GetPositionZ(), 5, TEMPSUMMON_CORPSE_TIMED_DESPAWN, DESPAWN_TIME))
                             {
                                 temp->SetVisible(false);
                                 temp->SetReactState(REACT_PASSIVE);
                                 temp->SummonCreature(NPC_LIGHT_ESSENCE, TwinValkyrsLoc[0].GetPositionX(), TwinValkyrsLoc[0].GetPositionY(), TwinValkyrsLoc[0].GetPositionZ());
                                 temp->SummonCreature(NPC_LIGHT_ESSENCE, TwinValkyrsLoc[1].GetPositionX(), TwinValkyrsLoc[1].GetPositionY(), TwinValkyrsLoc[1].GetPositionZ());
                             }
-                            if (Creature* temp = me->SummonCreature(NPC_DARKBANE, ToCSpawnLoc[2].GetPositionX(), ToCSpawnLoc[2].GetPositionY(), ToCSpawnLoc[2].GetPositionZ(), 5, TempSummonType::TEMPSUMMON_CORPSE_TIMED_DESPAWN, DESPAWN_TIME))
+                            if (Creature* temp = me->SummonCreature(NPC_DARKBANE, ToCSpawnLoc[2].GetPositionX(), ToCSpawnLoc[2].GetPositionY(), ToCSpawnLoc[2].GetPositionZ(), 5, TEMPSUMMON_CORPSE_TIMED_DESPAWN, DESPAWN_TIME))
                             {
                                 temp->SetVisible(false);
                                 temp->SetReactState(REACT_PASSIVE);
@@ -739,22 +741,22 @@ class npc_tirion_toc : public CreatureScript
                             _instance->SetData(TYPE_EVENT, 4015);
                             break;
                         case 4015:
-                            _instance->DoUseDoorOrButton(_instance->GetData64(GO_MAIN_GATE_DOOR));
-                            if (Creature* temp = Unit::GetCreature((*me), _instance->GetData64(NPC_LIGHTBANE)))
+                            _instance->DoUseDoorOrButton(_instance->GetGuidData(GO_MAIN_GATE_DOOR));
+                            if (Creature* temp = ObjectAccessor::GetCreature((*me), _instance->GetGuidData(NPC_LIGHTBANE)))
                             {
-                                temp->GetMotionMaster()->MovePoint(1, ToCCommonLoc[8].GetPositionX(), ToCCommonLoc[8].GetPositionY(), ToCCommonLoc[8].GetPositionZ());
+                                temp->GetMotionMaster()->MovePoint(1, ToCCommonLoc[8], false);
                                 temp->SetVisible(true);
                             }
-                            if (Creature* temp = Unit::GetCreature((*me), _instance->GetData64(NPC_DARKBANE)))
+                            if (Creature* temp = ObjectAccessor::GetCreature((*me), _instance->GetGuidData(NPC_DARKBANE)))
                             {
-                                temp->GetMotionMaster()->MovePoint(1, ToCCommonLoc[9].GetPositionX(), ToCCommonLoc[9].GetPositionY(), ToCCommonLoc[9].GetPositionZ());
+                                temp->GetMotionMaster()->MovePoint(1, ToCCommonLoc[9], false);
                                 temp->SetVisible(true);
                             }
                             _updateTimer = 10*IN_MILLISECONDS;
                             _instance->SetData(TYPE_EVENT, 4016);
                             break;
                         case 4016:
-                            _instance->DoUseDoorOrButton(_instance->GetData64(GO_MAIN_GATE_DOOR));
+                            _instance->DoUseDoorOrButton(_instance->GetGuidData(GO_MAIN_GATE_DOOR));
                             _instance->SetData(TYPE_EVENT, 4017);
                             break;
                         case 4040:
@@ -769,7 +771,7 @@ class npc_tirion_toc : public CreatureScript
                         case 5005:
                             _updateTimer = 8*IN_MILLISECONDS;
                             _instance->SetData(TYPE_EVENT, 5010);
-                            me->SummonCreature(NPC_LICH_KING_1, ToCCommonLoc[2].GetPositionX(), ToCCommonLoc[2].GetPositionY(), ToCCommonLoc[2].GetPositionZ(), 5);
+                            me->SummonCreature(NPC_LICH_KING, ToCCommonLoc[2].GetPositionX(), ToCCommonLoc[2].GetPositionY(), ToCCommonLoc[2].GetPositionZ(), 5);
                             break;
                         case 5020:
                             Talk(SAY_STAGE_4_03);
@@ -784,7 +786,7 @@ class npc_tirion_toc : public CreatureScript
                             _instance->SetData(TYPE_EVENT, 6005);
                             break;
                         case 6005:
-                            if (Creature* tirionFordring = Unit::GetCreature((*me), _instance->GetData64(NPC_TIRION_FORDRING)))
+                            if (Creature* tirionFordring = ObjectAccessor::GetCreature((*me), _instance->GetGuidData(NPC_TIRION_FORDRING)))
                                 tirionFordring->AI()->Talk(SAY_STAGE_4_06);
                             _updateTimer = 20*IN_MILLISECONDS;
                             _instance->SetData(TYPE_EVENT, 6010);
@@ -792,7 +794,7 @@ class npc_tirion_toc : public CreatureScript
                         case 6010:
                             if (IsHeroic())
                             {
-                                if (Creature* tirionFordring = Unit::GetCreature((*me), _instance->GetData64(NPC_TIRION_FORDRING)))
+                                if (Creature* tirionFordring = ObjectAccessor::GetCreature((*me), _instance->GetGuidData(NPC_TIRION_FORDRING)))
                                     tirionFordring->AI()->Talk(SAY_STAGE_4_07);
                                 _updateTimer = 1*MINUTE*IN_MILLISECONDS;
                                 _instance->SetBossState(BOSS_ANUBARAK, SPECIAL);
@@ -819,7 +821,7 @@ class npc_tirion_toc : public CreatureScript
                 uint32 _updateTimer;
         };
 
-        CreatureAI* GetAI(Creature* creature) const OVERRIDE
+        CreatureAI* GetAI(Creature* creature) const override
         {
             return new npc_tirion_tocAI(creature);
         }
@@ -837,11 +839,11 @@ class npc_garrosh_toc : public CreatureScript
                 _instance = me->GetInstanceScript();
             }
 
-            void Reset() OVERRIDE { }
+            void Reset() override { }
 
-            void AttackStart(Unit* /*who*/) OVERRIDE { }
+            void AttackStart(Unit* /*who*/) override { }
 
-            void UpdateAI(uint32 uiDiff) OVERRIDE
+            void UpdateAI(uint32 uiDiff) override
             {
                 if (!_instance)
                     return;
@@ -855,13 +857,13 @@ class npc_garrosh_toc : public CreatureScript
                     switch (_instance->GetData(TYPE_EVENT))
                     {
                         case 130:
-                            me->SetUInt32Value(UNIT_FIELD_NPC_EMOTESTATE, EMOTE_ONESHOT_TALK);
+                            me->SetUInt32Value(UNIT_FIELD_EMOTE_STATE, EMOTE_ONESHOT_TALK);
                             Talk(SAY_STAGE_0_03h);
                             _updateTimer = 3*IN_MILLISECONDS;
                             _instance->SetData(TYPE_EVENT, 132);
                             break;
                         case 132:
-                            me->SetUInt32Value(UNIT_FIELD_NPC_EMOTESTATE, EMOTE_STATE_NONE);
+                            me->SetUInt32Value(UNIT_FIELD_EMOTE_STATE, EMOTE_STATE_NONE);
                             _updateTimer = 5*IN_MILLISECONDS;
                             _instance->SetData(TYPE_EVENT, 140);
                             break;
@@ -903,7 +905,7 @@ class npc_garrosh_toc : public CreatureScript
                 uint32 _updateTimer;
         };
 
-        CreatureAI* GetAI(Creature* creature) const OVERRIDE
+        CreatureAI* GetAI(Creature* creature) const override
         {
             return new npc_garrosh_tocAI(creature);
         }
@@ -921,11 +923,11 @@ class npc_varian_toc : public CreatureScript
                 _instance = me->GetInstanceScript();
             }
 
-            void Reset() OVERRIDE { }
+            void Reset() override { }
 
-            void AttackStart(Unit* /*who*/) OVERRIDE { }
+            void AttackStart(Unit* /*who*/) override { }
 
-            void UpdateAI(uint32 uiDiff) OVERRIDE
+            void UpdateAI(uint32 uiDiff) override
             {
                 if (!_instance)
                     return;
@@ -939,13 +941,13 @@ class npc_varian_toc : public CreatureScript
                     switch (_instance->GetData(TYPE_EVENT))
                     {
                         case 120:
-                            me->SetUInt32Value(UNIT_FIELD_NPC_EMOTESTATE, EMOTE_ONESHOT_TALK);
+                            me->SetUInt32Value(UNIT_FIELD_EMOTE_STATE, EMOTE_ONESHOT_TALK);
                             Talk(SAY_STAGE_0_03a);
                             _updateTimer = 2*IN_MILLISECONDS;
                             _instance->SetData(TYPE_EVENT, 122);
                             break;
                         case 122:
-                            me->SetUInt32Value(UNIT_FIELD_NPC_EMOTESTATE, EMOTE_STATE_NONE);
+                            me->SetUInt32Value(UNIT_FIELD_EMOTE_STATE, EMOTE_STATE_NONE);
                             _updateTimer = 3*IN_MILLISECONDS;
                             _instance->SetData(TYPE_EVENT, 130);
                             break;
@@ -987,7 +989,7 @@ class npc_varian_toc : public CreatureScript
                 uint32 _updateTimer;
         };
 
-        CreatureAI* GetAI(Creature* creature) const OVERRIDE
+        CreatureAI* GetAI(Creature* creature) const override
         {
             return new npc_varian_tocAI(creature);
         }

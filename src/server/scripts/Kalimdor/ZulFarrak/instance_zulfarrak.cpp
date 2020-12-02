@@ -1,12 +1,9 @@
-/*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ /*
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -21,17 +18,9 @@
 #include "ScriptMgr.h"
 #include "InstanceScript.h"
 #include "zulfarrak.h"
-#include "Player.h"
-#include "TemporarySummon.h"
 
-enum Misc
-{
-    // Creatures
-    NPC_GAHZRILLA       = 7273,
-
-    // Paths
-    PATH_ADDS           = 81553
-};
+#define NPC_GAHZRILLA 7273
+#define PATH_ADDS 81553
 
 int const pyramidSpawnTotal = 54;
 /* list of wave spawns: 0 = wave ID, 1 = creature id, 2 = x, 3 = y
@@ -104,39 +93,39 @@ class instance_zulfarrak : public InstanceMapScript
 public:
     instance_zulfarrak() : InstanceMapScript("instance_zulfarrak", 209) { }
 
-    InstanceScript* GetInstanceScript(InstanceMap* map) const OVERRIDE
+    InstanceScript* GetInstanceScript(InstanceMap* map) const
     {
         return new instance_zulfarrak_InstanceMapScript(map);
     }
 
     struct instance_zulfarrak_InstanceMapScript : public InstanceScript
     {
-        instance_zulfarrak_InstanceMapScript(Map* map) : InstanceScript(map) { }
+        instance_zulfarrak_InstanceMapScript(Map* map) : InstanceScript(map) {}
 
         uint32 GahzRillaEncounter;
-        uint64 ZumrahGUID;
-        uint64 BlyGUID;
-        uint64 WeegliGUID;
-        uint64 OroGUID;
-        uint64 RavenGUID;
-        uint64 MurtaGUID;
-        uint64 EndDoorGUID;
+        ObjectGuid ZumrahGUID;
+        ObjectGuid BlyGUID;
+        ObjectGuid WeegliGUID;
+        ObjectGuid OroGUID;
+        ObjectGuid RavenGUID;
+        ObjectGuid MurtaGUID;
+        ObjectGuid EndDoorGUID;
         uint32 PyramidPhase;
         uint32 major_wave_Timer;
         uint32 minor_wave_Timer;
         uint32 addGroupSize;
         uint32 waypoint;
 
-        void Initialize() OVERRIDE
+        void Initialize()
         {
             GahzRillaEncounter = NOT_STARTED;
-            ZumrahGUID = 0;
-            BlyGUID = 0;
-            WeegliGUID = 0;
-            OroGUID = 0;
-            RavenGUID = 0;
-            MurtaGUID = 0;
-            EndDoorGUID = 0;
+            ZumrahGUID.Clear();
+            BlyGUID.Clear();
+            WeegliGUID.Clear();
+            OroGUID.Clear();
+            RavenGUID.Clear();
+            MurtaGUID.Clear();
+            EndDoorGUID.Clear();
             PyramidPhase = 0;
             major_wave_Timer = 0;
             minor_wave_Timer = 0;
@@ -144,11 +133,11 @@ public:
             waypoint = 0;
         }
 
-        void OnCreatureCreate(Creature* creature) OVERRIDE
+        void OnCreatureCreate(Creature* creature)
         {
             switch (creature->GetEntry())
             {
-                case ENTRY_ZUM_RAH:
+                case ENTRY_ZUMRAH:
                     ZumrahGUID = creature->GetGUID();
                     break;
                 case ENTRY_BLY:
@@ -180,7 +169,7 @@ public:
             }
         }
 
-        void OnGameObjectCreate(GameObject* go) OVERRIDE
+        void OnGameObjectCreate(GameObject* go)
         {
             switch (go->GetEntry())
             {
@@ -190,7 +179,7 @@ public:
             }
         }
 
-        uint32 GetData(uint32 type) const OVERRIDE
+        uint32 GetData(uint32 type) const override
         {
             switch (type)
             {
@@ -200,11 +189,11 @@ public:
             return 0;
         }
 
-        uint64 GetData64(uint32 data) const OVERRIDE
+        ObjectGuid GetGuidData(uint32 data) const
         {
             switch (data)
             {
-                case ENTRY_ZUM_RAH:
+                case ENTRY_ZUMRAH:
                     return ZumrahGUID;
                 case ENTRY_BLY:
                     return BlyGUID;
@@ -219,10 +208,10 @@ public:
                 case GO_END_DOOR:
                     return EndDoorGUID;
             }
-            return 0;
+            return ObjectGuid::Empty;
         }
 
-        void SetData(uint32 type, uint32 data) OVERRIDE
+        void SetData(uint32 type, uint32 data)
         {
             switch (type)
             {
@@ -317,13 +306,13 @@ public:
             };
         }
 
-        std::list<uint64> addsAtBase, movedadds;
+        GuidList addsAtBase, movedadds;
 
         void MoveNPCIfAlive(uint32 entry, float x, float y, float z, float o)
         {
-           if (Creature* npc = instance->GetCreature(GetData64(entry)))
+           if (Creature* npc = instance->GetCreature(GetGuidData(entry)))
            {
-               if (npc->IsAlive())
+               if (npc->isAlive())
                {
                     npc->SetWalk(true);
                     npc->GetMotionMaster()->MovePoint(1, x, y, z);
@@ -348,19 +337,19 @@ public:
 
         bool IsWaveAllDead()
         {
-            for (std::list<uint64>::iterator itr = addsAtBase.begin(); itr != addsAtBase.end(); ++itr)
+            for (GuidList::iterator itr = addsAtBase.begin(); itr != addsAtBase.end(); ++itr)
             {
                 if (Creature* add = instance->GetCreature((*itr)))
                 {
-                    if (add->IsAlive())
+                    if (add->isAlive())
                         return false;
                 }
             }
-            for (std::list<uint64>::iterator itr = movedadds.begin(); itr != movedadds.end(); ++itr)
+            for (GuidList::iterator itr = movedadds.begin(); itr != movedadds.end(); ++itr)
             {
                 if (Creature* add = instance->GetCreature(((*itr))))
                 {
-                    if (add->IsAlive())
+                    if (add->isAlive())
                         return false;
                 }
             }
@@ -381,6 +370,7 @@ public:
             }
         }
     };
+
 };
 
 void AddSC_instance_zulfarrak()

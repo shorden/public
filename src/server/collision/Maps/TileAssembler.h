@@ -30,11 +30,11 @@
 
 namespace VMAP
 {
-    /**
+    /
     This Class is used to convert raw vector data into balanced BSP-Trees.
     To start the conversion call convertWorld().
-    */
-    //===============================================
+    /
+    /===============================================
 
     class ModelPosition
     {
@@ -63,7 +63,7 @@ namespace VMAP
     };
 
     typedef std::map<uint32, MapSpawns*> MapData;
-    //===============================================
+    /===============================================
 
     struct GroupModel_Raw
     {
@@ -116,5 +116,5 @@ namespace VMAP
             std::string getDirEntryNameFromModName(unsigned int pMapId, const std::string& pModPosName);
     };
 
-}                                                           // VMAP
-#endif                                                      /*_TILEASSEMBLER_H_*/
+}                                                           / VMAP
+#endif                                                      /_TILEASSEMBLER_H_/

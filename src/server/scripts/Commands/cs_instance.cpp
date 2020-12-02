@@ -1,11 +1,9 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -30,26 +28,27 @@ EndScriptData */
 #include "InstanceSaveMgr.h"
 #include "InstanceScript.h"
 #include "MapManager.h"
-#include "Player.h"
 
 class instance_commandscript : public CommandScript
 {
 public:
     instance_commandscript() : CommandScript("instance_commandscript") { }
 
-    std::vector<ChatCommand> GetCommands() const OVERRIDE
+    ChatCommand* GetCommands() const override
     {
-        static std::vector<ChatCommand> instanceCommandTable =
+        static ChatCommand instanceCommandTable[] =
         {
-            { "listbinds", rbac::RBAC_PERM_COMMAND_INSTANCE_LISTBINDS, false, &HandleInstanceListBindsCommand,    "", },
-            { "unbind",    rbac::RBAC_PERM_COMMAND_INSTANCE_UNBIND,    false, &HandleInstanceUnbindCommand,       "", },
-            { "stats",     rbac::RBAC_PERM_COMMAND_INSTANCE_STATS,      true, &HandleInstanceStatsCommand,        "", },
-            { "savedata",  rbac::RBAC_PERM_COMMAND_INSTANCE_SAVEDATA,  false, &HandleInstanceSaveDataCommand,     "", },
+            { "listbinds",      SEC_ADMINISTRATOR,  false,  &HandleInstanceListBindsCommand,    "", NULL },
+            { "unbind",         SEC_ADMINISTRATOR,  false,  &HandleInstanceUnbindCommand,       "", NULL },
+            { "stats",          SEC_ADMINISTRATOR,  true,   &HandleInstanceStatsCommand,        "", NULL },
+            { "savedata",       SEC_ADMINISTRATOR,  false,  &HandleInstanceSaveDataCommand,     "", NULL },
+            { NULL,             0,                  false,  NULL,                               "", NULL }
         };
 
-        static std::vector<ChatCommand> commandTable =
+        static ChatCommand commandTable[] =
         {
-            { "instance", rbac::RBAC_PERM_COMMAND_INSTANCE,  true, NULL, "", instanceCommandTable },
+            { "instance",       SEC_ADMINISTRATOR,  true,   NULL,                               "", instanceCommandTable },
+            { NULL,             0,                  false,  NULL,                               "", NULL }
         };
 
         return commandTable;
@@ -74,14 +73,14 @@ public:
             player = handler->GetSession()->GetPlayer();
 
         uint32 counter = 0;
-        for (uint8 i = 0; i < 15; ++i)
+        for (uint8 i = 0; i < MAX_DIFFICULTY; ++i)
         {
-            Player::BoundInstancesMap &binds = player->GetBoundInstances(DifficultyID(i));
+            Player::BoundInstancesMap &binds = player->GetBoundInstances(Difficulty(i));
             for (Player::BoundInstancesMap::const_iterator itr = binds.begin(); itr != binds.end(); ++itr)
             {
                 InstanceSave* save = itr->second.save;
                 std::string timeleft = GetTimeString(save->GetResetTime() - time(NULL));
-                handler->PSendSysMessage("map: %d inst: %d perm: %s diff: %d canReset: %s TTR: %s", itr->first, save->GetInstanceId(), itr->second.perm ? "yes" : "no",  save->GetDifficulty(), save->CanReset() ? "yes" : "no", timeleft.c_str());
+                handler->PSendSysMessage("map: %d inst: %d perm: %s diff: %d canReset: %s TTR: %s", itr->first, save->GetInstanceId(), itr->second.perm ? "yes" : "no",  save->GetDifficultyID(), save->CanReset() ? "yes" : "no", timeleft.c_str());
                 counter++;
             }
         }
@@ -90,14 +89,14 @@ public:
         counter = 0;
         if (Group* group = player->GetGroup())
         {
-            for (uint8 i = 0; i < 15; ++i)
+            for (uint8 i = 0; i < MAX_DIFFICULTY; ++i)
             {
-                Group::BoundInstancesMap &binds = group->GetBoundInstances(DifficultyID(i));
+                Group::BoundInstancesMap &binds = group->GetBoundInstances(Difficulty(i));
                 for (Group::BoundInstancesMap::const_iterator itr = binds.begin(); itr != binds.end(); ++itr)
                 {
                     InstanceSave* save = itr->second.save;
                     std::string timeleft = GetTimeString(save->GetResetTime() - time(NULL));
-                    handler->PSendSysMessage("map: %d inst: %d perm: %s diff: %d canReset: %s TTR: %s", itr->first, save->GetInstanceId(), itr->second.perm ? "yes" : "no",  save->GetDifficulty(), save->CanReset() ? "yes" : "no", timeleft.c_str());
+                    handler->PSendSysMessage("map: %d inst: %d perm: %s diff: %d canReset: %s TTR: %s", itr->first, save->GetInstanceId(), itr->second.perm ? "yes" : "no",  save->GetDifficultyID(), save->CanReset() ? "yes" : "no", timeleft.c_str());
                     counter++;
                 }
             }
@@ -131,17 +130,17 @@ public:
                 return false;
         }
 
-        for (uint8 i = 0; i < 15; ++i)
+        for (uint8 i = 0; i < MAX_DIFFICULTY; ++i)
         {
-            Player::BoundInstancesMap &binds = player->GetBoundInstances(DifficultyID(i));
+            Player::BoundInstancesMap &binds = player->GetBoundInstances(Difficulty(i));
             for (Player::BoundInstancesMap::iterator itr = binds.begin(); itr != binds.end();)
             {
                 InstanceSave* save = itr->second.save;
-                if (itr->first != player->GetMapId() && (!MapId || MapId == itr->first) && (diff == -1 || diff == save->GetDifficulty()))
+                if (itr->first != player->GetMapId() && (!MapId || MapId == itr->first) && (diff == -1 || diff == save->GetDifficultyID()))
                 {
                     std::string timeleft = GetTimeString(save->GetResetTime() - time(NULL));
-                    handler->PSendSysMessage("unbinding map: %d inst: %d perm: %s diff: %d canReset: %s TTR: %s", itr->first, save->GetInstanceId(), itr->second.perm ? "yes" : "no", save->GetDifficulty(), save->CanReset() ? "yes" : "no", timeleft.c_str());
-                    player->UnbindInstance(itr, DifficultyID(i));
+                    handler->PSendSysMessage("unbinding map: %d inst: %d perm: %s diff: %d canReset: %s TTR: %s", itr->first, save->GetInstanceId(), itr->second.perm ? "yes" : "no", save->GetDifficultyID(), save->CanReset() ? "yes" : "no", timeleft.c_str());
+                    player->UnbindInstance(itr, Difficulty(i));
                     counter++;
                 }
                 else
@@ -149,6 +148,14 @@ public:
             }
         }
         handler->PSendSysMessage("instances unbound: %d", counter);
+
+        player->ResetLootCooldown();
+        handler->PSendSysMessage("Reset personal loot cooldown");
+
+        player->ResetLootCooldown();
+        CharacterDatabase.PExecute("DELETE FROM character_loot_cooldown WHERE guid = %u", uint32(player->GetGUID().GetCounter()));
+        CharacterDatabase.PExecute("DELETE FROM character_lfg_cooldown WHERE guid = %u", uint32(player->GetGUID().GetCounter()));
+        handler->PSendSysMessage("Reset personal loot cooldown");
 
         return true;
     }
@@ -168,9 +175,9 @@ public:
     {
         Player* player = handler->GetSession()->GetPlayer();
         Map* map = player->GetMap();
-        if (!map->IsInstance())
+        if (!map->IsDungeon())
         {
-            handler->PSendSysMessage("Map is not an instance.");
+            handler->PSendSysMessage("Map is not a dungeon.");
             handler->SetSentErrorMessage(true);
             return false;
         }

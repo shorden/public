@@ -1,12 +1,9 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -75,7 +72,7 @@ public:
 
         float fMaxDistance;
 
-        void Reset() OVERRIDE
+        void Reset() override
         {
             me->SetFloatValue(UNIT_FIELD_BOUNDING_RADIUS, 9.0f);
             me->SetFloatValue(UNIT_FIELD_COMBAT_REACH, 9.0f);
@@ -87,38 +84,38 @@ public:
             uiDoorsTimer = urand(20*IN_MILLISECONDS, 30*IN_MILLISECONDS);
             uiCheckDistanceTimer = 2*IN_MILLISECONDS;
 
-            if (instance && (instance->GetBossState(DATA_HADRONOX) != DONE && !bFirstTime))
-                instance->SetBossState(DATA_HADRONOX, FAIL);
+            if (instance && (instance->GetData(DATA_HADRONOX_EVENT) != DONE && !bFirstTime))
+                instance->SetData(DATA_HADRONOX_EVENT, FAIL);
 
             bFirstTime = false;
         }
 
         //when Hadronox kills any enemy (that includes a party member) she will regain 10% of her HP if the target had Leech Poison on
-        void KilledUnit(Unit* Victim) OVERRIDE
+        void KilledUnit(Unit* Victim) override
         {
             // not sure if this aura check is correct, I think it is though
-            if (!Victim || !Victim->HasAura(DUNGEON_MODE(SPELL_LEECH_POISON, H_SPELL_LEECH_POISON)) || !me->IsAlive())
+            if (!Victim || !Victim->HasAura(DUNGEON_MODE(SPELL_LEECH_POISON, H_SPELL_LEECH_POISON)) || !me->isAlive())
                 return;
 
             me->ModifyHealth(int32(me->CountPctFromMaxHealth(10)));
         }
 
-        void JustDied(Unit* /*killer*/) OVERRIDE
+        void JustDied(Unit* /*killer*/) override
         {
             if (instance)
-                instance->SetBossState(DATA_HADRONOX, DONE);
+                instance->SetData(DATA_HADRONOX_EVENT, DONE);
         }
 
-        void EnterCombat(Unit* /*who*/) OVERRIDE
+        void EnterCombat(Unit* /*who*/) override
         {
             if (instance)
-                instance->SetBossState(DATA_HADRONOX, IN_PROGRESS);
+                instance->SetData(DATA_HADRONOX_EVENT, IN_PROGRESS);
             me->SetInCombatWithZone();
         }
 
         void CheckDistance(float dist, const uint32 uiDiff)
         {
-            if (!me->IsInCombat())
+            if (!me->isInCombat())
                 return;
 
             float x=0.0f, y=0.0f, z=0.0f;
@@ -131,13 +128,13 @@ public:
                 uiCheckDistanceTimer -= uiDiff;
                 return;
             }
-            if (me->IsInEvadeMode() || !me->GetVictim())
+            if (me->IsInEvadeMode() || !me->getVictim())
                 return;
             if (me->GetDistance(x, y, z) > dist)
                 EnterEvadeMode();
         }
 
-        void UpdateAI(uint32 diff) OVERRIDE
+        void UpdateAI(uint32 diff) override
         {
             //Return since we have no target
             if (!UpdateVictim())
@@ -156,7 +153,7 @@ public:
 
             if (uiPierceTimer <= diff)
             {
-                DoCastVictim(SPELL_PIERCE_ARMOR);
+                DoCast(me->getVictim(), SPELL_PIERCE_ARMOR);
                 uiPierceTimer = 8*IN_MILLISECONDS;
             } else uiPierceTimer -= diff;
 
@@ -193,7 +190,7 @@ public:
         }
     };
 
-    CreatureAI* GetAI(Creature* creature) const OVERRIDE
+    CreatureAI* GetAI(Creature* creature) const override
     {
         return new boss_hadronoxAI(creature);
     }
@@ -201,5 +198,5 @@ public:
 
 void AddSC_boss_hadronox()
 {
-    new boss_hadronox();
+    new boss_hadronox;
 }

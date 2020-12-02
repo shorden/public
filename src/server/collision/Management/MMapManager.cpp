@@ -24,23 +24,23 @@
 
 namespace MMAP
 {
-    // ######################## MMapManager ########################
+    / ######################## MMapManager ########################
     MMapManager::~MMapManager()
     {
         for (MMapDataSet::iterator i = loadedMMaps.begin(); i != loadedMMaps.end(); ++i)
             delete i->second;
 
-        // by now we should not have maps loaded
-        // if we had, tiles in MMapData->mmapLoadedTiles, their actual data is lost!
+        / by now we should not have maps loaded
+        / if we had, tiles in MMapData->mmapLoadedTiles, their actual data is lost!
     }
 
     bool MMapManager::loadMapData(uint32 mapId)
     {
-        // we already have this map loaded?
+        / we already have this map loaded?
         if (loadedMMaps.find(mapId) != loadedMMaps.end())
             return true;
 
-        // load and init dtNavMesh - read parameters from file
+        / load and init dtNavMesh - read parameters from file
         uint32 pathLen = sWorld->GetDataPath().length() + strlen("mmaps/%04i.mmap") + 1;
         char* fileName = new char[pathLen];
         snprintf(fileName, pathLen, (sWorld->GetDataPath() + "mmaps/%04i.mmap").c_str(), mapId);
@@ -77,7 +77,7 @@ namespace MMAP
 
         SF_LOG_INFO("maps", "MMAP:loadMapData: Loaded %04i.mmap", mapId);
 
-        // store inside our map list
+        / store inside our map list
         MMapData* mmap_data = new MMapData(mesh, mapId);
 
         loadedMMaps.insert(std::pair<uint32, MMapData*>(mapId, mmap_data));
@@ -89,22 +89,22 @@ namespace MMAP
         return uint32(x << 16 | y);
     }
 
-    bool MMapManager::loadMap(const std::string& /*basePath*/, uint32 mapId, int32 x, int32 y)
+    bool MMapManager::loadMap(const std::string& /basePath/, uint32 mapId, int32 x, int32 y)
     {
-        // make sure the mmap is loaded and ready to load tiles
+        / make sure the mmap is loaded and ready to load tiles
         if (!loadMapData(mapId))
             return false;
 
-        // get this mmap data
+        / get this mmap data
         MMapData* mmap = loadedMMaps[mapId];
         ASSERT(mmap->navMesh);
 
-        // check if we already have this tile loaded
+        / check if we already have this tile loaded
         uint32 packedGridPos = packTileID(x, y);
         if (mmap->loadedTileRefs.find(packedGridPos) != mmap->loadedTileRefs.end())
             return false;
 
-        // load this tile :: mmaps/MMMM_XX_YY.mmtile
+        / load this tile :: mmaps/MMMM_XX_YY.mmtile
         uint32 pathLen = sWorld->GetDataPath().length() + strlen("mmaps/%04i_%02i_%02i.mmtile") + 1;
         char* fileName = new char[pathLen];
 
@@ -119,7 +119,7 @@ namespace MMAP
         }
         delete[] fileName;
 
-        // read header
+        / read header
         MmapTileHeader fileHeader;
         if (fread(&fileHeader, sizeof(MmapTileHeader), 1, file) != 1 || fileHeader.mmapMagic != MMAP_MAGIC)
         {
@@ -152,8 +152,8 @@ namespace MMAP
         dtMeshHeader* header = (dtMeshHeader*)data;
         dtTileRef tileRef = 0;
 
-        // memory allocated for data is now managed by detour, and will be deallocated when the tile is removed
-        if (dtStatusSucceed(mmap->navMesh->addTile(data, fileHeader.size, 0/*DT_TILE_FREE_DATA*/, 0, &tileRef)))
+        / memory allocated for data is now managed by detour, and will be deallocated when the tile is removed
+        if (dtStatusSucceed(mmap->navMesh->addTile(data, fileHeader.size, 0/DT_TILE_FREE_DATA/, 0, &tileRef)))
         {
             mmap->loadedTileRefs.insert(std::pair<uint32, dtTileRef>(packedGridPos, tileRef));
             ++loadedTiles;
@@ -175,7 +175,7 @@ namespace MMAP
 
     PhasedTile* MMapManager::LoadTile(uint32 mapId, int32 x, int32 y)
     {
-        // load this tile :: mmaps/MMMM_XX_YY.mmtile
+        / load this tile :: mmaps/MMMM_XX_YY.mmtile
         uint32 pathLen = sWorld->GetDataPath().length() + strlen("mmaps/%04i_%02i_%02i.mmtile") + 1;
         char* fileName = new char[pathLen];
 
@@ -184,7 +184,7 @@ namespace MMAP
         FILE* file = fopen(fileName, "rb");
         if (!file)
         {
-            // Not all tiles have phased versions, don't flood this msg
+            / Not all tiles have phased versions, don't flood this msg
             //SF_LOG_DEBUG("phase", "MMAP:LoadTile: Could not open mmtile file '%s'", fileName);
             delete[] fileName;
             return NULL;
@@ -498,21 +498,21 @@ namespace MMAP
 
         // the removed tile's data
         PhasedTile* pt = new PhasedTile();
-        // remove old tile
+        / remove old tile
         if (dtStatusFailed(navMesh->removeTile(loadedTileRefs[packedXY], &pt->data, &pt->dataSize)))
             SF_LOG_ERROR("phase", "MMapData::AddSwap: Could not unload %04u_%02i_%02i.mmtile from navmesh", _mapId, x, y);
         else
         {
             SF_LOG_DEBUG("phase", "MMapData::AddSwap: Unloaded %04u_%02i_%02i.mmtile from navmesh", _mapId, x, y);
 
-            // store the removed data first time, this is the origonal, non-phased tile
+            / store the removed data first time, this is the origonal, non-phased tile
             if (_baseTiles.find(packedXY) == _baseTiles.end())
                 _baseTiles[packedXY] = pt;
 
             _activeSwaps.insert(swap);
             loadedPhasedTiles[swap].insert(packedXY);
 
-            // add new swapped tile
+            / add new swapped tile
             if (dtStatusSucceed(navMesh->addTile(ptile->data, ptile->fileHeader.size, 0, 0, &loadedTileRefs[packedXY])))
             {
                 SF_LOG_DEBUG("phase", "MMapData::AddSwap: Loaded phased mmtile %04u[%02i, %02i] into %04i[%02i, %02i]", swap, x, y, _mapId, header->x, header->y);
@@ -526,28 +526,28 @@ namespace MMAP
     {
         for (uint32 swap : _activeSwaps)
         {
-            if (swaps.find(swap) == swaps.end()) // swap not active
+            if (swaps.find(swap) == swaps.end()) / swap not active
             {
                 PhaseTileContainer ptc = MMAP::MMapFactory::createOrGetMMapManager()->GetPhaseTileContainer(swap);
                 for (PhaseTileContainer::const_iterator itr = ptc.begin(); itr != ptc.end(); ++itr)
                 {
-                    RemoveSwap(itr->second, swap, itr->first); // remove swap
+                    RemoveSwap(itr->second, swap, itr->first); / remove swap
                 }
             }
         }
 
         if (!swaps.empty())
         {
-            // for each of the calling unit's terrain swaps
+            / for each of the calling unit's terrain swaps
             for (uint32 swap : swaps)
             {
                 // for each of the terrain swap's xy tiles
                 PhaseTileContainer ptc = MMAP::MMapFactory::createOrGetMMapManager()->GetPhaseTileContainer(swap);
                 for (PhaseTileContainer::const_iterator itr = ptc.begin(); itr != ptc.end(); ++itr)
                 {
-                    if (_activeSwaps.find(swap) == _activeSwaps.end()) // swap not active
+                    if (_activeSwaps.find(swap) == _activeSwaps.end()) / swap not active
                     {
-                        AddSwap(itr->second, swap, itr->first); // add swap
+                        AddSwap(itr->second, swap, itr->first); / add swap
                     }
                 }
             }

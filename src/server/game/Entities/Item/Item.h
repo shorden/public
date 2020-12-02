@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -17,27 +16,69 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SKYFIRESERVER_ITEM_H
-#define SKYFIRESERVER_ITEM_H
+#ifndef ITEM_H
+#define ITEM_H
 
 #include "Common.h"
 #include "Object.h"
 #include "LootMgr.h"
-#include "ItemPrototype.h"
-#include "DatabaseEnv.h"
+#include "ItemTemplate.h"
+#include "ItemEnchantmentMgr.h"
 
 class SpellInfo;
 class Bag;
 class Unit;
+class BattlePetMgr;
+struct ItemSetSpellEntry;
+
+namespace WorldPackets
+{
+    namespace Item
+    {
+        struct ItemInstance;
+    }
+}
+
+namespace ItemBonus
+{
+    namespace Chances
+    {
+        enum
+        {
+            Warforged       = 20,
+            NextChance      = 55,
+        };
+    }
+
+    namespace Bonuses
+    {
+        enum
+        {
+            TitanforgedEpic          = 3337,
+            TitanforgedBlue          = 3338,
+            WarforgedEpic            = 3336,
+            WarforgedBlue            = 3339,
+            EpicBonus                = 665, // +15
+        };
+    }
+
+    namespace LimitLevel
+    {
+        enum
+        {
+            MaxItemLevel    = 985,
+        };
+    }
+}
 
 struct ItemSetEffect
 {
-    uint32 setid;
-    uint32 item_count;
-    SpellInfo const* spells[8];
+    uint32 ItemSetID;
+    uint32 EquippedItemCount;
+    std::unordered_set<ItemSetSpellEntry const*> SetBonuses;
 };
 
-enum InventoryResult
+enum InventoryResult : uint8
 {
     EQUIP_ERR_OK                                           = 0,
     EQUIP_ERR_CANT_EQUIP_LEVEL_I                           = 1,  // You must reach level %d to use that item.
@@ -120,8 +161,9 @@ enum InventoryResult
     EQUIP_ERR_NOT_DURING_ARENA_MATCH                       = 78, // You can't do that while in an arena match
     EQUIP_ERR_TRADE_BOUND_ITEM                             = 79, // You can't trade a soulbound item.
     EQUIP_ERR_CANT_EQUIP_RATING                            = 80, // You don't have the personal, team, or battleground rating required to buy that item
-    EQUIP_ERR_NO_OUTPUT                                    = 81,
+    EQUIP_ERR_EVENT_AUTOEQUIP_BIND_CONFIRM                 = 81,
     EQUIP_ERR_NOT_SAME_ACCOUNT                             = 82, // Account-bound items can only be given to your own characters.
+    EQUIP_ERR_NO_OUTPUT                                    = 83,
     EQUIP_ERR_ITEM_MAX_LIMIT_CATEGORY_COUNT_EXCEEDED_IS    = 84, // You can only carry %d %s
     EQUIP_ERR_ITEM_MAX_LIMIT_CATEGORY_SOCKETED_EXCEEDED_IS = 85, // You can only equip %d |4item:items in the %s category
     EQUIP_ERR_SCALING_STAT_ITEM_LEVEL_EXCEEDED             = 86, // Your level is too high to use that item
@@ -132,34 +174,45 @@ enum InventoryResult
     EQUIP_ERR_ITEM_INVENTORY_FULL_SATCHEL                  = 91, // Your inventory is full. Your satchel has been delivered to your mailbox.
     EQUIP_ERR_SCALING_STAT_ITEM_LEVEL_TOO_LOW              = 92, // Your level is too low to use that item
     EQUIP_ERR_CANT_BUY_QUANTITY                            = 93, // You can't buy the specified quantity of that item.
-    EQUIP_ERR_ITEM_STILL_WAITING_TO_BE_UNLOCKED            = 94, // Your purchased item is still waiting to be unlocked.
+    EQUIP_ERR_ITEM_IS_BATTLE_PAY_LOCKED                    = 94, // Your purchased item is still waiting to be unlocked
+    EQUIP_ERR_REAGENT_BANK_FULL                            = 95, // Your reagent bank is full
+    EQUIP_ERR_REAGENT_BANK_LOCKED                          = 96,
+    EQUIP_ERR_WRONG_BAG_TYPE_3                             = 97,
+    EQUIP_ERR_CANT_USE_ITEM                                = 98, // You can't use that item.
+    EQUIP_ERR_CANT_BE_OBLITERATED                          = 99, // You can't obliterate that item
+    EQUIP_ERR_GUILD_BANK_CONJURED_ITEM                     = 100,// You cannot store conjured items in the guild bank
+    EQUIP_ERR_CANT_DO_THAT_RIGHT_NOW                       = 101,// You can't do that right now.
 };
 
-enum class BuyResult
+enum BuyResult
 {
-    BUY_ERR_CANT_FIND_ITEM                      = 0,  // The item was not found.
-    BUY_ERR_ITEM_ALREADY_SOLD                   = 1,  // That item is currently sold out.
-    BUY_ERR_NOT_ENOUGHT_MONEY                   = 2,  // You don't have enough money.
-    BUY_ERR_SELLER_DONT_LIKE_YOU                = 4,  // That merchant dosn't like u.
-    BUY_ERR_DISTANCE_TOO_FAR                    = 5,  // You are too far away.
-    BUY_ERR_ITEM_SOLD_OUT                       = 7,  // That item is currently sold out.
-    BUY_ERR_CANT_CARRY_MORE                     = 8,  // You can't carry any more of thouse items.
-    BUY_ERR_RANK_REQUIRE                        = 11, // You don't have the required rank for that item
-    BUY_ERR_REPUTATION_REQUIRE                  = 12  // You don't have the required reputation for that item
+    BUY_ERR_CANT_FIND_ITEM                      = 0,
+    BUY_ERR_ITEM_ALREADY_SOLD                   = 1,
+    BUY_ERR_NOT_ENOUGHT_MONEY                   = 2,
+    BUY_ERR_SELLER_DONT_LIKE_YOU                = 4,
+    BUY_ERR_DISTANCE_TOO_FAR                    = 5,
+    BUY_ERR_ITEM_SOLD_OUT                       = 7,
+    BUY_ERR_CANT_CARRY_MORE                     = 8,
+    BUY_ERR_RANK_REQUIRE                        = 11,
+    BUY_ERR_REPUTATION_REQUIRE                  = 12
 };
 
-enum class SellResult
+enum SellResult
 {
+    SELL_ERR_OK                                  = 0,
     SELL_ERR_CANT_FIND_ITEM                      = 1,
     SELL_ERR_CANT_SELL_ITEM                      = 2,       // merchant doesn't like that item
-    SELL_ERR_CANT_FIND_VENDOR                    = 3,       // merchant doesn't like you
+    SELL_ERR_VENDOR_HATES_YOU                    = 3,       // merchant doesn't like you
     SELL_ERR_YOU_DONT_OWN_THAT_ITEM              = 4,       // you don't own that item
     SELL_ERR_UNK                                 = 5,       // nothing appears...
-    SELL_ERR_ONLY_EMPTY_BAG                      = 6        // can only do with empty bags
+    SELL_ERR_ONLY_EMPTY_BAG                      = 6,       // can only do with empty bags
+    SELL_ERR_VENDOR_DOES_NOT_BUY                 = 7,
+    SELL_ERR_REPAIR_DURABILITY                   = 8,
+    SELL_ERR_INTERNAL_BAG_ERROR                  = 9,
 };
 
 // -1 from client enchantment slot number
-enum EnchantmentSlot
+enum EnchantmentSlot : uint8
 {
     PERM_ENCHANTMENT_SLOT           = 0,
     TEMP_ENCHANTMENT_SLOT           = 1,
@@ -168,15 +221,16 @@ enum EnchantmentSlot
     SOCK_ENCHANTMENT_SLOT_3         = 4,
     BONUS_ENCHANTMENT_SLOT          = 5,
     PRISMATIC_ENCHANTMENT_SLOT      = 6,                    // added at apply special permanent enchantment
-    //TODO: 7,
+    USE_ENCHANTMENT_SLOT            = 7,
+
     MAX_INSPECTED_ENCHANTMENT_SLOT  = 8,
 
-    PROP_ENCHANTMENT_SLOT_0         = 8,                   // used with RandomSuffix
-    PROP_ENCHANTMENT_SLOT_1         = 9,                   // used with RandomSuffix
+    PROP_ENCHANTMENT_SLOT_0         = 8,                    // used with RandomSuffix
+    PROP_ENCHANTMENT_SLOT_1         = 9,                    // used with RandomSuffix
     PROP_ENCHANTMENT_SLOT_2         = 10,                   // used with RandomSuffix and RandomProperty
     PROP_ENCHANTMENT_SLOT_3         = 11,                   // used with RandomProperty
     PROP_ENCHANTMENT_SLOT_4         = 12,                   // used with RandomProperty
-    MAX_ENCHANTMENT_SLOT            = 13,
+    MAX_ENCHANTMENT_SLOT            = 13
 };
 
 #define MAX_VISIBLE_ITEM_OFFSET       2                     // 2 fields per visible item (entry+enchantment)
@@ -197,7 +251,9 @@ enum EnchantmentSlotMask
     ENCHANTMENT_CAN_SOULBOUND  = 0x01,
     ENCHANTMENT_UNK1           = 0x02,
     ENCHANTMENT_UNK2           = 0x04,
-    ENCHANTMENT_UNK3           = 0x08
+    ENCHANTMENT_UNK3                    = 0x08,
+    ENCHANTMENT_COLLECTABLE             = 0x100,
+    ENCHANTMENT_HIDE_IF_NOT_COLLECTED   = 0x200,
 };
 
 enum ItemUpdateState
@@ -208,172 +264,405 @@ enum ItemUpdateState
     ITEM_REMOVED                                 = 3
 };
 
+enum ItemModifier
+{
+    ITEM_MODIFIER_TRANSMOG_APPEARANCE_ALL_SPECS         = 0,
+    ITEM_MODIFIER_TRANSMOG_APPEARANCE_SPEC_1            = 1,
+    ITEM_MODIFIER_UPGRADE_ID                            = 2,
+    ITEM_MODIFIER_BATTLE_PET_SPECIES_ID                 = 3,
+    ITEM_MODIFIER_BATTLE_PET_BREED_DATA                 = 4, // (breedId) | (breedQuality << 24)
+    ITEM_MODIFIER_BATTLE_PET_LEVEL                      = 5,
+    ITEM_MODIFIER_BATTLE_PET_DISPLAY_ID                 = 6,
+    ITEM_MODIFIER_ENCHANT_ILLUSION_ALL_SPECS            = 7,
+    ITEM_MODIFIER_ARTIFACT_APPEARANCE_ID                = 8,
+    ITEM_MODIFIER_SCALING_STAT_DISTRIBUTION_FIXED_LEVEL = 9,
+    ITEM_MODIFIER_ENCHANT_ILLUSION_SPEC_1               = 10,
+    ITEM_MODIFIER_TRANSMOG_APPEARANCE_SPEC_2            = 11,
+    ITEM_MODIFIER_ENCHANT_ILLUSION_SPEC_2               = 12,
+    ITEM_MODIFIER_TRANSMOG_APPEARANCE_SPEC_3            = 13,
+    ITEM_MODIFIER_ENCHANT_ILLUSION_SPEC_3               = 14,
+    ITEM_MODIFIER_TRANSMOG_APPEARANCE_SPEC_4            = 15,
+    ITEM_MODIFIER_ENCHANT_ILLUSION_SPEC_4               = 16,
+    ITEM_MODIFIER_CHALLENGE_ID                          = 17,
+    ITEM_MODIFIER_CHALLENGE_KEYSTONE_LEVEL              = 18,
+    ITEM_MODIFIER_CHALLENGE_KEYSTONE_AFFIX_ID_1         = 19,
+    ITEM_MODIFIER_CHALLENGE_KEYSTONE_AFFIX_ID_2         = 20,
+    ITEM_MODIFIER_CHALLENGE_KEYSTONE_AFFIX_ID_3         = 21,
+    ITEM_MODIFIER_CHALLENGE_KEYSTONE_IS_CHARGED         = 22,
+    ITEM_MODIFIER_ARTIFACT_KNOWLEDGE_LEVEL              = 23,
+    ITEM_MODIFIER_ARTIFACT_TIER                         = 24,
+
+    MAX_ITEM_MODIFIERS
+};
+
+enum ArtifactPowerFlag : uint8
+{
+    ARTIFACT_POWER_FLAG_GOLD                        = 0x01,
+    ARTIFACT_POWER_FLAG_NO_LINK_REQUIRED            = 0x02,
+    ARTIFACT_POWER_FLAG_FINAL                       = 0x04,
+    ARTIFACT_POWER_FLAG_SCALES_WITH_NUM_POWERS      = 0x08,
+    ARTIFACT_POWER_FLAG_DONT_COUNT_FIRST_BONUS_RANK = 0x10,
+    ARTIFACT_POWER_FLAG_HAS_RANK                    = 0x20,
+    ARTIFACT_POWER_FLAG_RELIC_TALENT                = 0x40,
+};
+
+enum ArtifactCategory : uint8
+{
+    ARTIFACT_CATEGORY_CLASS                        = 1,
+    ARTIFACT_CATEGORY_FISH                         = 2,
+
+};
+
+enum Curves
+{
+    CURVE_ID_ARTIFACT_RELIC_ITEM_LEVEL_BONUS = 1718
+};
+
 #define MAX_ITEM_SPELLS 5
 
 bool ItemCanGoIntoBag(ItemTemplate const* proto, ItemTemplate const* pBagProto);
 
+extern ItemModifier const AppearanceModifierSlotBySpec[MAX_SPECIALIZATIONS];
+extern ItemModifier const IllusionModifierSlotBySpec[MAX_SPECIALIZATIONS];
+extern int32 const ItemTransmogrificationSlots[MAX_INVTYPE];
+
+struct BonusData
+{
+    int32 ItemStatType[MAX_ITEM_PROTO_STATS];
+    int32 ItemStatValue[MAX_ITEM_PROTO_STATS];
+    int32 StatPercentEditor[MAX_ITEM_PROTO_STATS];
+    float StatPercentageOfSocket[MAX_ITEM_PROTO_STATS];
+    uint32 GemItemLevelBonus[MAX_ITEM_PROTO_SOCKETS];
+    int32 GemRelicType[MAX_ITEM_PROTO_SOCKETS];
+    uint16 GemRelicRankBonus[MAX_ITEM_PROTO_SOCKETS];
+    uint32 SocketColor[MAX_ITEM_PROTO_SOCKETS];
+    uint32 DisplayToastMethod[2];
+    ItemBondingType Bonding;
+    uint32 AppearanceModID;
+    float RepairCostMultiplier;
+    uint32 ScalingStatDistribution;
+    uint32 SandboxScalingId;
+    uint32 Quality;
+    int32 ItemLevelBonus;
+    int32 RequiredLevel;
+    int32 RelicType;
+    int32 RequiredLevelOverride;
+    int32 DisenchantLootId;
+    int32 DescriptionID;
+    bool HasSturdiness;
+    bool HasFixedLevel;
+
+    void Initialize(ItemTemplate const* proto);
+    void Initialize(WorldPackets::Item::ItemInstance const& itemInstance);
+    void AddBonus(uint32 type, int32 const (&values)[3]);
+
+private:
+    struct
+    {
+        int32 AppearanceModPriority;
+        int32 ScalingStatDistributionPriority;
+        bool HasQualityBonus;
+    } _state{};
+};
+
+#pragma pack(push, 1)
+struct ItemDynamicFieldArtifactPowers
+{
+    uint32 ArtifactPowerId = 0;
+    uint8 PurchasedRank = 0;
+    uint8 CurrentRankWithBonus = 0;
+    uint16 Padding = 0;
+};
+
+struct ItemDynamicFieldGems
+{
+    uint32 ItemId;
+    uint16 BonusListIDs[16];
+    uint8 Context;
+    uint8 Padding[3];
+};
+
+struct SocketTier
+{
+    SocketTier() = default;
+    SocketTier(uint16 first, uint16 second)
+        : FirstSpell(first)
+        , SecondSpell(second)
+    {}
+
+    uint16 FirstSpell = 0;
+    uint16 SecondSpell = 0;
+};
+struct ItemSocketInfo
+{
+    uint32 unk1 = 0;
+    uint32 socketIndex = 0;
+    uint32 firstTier = 0;
+    uint32 secondTier =0;
+    uint32 thirdTier = 0;
+    uint32 additionalThirdTier = 0;
+    
+};
+#pragma pack(pop)
+
 class Item : public Object
 {
     public:
-        static Item* CreateItem(uint32 itemEntry, uint32 count, Player const* player = NULL);
-        Item* CloneItem(uint32 count, Player const* player = NULL) const;
+        static Item* CreateItem(uint32 item, uint32 count, Player const* player = nullptr);
+        Item* CloneItem(uint32 count, Player const* player = nullptr) const;
 
         Item();
+        ~Item();
 
-        virtual bool Create(uint32 guidlow, uint32 itemid, Player const* owner);
+        virtual bool Create(ObjectGuid::LowType const& guidlow, uint32 itemid, Player const* owner);
 
         ItemTemplate const* GetTemplate() const;
 
-        uint64 GetOwnerGUID()    const { return GetUInt64Value(ITEM_FIELD_OWNER); }
-        void SetOwnerGUID(uint64 guid) { SetUInt64Value(ITEM_FIELD_OWNER, guid); }
+        void RemoveFromWorld() override;
+
+        ObjectGuid GetOwnerGUID() const;
+
+        void SetOwnerGUID(ObjectGuid guid);
         Player* GetOwner()const;
 
-        void SetBinding(bool val) { ApplyModFlag(ITEM_FIELD_DYNAMIC_FLAGS, ITEM_FLAG_SOULBOUND, val); }
-        bool IsSoulBound() const { return HasFlag(ITEM_FIELD_DYNAMIC_FLAGS, ITEM_FLAG_SOULBOUND); }
-        bool IsBoundAccountWide() const { return (GetTemplate()->Flags & ITEM_PROTO_FLAG_BIND_TO_ACCOUNT) != 0; }
+        ItemBondingType GetBonding() const;
+        bool IsSturdiness() const;
+        void SetBinding(bool val);
+        bool IsSoulBound() const;
+
+        bool IsBoundAccountWide() const;
         bool IsBindedNotWith(Player const* player) const;
         bool IsBoundByEnchant() const;
         virtual void SaveToDB(SQLTransaction& trans);
-        virtual bool LoadFromDB(uint32 guid, uint64 owner_guid, Field* fields, uint32 entry);
-        static void DeleteFromDB(SQLTransaction& trans, uint32 itemGuid);
+        virtual bool LoadFromDB(ObjectGuid::LowType const& guid, ObjectGuid const& owner_guid, Field* fields, uint32 entry, uint8 oLevel = 0);
+        void LoadArtifactData(Player* owner, std::vector<ItemDynamicFieldArtifactPowers>& powers);  // must be called after LoadFromDB to have gems (relics) initialized
+
+        void AddBonuses(uint32 bonusListID);
+        void ApplyItemChildEquipment(Player* owner, bool apply);
+
+        static void DeleteFromDB(SQLTransaction& trans, ObjectGuid::LowType itemGuid);
         virtual void DeleteFromDB(SQLTransaction& trans);
-        static void DeleteFromInventoryDB(SQLTransaction& trans, uint32 itemGuid);
-
-        // Lootable items and their contents
-        void ItemContainerSaveLootToDB();
-        bool ItemContainerLoadLootFromDB();
-        void ItemContainerDeleteLootItemsFromDB();
-        void ItemContainerDeleteLootItemFromDB(uint32 itemID);
-        void ItemContainerDeleteLootMoneyFromDB();
-        void ItemContainerDeleteLootMoneyAndLootItemsFromDB();
-
+        static void DeleteFromInventoryDB(SQLTransaction& trans, ObjectGuid::LowType itemGuid);
         void DeleteFromInventoryDB(SQLTransaction& trans);
         void SaveRefundDataToDB();
         void DeleteRefundDataFromDB(SQLTransaction* trans);
 
-        Bag* ToBag() { if (IsBag()) return reinterpret_cast<Bag*>(this); else return NULL; }
-        const Bag* ToBag() const { if (IsBag()) return reinterpret_cast<const Bag*>(this); else return NULL; }
+        Bag* ToBag();
 
-        bool IsLocked() const { return !HasFlag(ITEM_FIELD_DYNAMIC_FLAGS, ITEM_FLAG_UNLOCKED); }
-        bool IsBag() const { return GetTemplate()->InventoryType == INVTYPE_BAG; }
-        bool IsCurrencyToken() const { return GetTemplate()->IsCurrencyToken(); }
+        const Bag* ToBag() const;
+
+        bool IsEquipable() const;
+
+        bool IsSuitableForItemLevelCalulcation(bool includeOffHand) const;
+
+        bool IsLocked() const;
+
+        bool IsBag() const;
+
+        bool IsCurrencyToken() const;
         bool IsNotEmptyBag() const;
-        bool IsBroken() const { return GetUInt32Value(ITEM_FIELD_MAX_DURABILITY) > 0 && GetUInt32Value(ITEM_FIELD_DURABILITY) == 0; }
+        bool IsBroken() const;
+
+        bool IsDisable() const;
+
+        bool CantBeUse() const;
         bool CanBeTraded(bool mail = false, bool trade = false) const;
-        void SetInTrade(bool b = true) { mb_in_trade = b; }
-        bool IsInTrade() const { return mb_in_trade; }
+        void SetInTrade(bool b = true);
+
+        bool IsInTrade() const;
+
+        void SetInUse(bool u = true);
+
+        bool IsInUse() const;
 
         bool HasEnchantRequiredSkill(const Player* player) const;
+        uint32 GetEnchantRequiredLevel() const;
 
         bool IsFitToSpellRequirements(SpellInfo const* spellInfo) const;
         bool IsLimitedToAnotherMapOrZone(uint32 cur_mapId, uint32 cur_zoneId) const;
         bool GemsFitSockets() const;
 
-        uint32 GetCount() const { return GetUInt32Value(ITEM_FIELD_STACK_COUNT); }
-        void SetCount(uint32 value) { SetUInt32Value(ITEM_FIELD_STACK_COUNT, value); }
-        uint32 GetMaxStackCount() const { return GetTemplate()->GetMaxStackSize(); }
+        uint32 GetCount() const;
+
+        void SetCount(uint32 value);
+
+        uint32 GetMaxStackCount() const;
         uint8 GetGemCountWithID(uint32 GemID) const;
         uint8 GetGemCountWithLimitCategory(uint32 limitCategory) const;
         InventoryResult CanBeMergedPartlyWith(ItemTemplate const* proto) const;
+        DynamicFieldStructuredView<ItemDynamicFieldGems> GetGems() const;
+        std::map<uint8, ItemSocketInfo> GetArtifactSockets() const;
+        ItemDynamicFieldGems const* GetGem(uint16 slot) const;
+        void SetGem(uint16 slot, ItemDynamicFieldGems const* gem, uint32 gemScalingLevel);
+        void CreateSocketTalents(uint8 socketIndex);
+        void AddOrRemoveSocketTalent(uint8 talentIndex, bool add, uint8 socketIndex);
 
-        uint8 GetSlot() const {return m_slot;}
-        Bag* GetContainer() { return m_container; }
+        uint8 GetSlot() const;
+
+        Bag* GetContainer();
         uint8 GetBagSlot() const;
-        void SetSlot(uint8 slot) { m_slot = slot; }
-        uint16 GetPos() const { return uint16(GetBagSlot()) << 8 | GetSlot(); }
-        void SetContainer(Bag* container) { m_container = container; }
+        void SetSlot(uint8 slot);
 
-        bool IsInBag() const { return m_container != NULL; }
+        uint16 GetPos() const;
+
+        void SetContainer(Bag* container);
+
+        bool IsInBag() const;
         bool IsEquipped() const;
 
         uint32 GetSkill();
 
-        // RandomPropertyId (signed but stored as unsigned)
-        int32 GetItemRandomPropertyId() const { return GetInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID); }
-        uint32 GetItemSuffixFactor() const { return GetUInt32Value(ITEM_FIELD_PROPERTY_SEED); }
-        void SetItemRandomProperties(int32 randomPropId);
+        int32 GetItemRandomPropertyId() const;
+        uint32 GetItemSuffixFactor() const;
+        void SetItemRandomProperties(ItemRandomEnchantmentId const& randomPropId);
         void UpdateItemSuffixFactor();
-        static int32 GenerateItemRandomPropertyId(uint32 item_id);
-        void SetEnchantment(EnchantmentSlot slot, uint32 id, uint32 duration, uint32 charges, uint64 caster = 0);
+        static ItemRandomEnchantmentId GenerateItemRandomPropertyId(uint32 item_id, uint32 spec_id = 0);
+        ItemRandomEnchantmentId GetItemRandomEnchantmentId() const;
+        void SetEnchantment(EnchantmentSlot slot, uint32 id, uint32 duration, uint32 charges, ObjectGuid = ObjectGuid::Empty);
         void SetEnchantmentDuration(EnchantmentSlot slot, uint32 duration, Player* owner);
         void SetEnchantmentCharges(EnchantmentSlot slot, uint32 charges);
+        static void SendEnchantmentLog(Player* player, ObjectGuid const& Caster, ObjectGuid const& item, uint32 ItemID, uint32 SpellID, EnchantmentSlot slot);
+        static void SendItemEnchantTimeUpdate(Player* player, ObjectGuid const& Itemguid, uint32 slot, uint32 Duration);
         void ClearEnchantment(EnchantmentSlot slot);
-        uint32 GetEnchantmentId(EnchantmentSlot slot)       const { return GetUInt32Value(ITEM_FIELD_ENCHANTMENT + slot*MAX_ENCHANTMENT_OFFSET + ENCHANTMENT_ID_OFFSET);}
-        uint32 GetEnchantmentDuration(EnchantmentSlot slot) const { return GetUInt32Value(ITEM_FIELD_ENCHANTMENT + slot*MAX_ENCHANTMENT_OFFSET + ENCHANTMENT_DURATION_OFFSET);}
-        uint32 GetEnchantmentCharges(EnchantmentSlot slot)  const { return GetUInt32Value(ITEM_FIELD_ENCHANTMENT + slot*MAX_ENCHANTMENT_OFFSET + ENCHANTMENT_CHARGES_OFFSET);}
+        uint32 GetEnchantmentId(EnchantmentSlot slot) const;
+        uint32 GetEnchantmentDuration(EnchantmentSlot slot) const;
+        uint32 GetEnchantmentCharges(EnchantmentSlot slot) const;
 
-        std::string const& GetText() const { return m_text; }
-        void SetText(std::string const& text) { m_text = text; }
+        std::string const& GetText() const;
+        void SetText(std::string const& text);
 
         void SendTimeUpdate(Player* owner);
         void UpdateDuration(Player* owner, uint32 diff);
 
         // spell charges (signed but stored as unsigned)
-        int32 GetSpellCharges(uint8 index/*0..5*/ = 0) const { return GetInt32Value(ITEM_FIELD_SPELL_CHARGES + index); }
-        void  SetSpellCharges(uint8 index/*0..5*/, int32 value) { SetInt32Value(ITEM_FIELD_SPELL_CHARGES + index, value); }
+        int32 GetSpellCharges(uint8 index/*0..5*/ = 0) const;
+        void SetSpellCharges(uint8 index/*0..5*/, int32 value);
 
         Loot loot;
         bool m_lootGenerated;
 
         // Update States
-        ItemUpdateState GetState() const { return uState; }
-        void SetState(ItemUpdateState state, Player* forplayer = NULL);
+        ItemUpdateState GetState() const;
+        void SetState(ItemUpdateState state, Player* forplayer = nullptr);
         void AddToUpdateQueueOf(Player* player);
         void RemoveFromUpdateQueueOf(Player* player);
-        bool IsInUpdateQueue() const { return uQueuePos != -1; }
-        uint16 GetQueuePos() const { return uQueuePos; }
-        void FSetState(ItemUpdateState state)               // forced
-        {
-            uState = state;
-        }
+        bool IsInUpdateQueue() const;
+        uint16 GetQueuePos() const;
+        void FSetState(ItemUpdateState state);               // forced
 
-        bool hasQuest(uint32 quest_id) const { return GetTemplate()->StartQuest == quest_id; }
-        bool hasInvolvedQuest(uint32 /*quest_id*/) const { return false; }
+        bool hasQuest(uint32 quest_id) const override;
+        bool hasInvolvedQuest(uint32 /*quest_id*/) const override;
         bool HasStats() const;
-        bool IsPotion() const { return GetTemplate()->IsPotion(); }
-        bool IsVellum() const { return GetTemplate()->IsVellum(); }
-        bool IsConjuredConsumable() const { return GetTemplate()->IsConjuredConsumable(); }
-        bool IsRangedWeapon() const { return GetTemplate()->IsRangedWeapon(); }
+        static bool HasStats(WorldPackets::Item::ItemInstance const& itemInstance, BonusData const* bonus);
+        bool IsPotion() const;
+        bool IsVellum() const;
+        bool IsConjuredConsumable() const;
+        bool IsCraftingReagent() const;
+        bool IsRangedWeapon() const;
+
+        BonusData const* GetBonus() const;
+        uint32 GetQuality() const;
+        uint32 GetItemLevel(uint8 ownerLevel = 0, bool isPvP = false) const;
+        int32 GetRequiredLevel() const;
+        int32 GetItemStatType(uint32 index) const;
+        int32 GetItemStatValue(uint32 index, bool isPvP = false) const;
+        uint8 GetSocketColor(uint8 index) const;
+        uint32 GetAppearanceModId() const;
+        void SetAppearanceModId(uint32 appearanceModId);
+        uint32 GetArmor() const;
+        void GetDamage(float& minDamage, float& maxDamage) const;
+        uint32 GetDisplayId(Player const* owner) const;
+        ItemModifiedAppearanceEntry const* GetItemModifiedAppearance() const;
+        float GetRepairCostMultiplier() const;
+        uint32 GetScalingStatDistribution() const;
+        uint8 GetDisplayToastMethod(uint8 value = 0) const;
+        int32 GetDisenchantLootID() const;
+        ItemDisenchantLootEntry const* GetDisenchantLoot(Player const* owner);
+        ItemDisenchantLootEntry const* GetDisenchantLoot(ItemTemplate const* itemTemplate, uint32 quality, uint32 itemLevel);
+        bool CanBeDisenchanted();
+        void SetFixedLevel(uint8 level);
 
         // Item Refund system
-        void SetNotRefundable(Player* owner, bool changestate = true, SQLTransaction* trans = NULL);
-        void SetRefundRecipient(uint32 pGuidLow) { m_refundRecipient = pGuidLow; }
-        void SetPaidMoney(uint32 money) { m_paidMoney = money; }
-        void SetPaidExtendedCost(uint32 iece) { m_paidExtendedCost = iece; }
-
-        uint32 GetRefundRecipient() const { return m_refundRecipient; }
-        uint32 GetPaidMoney() const { return m_paidMoney; }
-        uint32 GetPaidExtendedCost() const { return m_paidExtendedCost; }
+        void SetNotRefundable(Player* owner, bool changestate = true, SQLTransaction* trans = nullptr);
+        void SetRefundRecipient(ObjectGuid const& pGuidLow);
+        void SetPaidMoney(uint64 money);
+        void SetPaidExtendedCost(uint32 iece);
+        ObjectGuid GetRefundRecipient();
+        uint64 GetPaidMoney();
+        uint32 GetPaidExtendedCost();
+        void SetDonateItem(bool apply);
+        bool GetDonateItem() const; // can't be traded, selled or add on auction
 
         void UpdatePlayedTime(Player* owner);
         uint32 GetPlayedTime();
         bool IsRefundExpired();
 
         // Soulbound trade system
-        void SetSoulboundTradeable(AllowedLooterSet const& allowedLooters);
+        void SetSoulboundTradeable(GuidSet const& allowedLooters);
         void ClearSoulboundTradeable(Player* currentOwner);
         bool CheckSoulboundTradeExpire();
 
-        void BuildUpdate(UpdateDataMapType&);
+        void BuildUpdate(UpdateDataMapType&) override;
+        void BuildDynamicValuesUpdate(uint8 updatetype, ByteBuffer* data, Player* target) const override;
+        void AddToObjectUpdateIfNeeded() override;
 
-        uint32 GetScriptId() const { return GetTemplate()->ScriptId; }
+        uint32 GetScriptId() const;
 
-        bool CanBeTransmogrified() const;
-        bool CanTransmogrify() const;
-        static bool CanTransmogrifyItemWithItem(Item const* transmogrified, Item const* transmogrifier);
-        static uint32 GetSpecialPrice(ItemTemplate const* proto, uint32 minimumPrice = 10000);
-        uint32 GetSpecialPrice(uint32 minimumPrice = 10000) const { return Item::GetSpecialPrice(GetTemplate(), minimumPrice); }
+        bool IsValidTransmogrificationTarget() const;
+        //uint32 GetSpecialPrice(uint32 minimumPrice = 10000) const;
+        uint32 GetBuyPrice(bool &success);
+        uint32 GetSellPrice();
 
-        uint32 GetVisibleEntry() const
-        {
-            if (uint32 transmogrification = GetDynamicUInt32Value(ITEM_DYNAMIC_MODIFIERS, 1))
-                return transmogrification;
-            return GetEntry();
-        }
+        uint32 GetVisibleEntry(Player const* owner) const;
+        uint16 GetVisibleAppearanceModId(Player const* owner) const;
+        uint32 GetVisibleEnchantmentId(Player const* owner) const;
+        uint16 GetVisibleItemVisual(Player const* owner) const;
 
-        static uint32 GetSellPrice(ItemTemplate const* proto, bool& success);
 
-        int32 GetReforgableStat(ItemModType statType) const;
+        uint32 GetModifier(ItemModifier modifier) const;
+        void SetModifier(ItemModifier modifier, uint32 value);
+
+        void SetScaleIlvl(int64 ilvl);
+        uint32 GetScaleIlvl() const;
+        void SetArtIlvlBonus(uint32 ilvl);
+        uint32 GetArtIlvlBonus() const;
+
+        static bool CanTransmogrifyItemWithItem(Item const* item, ItemModifiedAppearanceEntry const* itemModifiedAppearance);
+
+        ObjectGuid GetChildItem() const;
+        void SetChildItem(ObjectGuid childItem);
+
+        void ApplyArtifactPowerEnchantmentBonuses(EnchantmentSlot slot, uint32 enchantId, bool apply, Player* owner);
+        void HandleAllBonusTraits(Player* owner, bool apply = true);
+
+        void InitArtifactPowers(uint8 artifactId);
+        void InitArtifactsTier(uint8 artifactId);
+        void ActivateFishArtifact(uint8 artifactId);
+        void CopyArtifactDataFromParent(Item* parent);
+
+        DynamicFieldStructuredView<ItemDynamicFieldArtifactPowers> GetArtifactPowers() const;
+        ItemDynamicFieldArtifactPowers const* GetArtifactPower(uint32 artifactPowerId) const;
+        void SetArtifactPower(ItemDynamicFieldArtifactPowers const* artifactPower, bool createIfMissing = false);
+
+        void GiveArtifactXp(uint64 amount, Item* sourceItem, uint32 artifactCategoryId);
+        uint32 GetTotalPurchasedArtifactPowers() const;
+
+        void SetOwnerLevel(uint8 level);
+        uint8 GetOwnerLevel() const;
+        void UpgradeLegendary();
+
+        uint8 protected_remove_state = 0;   // 1 - protection for remove enabled, 2 - delay remove item.
+
+        uint16 dungeonEncounterID;
+        uint32 createdTime;
+
+        BonusData _bonusData;
+
+        int32 DescriptionID;
+        uint32 GetDescriptionID();
+
+        bool GetModsApplied() const { return m_modsApplied;  }
+        void SetModsApplied(bool apply) { m_modsApplied = apply; }
 
     private:
         std::string m_text;
@@ -382,10 +671,23 @@ class Item : public Object
         ItemUpdateState uState;
         int16 uQueuePos;
         bool mb_in_trade;                                   // true if item is currently in trade-window
+        bool m_in_use;
         time_t m_lastPlayedTimeUpdate;
-        uint32 m_refundRecipient;
-        uint32 m_paidMoney;
+        ObjectGuid m_refundRecipient;
+        uint64 m_paidMoney;
         uint32 m_paidExtendedCost;
-        AllowedLooterSet allowedGUIDs;
+        bool DonateItem = false;
+        GuidSet allowedGUIDs;
+        ItemRandomEnchantmentId m_randomEnchantment;
+        uint32 m_scaleLvl;
+        uint32 m_artIlvlBonus;
+        ObjectGuid m_childItem;
+        std::vector<int16> m_artifactPowerIdToIndex;
+        std::array<uint32, MAX_ITEM_PROTO_SOCKETS> m_gemScalingLevels;
+        std::map<uint32, uint8> bSavedBonusTraits;
+        uint16 m_artifactPowerCount;
+        uint8 m_ownerLevel;
+        bool m_modsApplied = false;
 };
+
 #endif

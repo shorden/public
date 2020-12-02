@@ -1,12 +1,9 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2011 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -18,25 +15,23 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ScriptMgr.h"
-#include "ScriptedCreature.h"
 #include "naxxramas.h"
 
-enum Spells
+enum Yells
 {
-    SPELL_MORTAL_WOUND      = 25646,
-    SPELL_ENRAGE            = 28371,
-    SPELL_DECIMATE          = 28374,
-    SPELL_BERSERK           = 26662,
-    SPELL_INFECTED_WOUND    = 29306
+    EMOTE_ZOMBIE                = -1533119,
+    EMOTE_DECIMATE              = -1533152
 };
+#define SPELL_MORTAL_WOUND      25646
+#define SPELL_ENRAGE            RAID_MODE(28371, 54427)
+#define SPELL_DECIMATE          RAID_MODE(28374, 54426)
+#define SPELL_BERSERK           26662
+#define SPELL_INFECTED_WOUND    29306
+#define SPELL_INFECTED_WOUND_AURA 29307
 
-enum Creatures
-{
-    NPC_ZOMBIE              = 16360
-};
+#define MOB_ZOMBIE  16360
 
-Position const PosSummon[3] =
+const Position PosSummon[3] =
 {
     {3267.9f, -3172.1f, 297.42f, 0.94f},
     {3253.2f, -3132.3f, 297.42f, 0},
@@ -45,47 +40,46 @@ Position const PosSummon[3] =
 
 enum Events
 {
-    EVENT_WOUND     = 1,
+    EVENT_NONE,
+    EVENT_WOUND,
     EVENT_ENRAGE,
     EVENT_DECIMATE,
     EVENT_BERSERK,
     EVENT_SUMMON,
 };
 
-#define EMOTE_NEARBY    " spots a nearby zombie to devour!"
-
 class boss_gluth : public CreatureScript
 {
 public:
     boss_gluth() : CreatureScript("boss_gluth") { }
 
-    CreatureAI* GetAI(Creature* creature) const OVERRIDE
+    CreatureAI* GetAI(Creature* creature) const override
     {
-        return new boss_gluthAI(creature);
+        return new boss_gluthAI (creature);
     }
 
     struct boss_gluthAI : public BossAI
     {
-        boss_gluthAI(Creature* creature) : BossAI(creature, BOSS_GLUTH)
+        boss_gluthAI(Creature* c) : BossAI(c, BOSS_GLUTH)
         {
             // Do not let Gluth be affected by zombies' debuff
             me->ApplySpellImmune(0, IMMUNITY_ID, SPELL_INFECTED_WOUND, true);
         }
 
-        void MoveInLineOfSight(Unit* who) OVERRIDE
-
+        void MoveInLineOfSight(Unit* who) override
         {
-            if (who->GetEntry() == NPC_ZOMBIE && me->IsWithinDistInMap(who, 7))
+            if (who->GetEntry() == MOB_ZOMBIE && me->IsWithinMeleeRange(who))
             {
-                SetGazeOn(who);
-                /// @todo use a script text
-                me->MonsterTextEmote(EMOTE_NEARBY, 0, true);
+                DoScriptText(EMOTE_ZOMBIE, me);
+                if (Creature* creature = who->ToCreature())
+                    creature->DisappearAndDie();
+                me->ModifyHealth(me->CountPctFromMaxHealth(5));
             }
             else
                 BossAI::MoveInLineOfSight(who);
         }
 
-        void EnterCombat(Unit* /*who*/) OVERRIDE
+        void EnterCombat(Unit* /*who*/) override
         {
             _EnterCombat();
             events.ScheduleEvent(EVENT_WOUND, 10000);
@@ -95,14 +89,17 @@ public:
             events.ScheduleEvent(EVENT_SUMMON, 15000);
         }
 
-        void JustSummoned(Creature* summon) OVERRIDE
+        void JustSummoned(Creature* summon) override
         {
-            if (summon->GetEntry() == NPC_ZOMBIE)
+            if (summon->GetEntry() == MOB_ZOMBIE)
+            {
+                summon->AddAura(SPELL_INFECTED_WOUND_AURA, summon);
                 summon->AI()->AttackStart(me);
+            }
             summons.Summon(summon);
         }
 
-        void UpdateAI(uint32 diff) OVERRIDE
+        void UpdateAI(uint32 diff) override
         {
             if (!UpdateVictimWithGaze() || !CheckInRoom())
                 return;
@@ -114,18 +111,20 @@ public:
                 switch (eventId)
                 {
                     case EVENT_WOUND:
-                        DoCastVictim(SPELL_MORTAL_WOUND);
+                        DoCast(me->getVictim(), SPELL_MORTAL_WOUND);
                         events.ScheduleEvent(EVENT_WOUND, 10000);
                         break;
                     case EVENT_ENRAGE:
-                        /// @todo Add missing text
+                        // TODO : Add missing text
                         DoCast(me, SPELL_ENRAGE);
                         events.ScheduleEvent(EVENT_ENRAGE, 15000);
                         break;
                     case EVENT_DECIMATE:
-                        /// @todo Add missing text
-                        DoCastAOE(SPELL_DECIMATE);
-                        events.ScheduleEvent(EVENT_DECIMATE, 105000);
+                        {
+                            DoScriptText(EMOTE_DECIMATE, me);
+                            DoCastAOE(SPELL_DECIMATE);
+                            events.ScheduleEvent(EVENT_DECIMATE, 105000);
+                        }
                         break;
                     case EVENT_BERSERK:
                         DoCast(me, SPELL_BERSERK);
@@ -133,22 +132,15 @@ public:
                         break;
                     case EVENT_SUMMON:
                         for (int32 i = 0; i < RAID_MODE(1, 2); ++i)
-                            DoSummon(NPC_ZOMBIE, PosSummon[rand() % RAID_MODE(1, 3)]);
+                            DoSummon(MOB_ZOMBIE, PosSummon[rand() % RAID_MODE(1, 3)]);
                         events.ScheduleEvent(EVENT_SUMMON, 10000);
                         break;
                 }
             }
 
-            if (me->GetVictim() && me->GetVictim()->GetEntry() == NPC_ZOMBIE)
-            {
-                if (me->IsWithinMeleeRange(me->GetVictim()))
-                {
-                    me->Kill(me->GetVictim());
-                    me->ModifyHealth(int32(me->CountPctFromMaxHealth(5)));
-                }
-            }
-            else
-                DoMeleeAttackIfReady();
+            DoMeleeAttackIfReady();
+
+            EnterEvadeIfOutOfCombatArea(diff);
         }
     };
 

@@ -1,11 +1,9 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -26,11 +24,11 @@ const uint8 OutdoorPvPTFBuffZonesNum = 5;
 
 const uint32 OutdoorPvPTFBuffZones[OutdoorPvPTFBuffZonesNum] =
 {
-    3519 /*Terokkar Forest*/,
-    3791 /*Sethekk Halls*/,
-    3789 /*Shadow Labyrinth*/,
-    3792 /*Mana-Tombs*/,
-    3790 /*Auchenai Crypts*/
+    3519,       //Terokkar Forest
+    3791,       //Sethekk Halls
+    3789,       //Shadow Labyrinth
+    3792,       //Mana-Tombs
+    3790        //Auchenai Crypts
 };
 
 // locked for 6 hours after capture
@@ -47,7 +45,7 @@ const uint32 TF_HORDE_QUEST = 11506;
 
 enum OutdoorPvPTF_TowerType
 {
-    TF_TOWER_NW = 0,
+    TF_TOWER_NW     = 0,
     TF_TOWER_N,
     TF_TOWER_NE,
     TF_TOWER_SE,
@@ -98,29 +96,11 @@ const uint32 TFTowerPlayerLeaveEvents[TF_TOWER_NUM] =
     12500
 };
 
-enum TFWorldStates
-{
-    TF_UI_TOWER_SLIDER_POS = 0xa41,
-    TF_UI_TOWER_SLIDER_N = 0xa40,
-    TF_UI_TOWER_SLIDER_DISPLAY = 0xa3f,
-
-    TF_UI_TOWER_COUNT_H = 0xa3e,
-    TF_UI_TOWER_COUNT_A = 0xa3d,
-    TF_UI_TOWERS_CONTROLLED_DISPLAY = 0xa3c,
-
-    TF_UI_LOCKED_TIME_MINUTES_FIRST_DIGIT = 0x9d0,
-    TF_UI_LOCKED_TIME_MINUTES_SECOND_DIGIT = 0x9ce,
-    TF_UI_LOCKED_TIME_HOURS = 0x9cd,
-    TF_UI_LOCKED_DISPLAY_NEUTRAL = 0x9cc,
-    TF_UI_LOCKED_DISPLAY_HORDE = 0xad0,
-    TF_UI_LOCKED_DISPLAY_ALLIANCE = 0xacf
-};
-
 enum TFTowerStates
 {
-    TF_TOWERSTATE_N = 1,
-    TF_TOWERSTATE_H = 2,
-    TF_TOWERSTATE_A = 4
+    TF_TOWERSTATE_N                         = 1,
+    TF_TOWERSTATE_H                         = 2,
+    TF_TOWERSTATE_A                         = 4
 };
 
 class OPvPCapturePointTF : public OPvPCapturePoint
@@ -129,17 +109,17 @@ class OPvPCapturePointTF : public OPvPCapturePoint
 
         OPvPCapturePointTF(OutdoorPvP* pvp, OutdoorPvPTF_TowerType type);
 
-        bool Update(uint32 diff);
+        bool Update(uint32 diff) override;
 
-        void ChangeState();
+        void ChangeState() override;
 
-        void SendChangePhase();
+        void SendChangePhase() override;
 
-        void FillInitialWorldStates(WorldStateBuilder& builder);
+        void FillInitialWorldStates(WorldPackets::WorldState::InitWorldStates& packet) override;
 
         // used when player is activated/inactivated in the area
-        bool HandlePlayerEnter(Player* player);
-        void HandlePlayerLeave(Player* player);
+        bool HandlePlayerEnter(Player* player) override;
+        void HandlePlayerLeave(Player* player) override;
 
         void UpdateTowerState();
 
@@ -156,16 +136,17 @@ class OutdoorPvPTF : public OutdoorPvP
 
         OutdoorPvPTF();
 
-        bool SetupOutdoorPvP();
+        bool SetupOutdoorPvP() override;
+        void Initialize(uint32 zone) override;
 
-        void HandlePlayerEnterZone(Player* player, uint32 zone);
-        void HandlePlayerLeaveZone(Player* player, uint32 zone);
+        void HandlePlayerEnterZone(ObjectGuid guid, uint32 zone) override;
+        void HandlePlayerLeaveZone(ObjectGuid guid, uint32 zone) override;
 
-        bool Update(uint32 diff);
+        bool Update(uint32 diff) override;
 
-        void FillInitialWorldStates(WorldStateBuilder& builder);
+        void FillInitialWorldStates(WorldPackets::WorldState::InitWorldStates& packet) override;
 
-        void SendRemoveWorldStates(Player* player);
+        void SendRemoveWorldStates(Player* player) override;
 
         uint32 GetAllianceTowersControlled() const;
         void SetAllianceTowersControlled(uint32 count);
@@ -185,6 +166,7 @@ class OutdoorPvPTF : public OutdoorPvP
         uint32 m_HordeTowersControlled;
 
         uint32 hours_left, second_digit, first_digit;
+        bool m_zonesRegistered = false;
 };
 
 #endif

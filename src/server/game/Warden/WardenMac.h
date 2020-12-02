@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -17,12 +16,12 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SF_WARDEN_MAC_H
-#define SF_WARDEN_MAC_H
+#ifndef _WARDEN_MAC_H
+#define _WARDEN_MAC_H
 
-#include "Cryptography/ARC4.h"
+#include "ARC4.h"
 #include <map>
-#include "Cryptography/BigNumber.h"
+#include "BigNumber.h"
 #include "ByteBuffer.h"
 #include "Warden.h"
 
@@ -32,16 +31,21 @@ class Warden;
 class WardenMac : public Warden
 {
     public:
-        WardenMac();
+        WardenMac(WorldSession* session);
         ~WardenMac();
 
-        void Init(WorldSession* session, BigNumber* k);
-        ClientWardenModule* GetModuleForClient();
-        void InitializeModule();
-        void RequestHash();
-        void HandleHashResult(ByteBuffer& buff);
-        void RequestData();
-        void HandleData(ByteBuffer& buff);
+        void HandleHashResult(ByteBuffer &buff) override {}
+        void HandleHashResultSpecial(ByteBuffer &buff) override;
+        void HandleExtendedData(ByteBuffer &buff) override {}
+        void HandleStringData(ByteBuffer &buff) override {}
+        void HandleModuleFailed() override;
+        void RequestBaseData() override {}
+        void SendExtendedData() override {}
+
+        void HandleData(ByteBuffer &buff) override {}
+
+        // temp
+        void ActivateModule() override;
 };
 
 #endif

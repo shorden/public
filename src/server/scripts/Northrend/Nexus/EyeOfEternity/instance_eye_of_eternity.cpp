@@ -1,12 +1,9 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -18,18 +15,15 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ScriptMgr.h"
-#include "ScriptedCreature.h"
-#include "InstanceScript.h"
 #include "eye_of_eternity.h"
-#include "Player.h"
+#include <G3D/Quat.h>
 
 class instance_eye_of_eternity : public InstanceMapScript
 {
 public:
     instance_eye_of_eternity() : InstanceMapScript("instance_eye_of_eternity", 616) { }
 
-    InstanceScript* GetInstanceScript(InstanceMap* map) const OVERRIDE
+    InstanceScript* GetInstanceScript(InstanceMap* map) const override
     {
         return new instance_eye_of_eternity_InstanceMapScript(map);
     }
@@ -43,15 +37,15 @@ public:
             vortexTriggers.clear();
             portalTriggers.clear();
 
-            malygosGUID = 0;
-            irisGUID = 0;
-            lastPortalGUID = 0;
-            platformGUID = 0;
-            exitPortalGUID = 0;
-            alexstraszaBunnyGUID = 0;
+            malygosGUID.Clear();
+            irisGUID.Clear();
+            lastPortalGUID.Clear();
+            platformGUID.Clear();
+            exitPortalGUID.Clear();
+            alexstraszaBunnyGUID.Clear();
         };
 
-        bool SetBossState(uint32 type, EncounterState state) OVERRIDE
+        bool SetBossState(uint32 type, EncounterState state) override
         {
             if (!InstanceScript::SetBossState(type, state))
                 return false;
@@ -60,7 +54,7 @@ public:
             {
                 if (state == FAIL)
                 {
-                    for (std::list<uint64>::const_iterator itr_trigger = portalTriggers.begin(); itr_trigger != portalTriggers.end(); ++itr_trigger)
+                    for (GuidList::const_iterator itr_trigger = portalTriggers.begin(); itr_trigger != portalTriggers.end(); ++itr_trigger)
                     {
                         if (Creature* trigger = instance->GetCreature(*itr_trigger))
                         {
@@ -85,22 +79,17 @@ public:
         // There is no other way afaik...
         void SpawnGameObject(uint32 entry, Position& pos)
         {
-            GameObject* go = new GameObject;
-            if (!go->Create(sObjectMgr->GenerateLowGuid(HIGHGUID_GAMEOBJECT), entry, instance,
-                pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ(), pos.GetOrientation(),
-                0, 0, 0, 0, 120, GOState::GO_STATE_READY))
+            GameObject* go = sObjectMgr->IsStaticTransport(entry) ? new StaticTransport : new GameObject;
+            if (!go->Create(sObjectMgr->GetGenerator<HighGuid::GameObject>()->Generate(), entry, instance, PHASEMASK_NORMAL, pos, G3D::Quat(), 120, GO_STATE_READY))
             {
                 delete go;
                 return;
             }
 
-            for (auto phase : go->GetPhases())
-                go->SetPhased(phase, false, true);
-
             instance->AddToMap(go);
         }
 
-        void OnGameObjectCreate(GameObject* go) OVERRIDE
+        void OnGameObjectCreate(GameObject* go) override
         {
             switch (go->GetEntry())
             {
@@ -108,14 +97,14 @@ public:
                     platformGUID = go->GetGUID();
                     break;
                 case GO_FOCUSING_IRIS_10:
-                    if (instance->GetDifficulty() == DIFFICULTY_10MAN_NORMAL)
+                    if (instance->GetDifficultyID() == DIFFICULTY_10_N)
                     {
                         irisGUID = go->GetGUID();
                         go->GetPosition(&focusingIrisPosition);
                     }
                     break;
                 case GO_FOCUSING_IRIS_25:
-                    if (instance->GetDifficulty() == DIFFICULTY_25MAN_NORMAL)
+                    if (instance->GetDifficultyID() == DIFFICULTY_25_N)
                     {
                         irisGUID = go->GetGUID();
                         go->GetPosition(&focusingIrisPosition);
@@ -126,17 +115,17 @@ public:
                     go->GetPosition(&exitPortalPosition);
                     break;
                 case GO_HEART_OF_MAGIC_10:
-                    if (instance->GetDifficulty() == DIFFICULTY_10MAN_NORMAL)
+                    if (instance->GetDifficultyID() == DIFFICULTY_10_N)
                         heartOfMagicGUID = go->GetGUID();
                     break;
                 case GO_HEART_OF_MAGIC_25:
-                    if (instance->GetDifficulty() == DIFFICULTY_25MAN_NORMAL)
+                    if (instance->GetDifficultyID() == DIFFICULTY_25_N)
                         heartOfMagicGUID = go->GetGUID();
                     break;
             }
         }
 
-        void OnCreatureCreate(Creature* creature) OVERRIDE
+        void OnCreatureCreate(Creature* creature) override
         {
             switch (creature->GetEntry())
             {
@@ -158,9 +147,9 @@ public:
             }
         }
 
-        void OnUnitDeath(Unit* unit) OVERRIDE
+        void OnUnitDeath(Unit* unit) override
         {
-            if (unit->GetTypeId() != TypeID::TYPEID_PLAYER)
+            if (unit->GetTypeId() != TYPEID_PLAYER)
                 return;
 
             // Player continues to be moving after death no matter if spline will be cleared along with all movements,
@@ -171,14 +160,15 @@ public:
             unit->SetControlled(true, UNIT_STATE_ROOT);
         }
 
-        void ProcessEvent(WorldObject* /*obj*/, uint32 eventId) OVERRIDE
+        void ProcessEvent(WorldObject* /*obj*/, uint32 eventId) override
         {
-            if (eventId == EVENT_FOCUSING_IRIS)
+            if (eventId == EVENT_FOCUSING_IRIS && instance)
             {
                 if (Creature* alexstraszaBunny = instance->GetCreature(alexstraszaBunnyGUID))
                 {
                     alexstraszaBunny->CastSpell(alexstraszaBunny, SPELL_IRIS_OPENED);
-                    instance->GetGameObject(irisGUID)->SetFlag(GAMEOBJECT_FIELD_FLAGS, GO_FLAG_IN_USE);
+                    if(GameObject* obj = instance->GetGameObject(irisGUID))
+                        obj->SetFlag(GAMEOBJECT_FIELD_FLAGS, GO_FLAG_IN_USE);
                 }
 
                 if (Creature* malygos = instance->GetCreature(malygosGUID))
@@ -194,7 +184,7 @@ public:
             if (Creature* malygos = instance->GetCreature(malygosGUID))
             {
                 std::list<HostileReference*> m_threatlist = malygos->getThreatManager().getThreatList();
-                for (std::list<uint64>::const_iterator itr_vortex = vortexTriggers.begin(); itr_vortex != vortexTriggers.end(); ++itr_vortex)
+                for (GuidList::const_iterator itr_vortex = vortexTriggers.begin(); itr_vortex != vortexTriggers.end(); ++itr_vortex)
                 {
                     if (m_threatlist.empty())
                         return;
@@ -212,7 +202,7 @@ public:
                             {
                                 Player* player = target->ToPlayer();
 
-                                if (!player || player->IsGameMaster() || player->HasAura(SPELL_VORTEX_4))
+                                if (!player || player->isGameMaster() || player->HasAura(SPELL_VORTEX_4))
                                     continue;
 
                                 player->CastSpell(trigger, SPELL_VORTEX_4, true);
@@ -228,7 +218,7 @@ public:
         {
             bool next = (lastPortalGUID == portalTriggers.back() || !lastPortalGUID ? true : false);
 
-            for (std::list<uint64>::const_iterator itr_trigger = portalTriggers.begin(); itr_trigger != portalTriggers.end(); ++itr_trigger)
+            for (GuidList::const_iterator itr_trigger = portalTriggers.begin(); itr_trigger != portalTriggers.end(); ++itr_trigger)
             {
                 if (next)
                 {
@@ -245,7 +235,7 @@ public:
             }
         }
 
-        void SetData(uint32 data, uint32 /*value*/) OVERRIDE
+        void SetData(uint32 data, uint32 /*value*/) override
         {
             switch (data)
             {
@@ -256,12 +246,12 @@ public:
                     PowerSparksHandling();
                     break;
                 case DATA_RESPAWN_IRIS:
-                    SpawnGameObject(instance->GetDifficulty() == DIFFICULTY_10MAN_NORMAL ? GO_FOCUSING_IRIS_10 : GO_FOCUSING_IRIS_25, focusingIrisPosition);
+                    SpawnGameObject(instance->GetDifficultyID() == DIFFICULTY_10_N ? GO_FOCUSING_IRIS_10 : GO_FOCUSING_IRIS_25, focusingIrisPosition);
                     break;
             }
         }
 
-        uint64 GetData64(uint32 data) const OVERRIDE
+        ObjectGuid GetGuidData(uint32 data) const override
         {
             switch (data)
             {
@@ -281,10 +271,10 @@ public:
                     return giftBoxBunnyGUID;
             }
 
-            return 0;
+            return ObjectGuid::Empty;
         }
 
-        std::string GetSaveData() OVERRIDE
+        std::string GetSaveData() override
         {
             OUT_SAVE_INST_DATA;
 
@@ -295,7 +285,7 @@ public:
             return saveStream.str();
         }
 
-        void Load(const char* str) OVERRIDE
+        void Load(const char* str) override
         {
             if (!str)
             {
@@ -312,7 +302,7 @@ public:
 
             if (dataHead1 == 'E' && dataHead2 == 'E')
             {
-                for (uint8 i = 0; i < MAX_ENCOUNTER; ++i)
+                for (int32 i = 0; i < MAX_ENCOUNTER; ++i)
                 {
                     uint32 tmpState;
                     loadStream >> tmpState;
@@ -327,16 +317,16 @@ public:
         }
 
         private:
-            std::list<uint64> vortexTriggers;
-            std::list<uint64> portalTriggers;
-            uint64 malygosGUID;
-            uint64 irisGUID;
-            uint64 lastPortalGUID;
-            uint64 platformGUID;
-            uint64 exitPortalGUID;
-            uint64 heartOfMagicGUID;
-            uint64 alexstraszaBunnyGUID;
-            uint64 giftBoxBunnyGUID;
+            GuidList vortexTriggers;
+            GuidList portalTriggers;
+            ObjectGuid malygosGUID;
+            ObjectGuid irisGUID;
+            ObjectGuid lastPortalGUID;
+            ObjectGuid platformGUID;
+            ObjectGuid exitPortalGUID;
+            ObjectGuid heartOfMagicGUID;
+            ObjectGuid alexstraszaBunnyGUID;
+            ObjectGuid giftBoxBunnyGUID;
             Position focusingIrisPosition;
             Position exitPortalPosition;
     };

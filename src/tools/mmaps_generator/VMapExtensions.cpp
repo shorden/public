@@ -24,7 +24,7 @@
 #include "ModelInstance.h"
 
 namespace VMAP
-{
+//;{
     // Need direct access to encapsulated VMAP data, so we add functions for MMAP generator
     // maybe add MapBuilder as friend to all of the below classes would be better?
 

@@ -1,22 +1,6 @@
-/*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
- * option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program. If not, see <http://www.gnu.org/licenses/>.
- */
+/* Copyright (C) 2009 - 2010 by /dev/rsa for ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This program is free software licensed under GPL version 2
+ * Please see the included DOCS/LICENSE.TXT for more information */
 
 #ifndef DEF_CRUSADER_H
 #define DEF_CRUSADER_H
@@ -56,53 +40,53 @@ enum SpellIds
 
 enum MiscData
 {
-    DESPAWN_TIME                = 300000,
+    DESPAWN_TIME                = 1200000,
 
     DISPLAYID_DESTROYED_FLOOR   = 9060
 };
 
 const Position ToCSpawnLoc[]=
 {
-    {563.912f, 261.625f, 394.73f, 4.70437f},  //  0 Center
-    {575.451f, 261.496f, 394.73f,  4.6541f},  //  1 Left
-    {549.951f,  261.55f, 394.73f, 4.74835f}   //  2 Right
+    {563.91f, 261.62f, 394.73f, 4.70f},  //  0 Center
+    {575.45f, 261.49f, 394.73f, 4.65f},  //  1 Left
+    {549.95f, 261.55f, 394.73f, 4.74f}   //  2 Right
 };
 
 const Position ToCCommonLoc[]=
 {
-    {559.257996f, 90.266197f, 395.122986f, 0},  //  0 Barrent
+    {559.25f, 90.26f, 395.12f, 0},      //  0 Barrent
 
-    {563.672974f, 139.571f, 393.837006f, 0},    //  1 Center
-    {563.833008f, 187.244995f, 394.5f, 0},      //  2 Backdoor
-    {577.347839f, 195.338888f, 395.14f, 0},     //  3 - Right
-    {550.955933f, 195.338888f, 395.14f, 0},     //  4 - Left
-    {563.833008f, 195.244995f, 394.585561f, 0}, //  5 - Center
-    {573.5f, 180.5f, 395.14f, 0},               //  6 Move 0 Right
-    {553.5f, 180.5f, 395.14f, 0},               //  7 Move 0 Left
-    {573.0f, 170.0f, 395.14f, 0},               //  8 Move 1 Right
-    {555.5f, 170.0f, 395.14f, 0},               //  9 Move 1 Left
-    {563.8f, 216.1f, 395.1f, 0},                // 10 Behind the door
+    {563.67f, 139.57f, 393.83f, 0},     //  1 Center
+    {563.42f, 186.37f, 394.51f, 0},     //  2 Backdoor
+    {577.34f, 195.33f, 395.14f, 0},     //  3 - Right
+    {550.95f, 195.33f, 395.14f, 0},     //  4 - Left
+    {563.83f, 195.24f, 394.58f, 0},     //  5 - Center
+    {573.5f, 180.5f, 395.14f, 0},       //  6 Move 0 Right
+    {553.5f, 180.5f, 395.14f, 0},       //  7 Move 0 Left
+    {573.0f, 170.0f, 395.14f, 0},       //  8 Move 1 Right
+    {555.5f, 170.0f, 395.14f, 0},       //  9 Move 1 Left
+    {563.8f, 216.1f, 395.1f, 0},        // 10 Behind the door
 
-    {575.042358f, 195.260727f, 395.137146f, 0}, // 5
-    {552.248901f, 195.331955f, 395.132658f, 0}, // 6
-    {573.342285f, 195.515823f, 395.135956f, 0}, // 7
-    {554.239929f, 195.825577f, 395.137909f, 0}, // 8
-    {571.042358f, 195.260727f, 395.137146f, 0}, // 9
-    {556.720581f, 195.015472f, 395.132658f, 0}, // 10
-    {569.534119f, 195.214478f, 395.139526f, 0}, // 11
-    {569.231201f, 195.941071f, 395.139526f, 0}, // 12
-    {558.811610f, 195.985779f, 394.671661f, 0}, // 13
-    {567.641724f, 195.351501f, 394.659943f, 0}, // 14
-    {560.633972f, 195.391708f, 395.137543f, 0}, // 15
-    {565.816956f, 195.477921f, 395.136810f, 0}  // 16
+    {575.04f, 195.26f, 395.13f, 0},     // 5
+    {552.24f, 195.33f, 395.13f, 0},     // 6
+    {573.34f, 195.51f, 395.13f, 0},     // 7
+    {554.23f, 195.82f, 395.13f, 0},     // 8
+    {571.04f, 195.26f, 395.13f, 0},     // 9
+    {556.72f, 195.01f, 395.13f, 0},     // 10
+    {569.53f, 195.21f, 395.13f, 0},     // 11
+    {569.23f, 195.94f, 395.13f, 0},     // 12
+    {558.81f, 195.98f, 394.67f, 0},     // 13
+    {567.64f, 195.35f, 394.65f, 0},     // 14
+    {560.63f, 195.39f, 395.13f, 0},     // 15
+    {565.81f, 195.47f, 395.13f, 0}      // 16
 };
 
 const Position JaraxxusLoc[]=
 {
-    {508.104767f, 138.247345f, 395.128052f, 0}, // 0 - Fizzlebang start location
-    {548.610596f, 139.807800f, 394.321838f, 0}, // 1 - fizzlebang end
-    {581.854187f, 138.0f, 394.319f, 0},         // 2 - Portal Right
-    {550.558838f, 138.0f, 394.319f, 0}          // 3 - Portal Left
+    {508.10f, 138.24f, 395.12f, 0},     // 0 - Fizzlebang start location
+    {548.61f, 139.80f, 394.32f, 0},     // 1 - fizzlebang end
+    {581.85f, 138.0f, 394.31f, 0},      // 2 - Portal Right
+    {550.55f, 138.0f, 394.31f, 0}       // 3 - Portal Left
 };
 
 const Position FactionChampionLoc[]=
@@ -200,8 +184,7 @@ enum CreatureIds
     NPC_FIZZLEBANG              = 35458,
     NPC_GARROSH                 = 34995,
     NPC_VARIAN                  = 34990,
-    NPC_LICH_KING_0             = 16980,
-    NPC_LICH_KING_1             = 35877,
+    NPC_LICH_KING               = 35877,
 
     NPC_THRALL                  = 34994,
     NPC_PROUDMOORE              = 34992,
@@ -310,8 +293,8 @@ enum AchievementData
     SPELL_WORMS_KILLED_IN_10_SECONDS        = 68523,
     SPELL_CHAMPIONS_KILLED_IN_MINUTE        = 68620,
     SPELL_DEFEAT_FACTION_CHAMPIONS          = 68184,
-    SPELL_TRAITOR_KING_10                   = 68186,
-    SPELL_TRAITOR_KING_25                   = 68515,
+    SPELL_TRAITOR_KING                      = 68186,
+    SPELL_SCARAB_ACHIEV25                   = 68515,
 
     // Timed events
     EVENT_START_TWINS_FIGHT                 = 21853

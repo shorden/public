@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -20,41 +19,54 @@
 #include "HostileRefManager.h"
 #include "ThreatManager.h"
 #include "Unit.h"
-#include "DBCStructure.h"
-#include "SpellMgr.h"
 #include "SpellInfo.h"
+
+HostileRefManager::HostileRefManager(Unit* owner)
+{
+    iOwner = owner;
+}
 
 HostileRefManager::~HostileRefManager()
 {
     deleteReferences();
 }
 
-//=================================================
-// send threat to all my hateres for the victim
-// The victim is hated than by them as well
-// use for buffs and healing threat functionality
+Unit* HostileRefManager::getOwner()
+{
+    return iOwner;
+}
 
 void HostileRefManager::threatAssist(Unit* victim, float baseThreat, SpellInfo const* threatSpell)
 {
-    if (getSize() == 0)
+    if (getSize() == 0 || baseThreat == 0.0f)
         return;
 
+    SpellSchoolMask schoolMask = threatSpell ? threatSpell->GetSchoolMask() : SPELL_SCHOOL_MASK_NORMAL;
+    float threat = ThreatCalcHelper::calcThreat(victim, iOwner, baseThreat, schoolMask, threatSpell);
+
+    std::lock_guard<std::recursive_mutex> guard(i_threat_lock);
     HostileReference* ref = getFirst();
-    float threat = ThreatCalcHelper::calcThreat(victim, iOwner, baseThreat, (threatSpell ? threatSpell->GetSchoolMask() : SPELL_SCHOOL_MASK_NORMAL), threatSpell);
     threat /= getSize();
     while (ref)
     {
-        if (ThreatCalcHelper::isValidProcess(victim, ref->GetSource()->GetOwner(), threatSpell))
-            ref->GetSource()->doAddThreat(victim, threat);
+        if (ref->getSource())
+        {
+            if (Unit* owner = ref->getSource()->getOwner())
+            {
+                volatile uint32 entryorguid = owner->IsPlayer() ? owner->GetGUIDLow() : owner->GetEntry();
+                if (owner->isAlive() && !owner->IsDelete() && owner->IsInWorld())
+                    if (ThreatCalcHelper::isValidProcess(victim, owner, threatSpell))
+                        ref->getSource()->doAddThreat(victim, threat, schoolMask, threatSpell);
+            }
+        }
 
         ref = ref->next();
     }
 }
 
-//=================================================
-
 void HostileRefManager::addTempThreat(float threat, bool apply)
 {
+    std::lock_guard<std::recursive_mutex> guard(i_threat_lock);
     HostileReference* ref = getFirst();
 
     while (ref)
@@ -71,10 +83,9 @@ void HostileRefManager::addTempThreat(float threat, bool apply)
     }
 }
 
-//=================================================
-
 void HostileRefManager::addThreatPercent(int32 percent)
 {
+    std::lock_guard<std::recursive_mutex> guard(i_threat_lock);
     HostileReference* ref = getFirst();
     while (ref)
     {
@@ -83,11 +94,9 @@ void HostileRefManager::addThreatPercent(int32 percent)
     }
 }
 
-//=================================================
-// The online / offline status is given to the method. The calculation has to be done before
-
 void HostileRefManager::setOnlineOfflineState(bool isOnline)
 {
+    std::lock_guard<std::recursive_mutex> guard(i_threat_lock);
     HostileReference* ref = getFirst();
     while (ref)
     {
@@ -96,11 +105,9 @@ void HostileRefManager::setOnlineOfflineState(bool isOnline)
     }
 }
 
-//=================================================
-// The online / offline status is calculated and set
-
 void HostileRefManager::updateThreatTables()
 {
+    std::lock_guard<std::recursive_mutex> guard(i_threat_lock);
     HostileReference* ref = getFirst();
     while (ref)
     {
@@ -109,12 +116,9 @@ void HostileRefManager::updateThreatTables()
     }
 }
 
-//=================================================
-// The references are not needed anymore
-// tell the source to remove them from the list and free the mem
-
 void HostileRefManager::deleteReferences()
 {
+    std::lock_guard<std::recursive_mutex> guard(i_threat_lock);
     HostileReference* ref = getFirst();
     while (ref)
     {
@@ -125,16 +129,14 @@ void HostileRefManager::deleteReferences()
     }
 }
 
-//=================================================
-// delete one reference, defined by faction
-
 void HostileRefManager::deleteReferencesForFaction(uint32 faction)
 {
+    std::lock_guard<std::recursive_mutex> guard(i_threat_lock);
     HostileReference* ref = getFirst();
     while (ref)
     {
         HostileReference* nextRef = ref->next();
-        if (ref->GetSource()->GetOwner()->GetFactionTemplateEntry()->faction == faction)
+        if (ref->getSource()->getOwner()->getFactionTemplateEntry()->Faction == faction)
         {
             ref->removeReference();
             delete ref;
@@ -143,16 +145,19 @@ void HostileRefManager::deleteReferencesForFaction(uint32 faction)
     }
 }
 
-//=================================================
-// delete one reference, defined by Unit
+HostileReference* HostileRefManager::getFirst()
+{
+    return reinterpret_cast<HostileReference*>(RefManager<Unit, ThreatManager>::getFirst());
+}
 
 void HostileRefManager::deleteReference(Unit* creature)
 {
+    std::lock_guard<std::recursive_mutex> guard(i_threat_lock);
     HostileReference* ref = getFirst();
     while (ref)
     {
         HostileReference* nextRef = ref->next();
-        if (ref->GetSource()->GetOwner() == creature)
+        if (ref->getSource()->getOwner() == creature)
         {
             ref->removeReference();
             delete ref;
@@ -162,16 +167,14 @@ void HostileRefManager::deleteReference(Unit* creature)
     }
 }
 
-//=================================================
-// set state for one reference, defined by Unit
-
 void HostileRefManager::setOnlineOfflineState(Unit* creature, bool isOnline)
 {
+    std::lock_guard<std::recursive_mutex> guard(i_threat_lock);
     HostileReference* ref = getFirst();
     while (ref)
     {
         HostileReference* nextRef = ref->next();
-        if (ref->GetSource()->GetOwner() == creature)
+        if (ref->getSource()->getOwner() == creature)
         {
             ref->setOnlineOfflineState(isOnline);
             break;
@@ -180,20 +183,37 @@ void HostileRefManager::setOnlineOfflineState(Unit* creature, bool isOnline)
     }
 }
 
-//=================================================
-
 void HostileRefManager::UpdateVisibility()
+{
+    std::lock_guard<std::recursive_mutex> guard(i_threat_lock);
+    HostileReference* ref = getFirst();
+    while (ref)
+    {
+        HostileReference* nextRef = ref->next();
+        if (!ref->getSource()->getOwner()->canSeeOrDetect(getOwner()))
+        {
+            ref->setOnlineOfflineState(false);
+            nextRef = ref->next();
+            //ref->removeReference();
+            //delete ref;
+        }
+        else
+            ref->setOnlineOfflineState(true);
+        ref = nextRef;
+    }
+}
+
+bool HostileRefManager::HasTarget(Unit* creature)
 {
     HostileReference* ref = getFirst();
     while (ref)
     {
         HostileReference* nextRef = ref->next();
-        if (!ref->GetSource()->GetOwner()->CanSeeOrDetect(GetOwner()))
+        if (ref->getSource()->getOwner() == creature)
         {
-            nextRef = ref->next();
-            ref->removeReference();
-            delete ref;
+            return true;
         }
         ref = nextRef;
     }
+    return false;
 }

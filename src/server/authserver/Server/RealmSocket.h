@@ -78,4 +78,4 @@ private:
     uint16 _remotePort;
 };
 
-#endif /* __REALMSOCKET_H__ */
+#endif / __REALMSOCKET_H__ /

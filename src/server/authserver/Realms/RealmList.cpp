@@ -23,18 +23,18 @@
 
 RealmList::RealmList() : m_UpdateInterval(0), m_NextUpdateTime(time(NULL)) { }
 
-// Load the realm list from the database
+/ Load the realm list from the database
 void RealmList::Initialize(uint32 updateInterval)
 {
     m_UpdateInterval = updateInterval;
 
-    // Get the content of the realmlist table in the database
+    / Get the content of the realmlist table in the database
     UpdateRealms(true);
 }
 
 void RealmList::UpdateRealm(uint32 id, const std::string& name, ACE_INET_Addr const& address, ACE_INET_Addr const& localAddr, ACE_INET_Addr const& localSubmask, uint8 icon, RealmFlags flag, uint8 timezone, AccountTypes allowedSecurityLevel, float popu, uint32 build)
 {
-    // Create new if not exist or update existed
+    / Create new if not exist or update existed
     Realm& realm = m_realms[name];
 
     realm.m_ID = id;
@@ -45,7 +45,7 @@ void RealmList::UpdateRealm(uint32 id, const std::string& name, ACE_INET_Addr co
     realm.allowedSecurityLevel = allowedSecurityLevel;
     realm.populationLevel = popu;
 
-    // Append port to IP address.
+    / Append port to IP address.
     realm.ExternalAddress = address;
     realm.LocalAddress = localAddr;
     realm.LocalSubnetMask = localSubmask;
@@ -63,7 +63,7 @@ void RealmList::UpdateIfNeed()
     // Clears Realm list
     m_realms.clear();
 
-    // Get the content of the realmlist table in the database
+    / Get the content of the realmlist table in the database
     UpdateRealms();
 }
 
@@ -74,7 +74,7 @@ void RealmList::UpdateRealms(bool init)
     PreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_REALMLIST);
     PreparedQueryResult result = LoginDatabase.Query(stmt);
 
-    // Circle through results and add them to the realm map
+    / Circle through results and add them to the realm map
     if (result)
     {
         do

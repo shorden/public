@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -29,21 +28,17 @@
 #include "ObjectMgr.h"
 #include "Util.h"
 #include "ScriptMgr.h"
-#include "Opcodes.h"
-#include "WorldSession.h"
+#include "MiscPackets.h"
 
-/// Create the Weather object
-Weather::Weather(uint32 zone, WeatherData const* weatherChances)
-    : m_zone(zone), m_weatherChances(weatherChances)
+Weather::Weather(uint32 zone, WeatherData const* weatherChances) : m_zone(zone), m_weatherChances(weatherChances)
 {
-    m_timer.SetInterval(sWorld->getIntConfig(WorldIntConfigs::CONFIG_INTERVAL_CHANGEWEATHER));
+    m_timer.SetInterval(sWorld->getIntConfig(CONFIG_INTERVAL_CHANGEWEATHER));
     m_type = WEATHER_TYPE_FINE;
     m_grade = 0;
 
-    SF_LOG_INFO("misc", "WORLD: Starting weather system for zone %u (change every %u minutes).", m_zone, (uint32)(m_timer.GetInterval() / (MINUTE*IN_MILLISECONDS)));
+    TC_LOG_DEBUG(LOG_FILTER_GENERAL, "WORLD: Starting weather system for zone %u (change every %u minutes).", m_zone, (uint32)(m_timer.GetInterval() / (MINUTE*IN_MILLISECONDS)));
 }
 
-/// Launch a weather update
 bool Weather::Update(uint32 diff)
 {
     if (m_timer.GetCurrent() >= 0)
@@ -51,24 +46,18 @@ bool Weather::Update(uint32 diff)
     else
         m_timer.SetCurrent(0);
 
-    ///- If the timer has passed, ReGenerate the weather
     if (m_timer.Passed())
     {
         m_timer.Reset();
-        // update only if Regenerate has changed the weather
-        if (ReGenerate())
-        {
-            ///- Weather will be removed if not updated (no players in zone anymore)
-            if (!UpdateWeather())
-                return false;
-        }
+
+        if (ReGenerate() && !UpdateWeather())
+            return false;
     }
 
     sScriptMgr->OnWeatherUpdate(this, diff);
     return true;
 }
 
-/// Calculate the new weather
 bool Weather::ReGenerate()
 {
     if (!m_weatherChances)
@@ -96,12 +85,12 @@ bool Weather::ReGenerate()
     // season source http://aa.usno.navy.mil/data/docs/EarthSeasons.html
     time_t gtime = sWorld->GetGameTime();
     struct tm ltime;
-    ACE_OS::localtime_r(&gtime, &ltime);
-    uint32 season = ((ltime.tm_yday - 78 + 365)/91)%4;
+    localtime_r(&gtime, &ltime);
+    uint32 season = ((ltime.tm_yday - 78 + 365) / 91) % 4;
 
-    static char const* seasonName[WEATHER_SEASONS] = { "spring", "summer", "fall", "winter" };
+    static char const* seasonName[WEATHER_SEASONS] = {"spring", "summer", "fall", "winter"};
 
-    SF_LOG_INFO("misc", "Generating a change in %s weather for zone %u.", seasonName[season], m_zone);
+    TC_LOG_DEBUG(LOG_FILTER_GENERAL, "Generating a change in %s weather for zone %u.", seasonName[season], m_zone);
 
     if ((u < 60) && (m_grade < 0.33333334f))                // Get fair
     {
@@ -133,29 +122,25 @@ bool Weather::ReGenerate()
             m_grade = 0.9999f;                              // go nuts
             return true;
         }
-        else
+        if (m_grade > 0.6666667f)
         {
-            if (m_grade > 0.6666667f)
+            uint32 rnd = urand(0, 99);
+            if (rnd < 50)
             {
-                                                            // Severe change, but how severe?
-                uint32 rnd = urand(0, 99);
-                if (rnd < 50)
-                {
-                    m_grade -= 0.6666667f;
-                    return true;
-                }
+                m_grade -= 0.6666667f;
+                return true;
             }
-            m_type = WEATHER_TYPE_FINE;                     // clear up
-            m_grade = 0;
         }
+        m_type = WEATHER_TYPE_FINE;                     // clear up
+        m_grade = 0;
     }
 
     // At this point, only weather that isn't doing anything remains but that have weather data
     uint32 chance1 = m_weatherChances->data[season].rainChance;
-    uint32 chance2 = chance1+ m_weatherChances->data[season].snowChance;
-    uint32 chance3 = chance2+ m_weatherChances->data[season].stormChance;
+    uint32 chance2 = chance1 + m_weatherChances->data[season].snowChance;
+    uint32 chance3 = chance2 + m_weatherChances->data[season].stormChance;
 
-    uint32 rnd = urand(0, 99);
+    uint32 rnd = urand(1, 100);
     if (rnd <= chance1)
         m_type = WEATHER_TYPE_RAIN;
     else if (rnd <= chance2)
@@ -172,13 +157,9 @@ bool Weather::ReGenerate()
     /// If fine 100% sun (no fog)
 
     if (m_type == WEATHER_TYPE_FINE)
-    {
         m_grade = 0.0f;
-    }
     else if (u < 90)
-    {
         m_grade = (float)rand_norm() * 0.3333f;
-    }
     else
     {
         // Severe change, but how severe?
@@ -195,21 +176,17 @@ bool Weather::ReGenerate()
 
 void Weather::SendWeatherUpdateToPlayer(Player* player)
 {
-    WorldPacket data(SMSG_WEATHER, 4 + 4 + 1);
-    data << uint32(GetWeatherState()); // WeatherID
-    data << float(m_grade);            // Intensity
-    data.WriteBit(false);              // Abrupt
-    data.FlushBits();
-    player->GetSession()->SendPacket(&data);
+    player->SendDirectMessage(WorldPackets::Misc::Weather(GetWeatherState(), m_grade).Write());
+}
+
+void Weather::SendFineWeatherUpdateToPlayer(Player* player)
+{
+    player->SendDirectMessage(WorldPackets::Misc::Weather(WEATHER_STATE_FINE).Write());
 }
 
 /// Send the new weather to all players in the zone
 bool Weather::UpdateWeather()
 {
-    Player* player = sWorld->FindPlayerInZone(m_zone);
-    if (!player)
-        return false;
-
     ///- Send the weather packet to all players in this zone
     if (m_grade >= 1)
         m_grade = 0.9999f;
@@ -218,12 +195,10 @@ bool Weather::UpdateWeather()
 
     WeatherState state = GetWeatherState();
 
-    WorldPacket data(SMSG_WEATHER, 4 + 4 + 1);
-    data << uint32(state);  // WeatherID
-    data << float(m_grade); // Intensity
-    data.WriteBit(false);   // Abrupt
-    data.FlushBits();
-    player->SendMessageToSet(&data, true);
+    WorldPackets::Misc::Weather weather(state, m_grade);
+
+    if (!sWorld->SendZoneMessage(m_zone, weather.Write()))
+        return false;
 
     ///- Log the event
     char const* wthstr;
@@ -270,7 +245,7 @@ bool Weather::UpdateWeather()
             wthstr = "fine";
             break;
     }
-    SF_LOG_INFO("misc", "Change the weather of zone %u to %s.", m_zone, wthstr);
+    TC_LOG_DEBUG(LOG_FILTER_GENERAL, "Change the weather of zone %u to %s.", m_zone, wthstr);
 
     sScriptMgr->OnWeatherChange(this, state, m_grade);
     return true;
@@ -290,32 +265,35 @@ void Weather::SetWeather(WeatherType type, float grade)
 /// Get the sound number associated with the current weather
 WeatherState Weather::GetWeatherState() const
 {
-    if (m_grade<0.27f)
+    if (m_grade < 0.27f)
         return WEATHER_STATE_FINE;
 
     switch (m_type)
     {
         case WEATHER_TYPE_RAIN:
-            if (m_grade<0.40f)
+        {
+            if (m_grade < 0.40f)
                 return WEATHER_STATE_LIGHT_RAIN;
-            else if (m_grade<0.70f)
+            if (m_grade < 0.70f)
                 return WEATHER_STATE_MEDIUM_RAIN;
-            else
-                return WEATHER_STATE_HEAVY_RAIN;
+            return WEATHER_STATE_HEAVY_RAIN;
+        }
         case WEATHER_TYPE_SNOW:
-            if (m_grade<0.40f)
+        {
+            if (m_grade < 0.40f)
                 return WEATHER_STATE_LIGHT_SNOW;
-            else if (m_grade<0.70f)
+            if (m_grade < 0.70f)
                 return WEATHER_STATE_MEDIUM_SNOW;
-            else
-                return WEATHER_STATE_HEAVY_SNOW;
+            return WEATHER_STATE_HEAVY_SNOW;
+        }
         case WEATHER_TYPE_STORM:
-            if (m_grade<0.40f)
+        {
+            if (m_grade < 0.40f)
                 return WEATHER_STATE_LIGHT_SANDSTORM;
-            else if (m_grade<0.70f)
+            if (m_grade < 0.70f)
                 return WEATHER_STATE_MEDIUM_SANDSTORM;
-            else
-                return WEATHER_STATE_HEAVY_SANDSTORM;
+            return WEATHER_STATE_HEAVY_SANDSTORM;
+        }
         case WEATHER_TYPE_BLACKRAIN:
             return WEATHER_STATE_BLACKRAIN;
         case WEATHER_TYPE_THUNDERS:
@@ -325,3 +303,4 @@ WeatherState Weather::GetWeatherState() const
             return WEATHER_STATE_FINE;
     }
 }
+

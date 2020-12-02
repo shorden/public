@@ -23,7 +23,7 @@
 
 namespace G3D {
 
-#ifdef _MSC_VER
+//#ifdef _MSC_VER
 // Turn off "conditional expression is constant" warning; MSVC generates this
 // for debug assertions in inlined methods.
 #   pragma warning (disable : 4127)
@@ -399,5 +399,5 @@ inline Vector3 operator* (const Vector3& rkPoint, const Matrix3& rkMatrix) {
 
 } // namespace
 
-#endif
+//#endif
 

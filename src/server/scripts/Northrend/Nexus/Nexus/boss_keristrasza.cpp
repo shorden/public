@@ -1,29 +1,6 @@
-/*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
- * option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-
-#include "ScriptMgr.h"
-#include "ScriptedCreature.h"
-#include "SpellScript.h"
-#include "SpellAuraEffects.h"
 #include "nexus.h"
-#include "Player.h"
+#include "LFGMgr.h"
+#include "Group.h"
 
 enum Spells
 {
@@ -39,14 +16,14 @@ enum Spells
     SPELL_INTENSE_COLD_TRIGGERED                  = 48095
 };
 
-enum Yells
+enum Texts
 {
-    //Yell
     SAY_AGGRO                                     = 0,
     SAY_SLAY                                      = 1,
     SAY_ENRAGE                                    = 2,
     SAY_DEATH                                     = 3,
-    SAY_CRYSTAL_NOVA                              = 4
+    SAY_CRYSTAL_NOVA                              = 4,
+    SAY_FRENZY                                    = 5
 };
 
 enum Misc
@@ -60,9 +37,9 @@ class boss_keristrasza : public CreatureScript
 public:
     boss_keristrasza() : CreatureScript("boss_keristrasza") { }
 
-    CreatureAI* GetAI(Creature* creature) const OVERRIDE
+    CreatureAI* GetAI(Creature* creature) const override
     {
-        return new boss_keristraszaAI(creature);
+        return new boss_keristraszaAI (creature);
     }
 
     struct boss_keristraszaAI : public ScriptedAI
@@ -70,54 +47,71 @@ public:
         boss_keristraszaAI(Creature* creature) : ScriptedAI(creature)
         {
             instance = creature->GetInstanceScript();
+            me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
+            me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+            DoCast(SPELL_FROZEN_PRISON);
         }
 
         InstanceScript* instance;
 
-        std::list<uint64> intenseColdList;
-        uint64 auiContainmentSphereGUIDs[DATA_CONTAINMENT_SPHERES];
+        GuidList intenseColdList;
+        ObjectGuid auiContainmentSphereGUIDs[DATA_CONTAINMENT_SPHERES];
         uint32 uiCrystalfireBreathTimer;
         uint32 uiCrystalChainsCrystalizeTimer;
         uint32 uiTailSweepTimer;
         bool intenseCold;
         bool bEnrage;
 
-        void Reset() OVERRIDE
+        void Reset() override
         {
             uiCrystalfireBreathTimer = 14*IN_MILLISECONDS;
             uiCrystalChainsCrystalizeTimer = DUNGEON_MODE(30*IN_MILLISECONDS, 11*IN_MILLISECONDS);
             uiTailSweepTimer = 5*IN_MILLISECONDS;
             bEnrage = false;
-
             intenseCold = true;
             intenseColdList.clear();
-
-            me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED);
-
             RemovePrison(CheckContainmentSpheres());
-
             if (instance)
                 instance->SetData(DATA_KERISTRASZA_EVENT, NOT_STARTED);
         }
 
-        void EnterCombat(Unit* /*who*/) OVERRIDE
+        void JustReachedHome() override
+        {
+            if (!me->HasAura(SPELL_FROZEN_PRISON))
+            {
+                me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
+                me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+            }
+        }
+
+        void EnterCombat(Unit* /*who*/) override
         {
             Talk(SAY_AGGRO);
-            DoCastAOE(SPELL_INTENSE_COLD);
+            DoCast(SPELL_INTENSE_COLD);
 
             if (instance)
                 instance->SetData(DATA_KERISTRASZA_EVENT, IN_PROGRESS);
         }
 
-        void JustDied(Unit* /*killer*/) OVERRIDE
+        void JustDied(Unit* /*killer*/) override
         {
             Talk(SAY_DEATH);
 
             if (instance)
+            {
                 instance->SetData(DATA_KERISTRASZA_EVENT, DONE);
+                Map::PlayerList const& players = me->GetMap()->GetPlayers();
+                if (!players.isEmpty())
+                {
+                    Player* pPlayer = players.begin()->getSource();
+                    if (pPlayer && pPlayer->GetGroup())
+                        if (sLFGMgr->GetQueueId(995))
+                            sLFGMgr->FinishDungeon(pPlayer->GetGroup()->GetGUID(), 995);
+                }
+            }
         }
 
-        void KilledUnit(Unit* /*victim*/) OVERRIDE
+        void KilledUnit(Unit* /*victim*/) override
         {
             Talk(SAY_SLAY);
         }
@@ -127,9 +121,9 @@ public:
             if (!instance)
                 return false;
 
-            auiContainmentSphereGUIDs[0] = instance->GetData64(ANOMALUS_CONTAINMET_SPHERE);
-            auiContainmentSphereGUIDs[1] = instance->GetData64(ORMOROKS_CONTAINMET_SPHERE);
-            auiContainmentSphereGUIDs[2] = instance->GetData64(TELESTRAS_CONTAINMET_SPHERE);
+            auiContainmentSphereGUIDs[0] = instance->GetGuidData(ANOMALUS_CONTAINMET_SPHERE);
+            auiContainmentSphereGUIDs[1] = instance->GetGuidData(ORMOROKS_CONTAINMET_SPHERE);
+            auiContainmentSphereGUIDs[2] = instance->GetGuidData(TELESTRAS_CONTAINMET_SPHERE);
 
             GameObject* ContainmentSpheres[DATA_CONTAINMENT_SPHERES];
 
@@ -138,7 +132,7 @@ public:
                 ContainmentSpheres[i] = instance->instance->GetGameObject(auiContainmentSphereGUIDs[i]);
                 if (!ContainmentSpheres[i])
                     return false;
-                if (ContainmentSpheres[i]->GetGoState() != GOState::GO_STATE_ACTIVE)
+                if (ContainmentSpheres[i]->GetGoState() != GO_STATE_ACTIVE)
                     return false;
             }
             if (remove_prison)
@@ -163,13 +157,13 @@ public:
             }
         }
 
-        void SetGUID(uint64 guid, int32 id/* = 0 */) OVERRIDE
+        void SetGUID(ObjectGuid const& guid, int32 id/* = 0 */) override
         {
             if (id == DATA_INTENSE_COLD)
                 intenseColdList.push_back(guid);
         }
 
-        void UpdateAI(uint32 diff) OVERRIDE
+        void UpdateAI(uint32 diff) override
         {
             if (!UpdateVictim())
                 return;
@@ -183,7 +177,7 @@ public:
 
             if (uiCrystalfireBreathTimer <= diff)
             {
-                DoCastVictim(SPELL_CRYSTALFIRE_BREATH);
+                DoCast(me->getVictim(), SPELL_CRYSTALFIRE_BREATH);
                 uiCrystalfireBreathTimer = 14*IN_MILLISECONDS;
             } else uiCrystalfireBreathTimer -= diff;
 
@@ -206,6 +200,7 @@ public:
             DoMeleeAttackIfReady();
         }
     };
+
 };
 
 class containment_sphere : public GameObjectScript
@@ -213,21 +208,22 @@ class containment_sphere : public GameObjectScript
 public:
     containment_sphere() : GameObjectScript("containment_sphere") { }
 
-    bool OnGossipHello(Player* /*player*/, GameObject* go) OVERRIDE
+    bool OnGossipHello(Player* /*player*/, GameObject* go) override
     {
         InstanceScript* instance = go->GetInstanceScript();
 
-        Creature* pKeristrasza = Unit::GetCreature(*go, instance ? instance->GetData64(DATA_KERISTRASZA) : 0);
-        if (pKeristrasza && pKeristrasza->IsAlive())
+        Creature* pKeristrasza = Unit::GetCreature(*go, instance ? instance->GetGuidData(DATA_KERISTRASZA) : ObjectGuid::Empty);
+        if (pKeristrasza && pKeristrasza->isAlive())
         {
             // maybe these are hacks :(
             go->SetFlag(GAMEOBJECT_FIELD_FLAGS, GO_FLAG_NOT_SELECTABLE);
-            go->SetGoState(GOState::GO_STATE_ACTIVE);
+            go->SetGoState(GO_STATE_ACTIVE);
 
             CAST_AI(boss_keristrasza::boss_keristraszaAI, pKeristrasza->AI())->CheckContainmentSpheres(true);
         }
         return true;
     }
+
 };
 
 class spell_intense_cold : public SpellScriptLoader
@@ -244,19 +240,19 @@ class spell_intense_cold : public SpellScriptLoader
                 if (aurEff->GetBase()->GetStackAmount() < 2)
                     return;
                 Unit* caster = GetCaster();
-                /// @todo the caster should be boss but not the player
+                //TODO: the caster should be boss but not the player
                 if (!caster || !caster->GetAI())
                     return;
                 caster->GetAI()->SetGUID(GetTarget()->GetGUID(), DATA_INTENSE_COLD);
             }
 
-            void Register() OVERRIDE
+            void Register() override
             {
                 OnEffectPeriodic += AuraEffectPeriodicFn(spell_intense_cold_AuraScript::HandlePeriodicTick, EFFECT_1, SPELL_AURA_PERIODIC_DAMAGE);
             }
         };
 
-        AuraScript* GetAuraScript() const OVERRIDE
+        AuraScript* GetAuraScript() const override
         {
             return new spell_intense_cold_AuraScript();
         }
@@ -269,14 +265,14 @@ class achievement_intense_cold : public AchievementCriteriaScript
         {
         }
 
-        bool OnCheck(Player* player, Unit* target) OVERRIDE
+        bool OnCheck(Player* player, Unit* target) override
         {
             if (!target)
                 return false;
 
-            std::list<uint64> intenseColdList = CAST_AI(boss_keristrasza::boss_keristraszaAI, target->ToCreature()->AI())->intenseColdList;
+            GuidList intenseColdList = CAST_AI(boss_keristrasza::boss_keristraszaAI, target->ToCreature()->AI())->intenseColdList;
             if (!intenseColdList.empty())
-                for (std::list<uint64>::iterator itr = intenseColdList.begin(); itr != intenseColdList.end(); ++itr)
+                for (GuidList::iterator itr = intenseColdList.begin(); itr != intenseColdList.end(); ++itr)
                     if (player->GetGUID() == *itr)
                         return false;
 

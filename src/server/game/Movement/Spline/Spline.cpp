@@ -1,34 +1,32 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
- * option) any later version.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program. If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "Spline.h"
-#include <sstream>
 #include <G3D/Matrix4.h>
 
-namespace Movement{
+using namespace Movement;
 
 SplineBase::EvaluationMethtod SplineBase::evaluators[SplineBase::ModesEnd] =
 {
     &SplineBase::EvaluateLinear,
     &SplineBase::EvaluateCatmullRom,
     &SplineBase::EvaluateBezier3,
-    (EvaluationMethtod)&SplineBase::UninitializedSpline,
+    reinterpret_cast<EvaluationMethtod>(&SplineBase::UninitializedSpline),
 };
 
 SplineBase::EvaluationMethtod SplineBase::derivative_evaluators[SplineBase::ModesEnd] =
@@ -36,7 +34,7 @@ SplineBase::EvaluationMethtod SplineBase::derivative_evaluators[SplineBase::Mode
     &SplineBase::EvaluateDerivativeLinear,
     &SplineBase::EvaluateDerivativeCatmullRom,
     &SplineBase::EvaluateDerivativeBezier3,
-    (EvaluationMethtod)&SplineBase::UninitializedSpline,
+    reinterpret_cast<EvaluationMethtod>(&SplineBase::UninitializedSpline),
 };
 
 SplineBase::SegLenghtMethtod SplineBase::seglengths[SplineBase::ModesEnd] =
@@ -44,7 +42,7 @@ SplineBase::SegLenghtMethtod SplineBase::seglengths[SplineBase::ModesEnd] =
     &SplineBase::SegLengthLinear,
     &SplineBase::SegLengthCatmullRom,
     &SplineBase::SegLengthBezier3,
-    (SegLenghtMethtod)&SplineBase::UninitializedSpline,
+    reinterpret_cast<SegLenghtMethtod>(&SplineBase::UninitializedSpline),
 };
 
 SplineBase::InitMethtod SplineBase::initializers[SplineBase::ModesEnd] =
@@ -53,14 +51,14 @@ SplineBase::InitMethtod SplineBase::initializers[SplineBase::ModesEnd] =
     &SplineBase::InitCatmullRom,    // we should use catmullrom initializer even for linear mode! (client's internal structure limitation)
     &SplineBase::InitCatmullRom,
     &SplineBase::InitBezier3,
-    (InitMethtod)&SplineBase::UninitializedSpline,
+    InitMethtod(&SplineBase::UninitializedSpline),
 };
 
 ///////////
 
 using G3D::Matrix4;
 static const Matrix4 s_catmullRomCoeffs(
-    -0.5f, 1.5f, -1.5f, 0.5f,
+    -0.5f, 1.5f,-1.5f, 0.5f,
     1.f, -2.5f, 2.f, -0.5f,
     -0.5f, 0.f,  0.5f, 0.f,
     0.f,  1.f,  0.f,  0.f);
@@ -71,80 +69,54 @@ static const Matrix4 s_Bezier3Coeffs(
     -3.f,  3.f,  0.f, 0.f,
     1.f,  0.f,  0.f, 0.f);
 
-/*  classic view:
-inline void C_Evaluate(const Vector3 *vertice, float t, const float (&matrix)[4][4], Vector3 &position)
+inline void C_Evaluate(const G3D::Vector3 *vertice, float t, const Matrix4& matr, G3D::Vector3 &result)
 {
-    Vector3 tvec(t*t*t, t*t, t);
-    int i = 0;
-    double c;
-    double x = 0, y = 0, z = 0;
-    while ( i < 4 )
-    {
-        c = matrix[0][i]*tvec.x + matrix[1][i]*tvec.y + matrix[2][i]*tvec.z + matrix[3][i];
+    G3D::Vector4 tvec(t*t*t, t*t, t, 1.f);
+    G3D::Vector4 weights(tvec * matr);
 
-        x += c * vertice->x;
-        y += c * vertice->y;
-        z += c * vertice->z;
-
-        ++i;
-        ++vertice;
-    }
-
-    position.x = x;
-    position.y = y;
-    position.z = z;
-}*/
-
-inline void C_Evaluate(const Vector3 *vertice, float t, const Matrix4& matr, Vector3 &result)
-{
-    Vector4 tvec(t*t*t, t*t, t, 1.f);
-    Vector4 weights(tvec * matr);
-
-    result = vertice[0] * weights[0] + vertice[1] * weights[1]
-           + vertice[2] * weights[2] + vertice[3] * weights[3];
+    result = vertice[0] * weights[0] + vertice[1] * weights[1] + vertice[2] * weights[2] + vertice[3] * weights[3];
 }
 
-inline void C_Evaluate_Derivative(const Vector3 *vertice, float t, const Matrix4& matr, Vector3 &result)
+inline void C_Evaluate_Derivative(const G3D::Vector3 *vertice, float t, const Matrix4& matr, G3D::Vector3 &result)
 {
-    Vector4 tvec(3.f*t*t, 2.f*t, 1.f, 0.f);
-    Vector4 weights(tvec * matr);
+    G3D::Vector4 tvec(3.f*t*t, 2.f*t, 1.f, 0.f);
+    G3D::Vector4 weights(tvec * matr);
 
-    result = vertice[0] * weights[0] + vertice[1] * weights[1]
-           + vertice[2] * weights[2] + vertice[3] * weights[3];
+    result = vertice[0] * weights[0] + vertice[1] * weights[1] + vertice[2] * weights[2] + vertice[3] * weights[3];
 }
 
-void SplineBase::EvaluateLinear(index_type index, float u, Vector3& result) const
+void SplineBase::EvaluateLinear(index_type index, float u, G3D::Vector3& result) const
 {
     ASSERT(index >= index_lo && index < index_hi);
     result = points[index] + (points[index+1] - points[index]) * u;
 }
 
-void SplineBase::EvaluateCatmullRom( index_type index, float t, Vector3& result) const
+void SplineBase::EvaluateCatmullRom( index_type index, float t, G3D::Vector3& result) const
 {
     ASSERT(index >= index_lo && index < index_hi);
     C_Evaluate(&points[index - 1], t, s_catmullRomCoeffs, result);
 }
 
-void SplineBase::EvaluateBezier3(index_type index, float t, Vector3& result) const
+void SplineBase::EvaluateBezier3(index_type index, float t, G3D::Vector3& result) const
 {
     index *= 3u;
     ASSERT(index >= index_lo && index < index_hi);
     C_Evaluate(&points[index], t, s_Bezier3Coeffs, result);
 }
 
-void SplineBase::EvaluateDerivativeLinear(index_type index, float, Vector3& result) const
+void SplineBase::EvaluateDerivativeLinear(index_type index, float, G3D::Vector3& result) const
 {
     ASSERT(index >= index_lo && index < index_hi);
     result = points[index+1] - points[index];
 }
 
-void SplineBase::EvaluateDerivativeCatmullRom(index_type index, float t, Vector3& result) const
+void SplineBase::EvaluateDerivativeCatmullRom(index_type index, float t, G3D::Vector3& result) const
 {
     ASSERT(index >= index_lo && index < index_hi);
     C_Evaluate_Derivative(&points[index - 1], t, s_catmullRomCoeffs, result);
 }
 
-void SplineBase::EvaluateDerivativeBezier3(index_type index, float t, Vector3& result) const
+void SplineBase::EvaluateDerivativeBezier3(index_type index, float t, G3D::Vector3& result) const
 {
     index *= 3u;
     ASSERT(index >= index_lo && index < index_hi);
@@ -161,9 +133,9 @@ float SplineBase::SegLengthCatmullRom( index_type index ) const
 {
     ASSERT(index >= index_lo && index < index_hi);
 
-    Vector3 curPos, nextPos;
-    const Vector3 * p = &points[index - 1];
-    curPos = nextPos = p[1];
+    G3D::Vector3 nextPos;
+    const G3D::Vector3 * p = &points[index - 1];
+    G3D::Vector3 curPos = nextPos = p[1];
 
     index_type i = 1;
     double length = 0;
@@ -182,11 +154,11 @@ float SplineBase::SegLengthBezier3(index_type index) const
     index *= 3u;
     ASSERT(index >= index_lo && index < index_hi);
 
-    Vector3 curPos, nextPos;
-    const Vector3 * p = &points[index];
+    G3D::Vector3 nextPos;
+    const G3D::Vector3 * p = &points[index];
 
     C_Evaluate(p, 0.f, s_Bezier3Coeffs, nextPos);
-    curPos = nextPos;
+    G3D::Vector3 curPos = nextPos;
 
     index_type i = 1;
     double length = 0;
@@ -200,7 +172,7 @@ float SplineBase::SegLengthBezier3(index_type index) const
     return length;
 }
 
-void SplineBase::init_spline(const Vector3 * controls, index_type count, EvaluationMode m)
+void SplineBase::init_spline(const G3D::Vector3 * controls, index_type count, EvaluationMode m)
 {
     m_mode = m;
     cyclic = false;
@@ -208,7 +180,7 @@ void SplineBase::init_spline(const Vector3 * controls, index_type count, Evaluat
     (this->*initializers[m_mode])(controls, count, cyclic, 0);
 }
 
-void SplineBase::init_cyclic_spline(const Vector3 * controls, index_type count, EvaluationMode m, index_type cyclic_point)
+void SplineBase::init_cyclic_spline(const G3D::Vector3 * controls, index_type count, EvaluationMode m, index_type cyclic_point)
 {
     m_mode = m;
     cyclic = true;
@@ -216,14 +188,14 @@ void SplineBase::init_cyclic_spline(const Vector3 * controls, index_type count, 
     (this->*initializers[m_mode])(controls, count, cyclic, cyclic_point);
 }
 
-void SplineBase::InitLinear(const Vector3* controls, index_type count, bool cyclic, index_type cyclic_point)
+void SplineBase::InitLinear(const G3D::Vector3* controls, index_type count, bool cyclic, index_type cyclic_point)
 {
     ASSERT(count >= 2);
     const int real_size = count + 1;
 
     points.resize(real_size);
 
-    memcpy(&points[0], controls, sizeof(Vector3) * count);
+    memcpy(&points[0],controls, sizeof(G3D::Vector3) * count);
 
     // first and last two indexes are space for special 'virtual points'
     // these points are required for proper C_Evaluate and C_Evaluate_Derivative methtod work
@@ -236,7 +208,7 @@ void SplineBase::InitLinear(const Vector3* controls, index_type count, bool cycl
     index_hi = cyclic ? count : (count - 1);
 }
 
-void SplineBase::InitCatmullRom(const Vector3* controls, index_type count, bool cyclic, index_type cyclic_point)
+void SplineBase::InitCatmullRom(const G3D::Vector3* controls, index_type count, bool cyclic, index_type cyclic_point)
 {
     const int real_size = count + (cyclic ? (1+2) : (1+1));
 
@@ -245,7 +217,7 @@ void SplineBase::InitCatmullRom(const Vector3* controls, index_type count, bool 
     int lo_index = 1;
     int high_index = lo_index + count - 1;
 
-    memcpy(&points[lo_index], controls, sizeof(Vector3) * count);
+    memcpy(&points[lo_index],controls, sizeof(G3D::Vector3) * count);
 
     // first and last two indexes are space for special 'virtual points'
     // these points are required for proper C_Evaluate and C_Evaluate_Derivative methtod work
@@ -269,17 +241,31 @@ void SplineBase::InitCatmullRom(const Vector3* controls, index_type count, bool 
     index_hi = high_index + (cyclic ? 1 : 0);
 }
 
-void SplineBase::InitBezier3(const Vector3* controls, index_type count, bool /*cyclic*/, index_type /*cyclic_point*/)
+void SplineBase::InitBezier3(const G3D::Vector3* controls, index_type count, bool /*cyclic*/, index_type /*cyclic_point*/)
 {
     index_type c = count / 3u * 3u;
     index_type t = c / 3u;
 
     points.resize(c);
-    memcpy(&points[0], controls, sizeof(Vector3) * c);
+    memcpy(&points[0],controls, sizeof(G3D::Vector3) * c);
 
     index_lo = 0;
     index_hi = t-1;
     //mov_assert(points.size() % 3 == 0);
+}
+
+SplineBase::SplineBase(): index_lo(0), index_hi(0), m_mode(UninitializedMode), cyclic(false)
+{
+}
+
+void SplineBase::evaluate_percent(index_type Idx, float u, G3D::Vector3& c) const
+{
+    (this ->* evaluators[m_mode])(Idx, u, c);
+}
+
+void SplineBase::evaluate_derivative(index_type Idx, float u, G3D::Vector3& hermite) const
+{
+    (this ->* derivative_evaluators[m_mode])(Idx, u, hermite);
 }
 
 void SplineBase::clear()
@@ -301,6 +287,4 @@ std::string SplineBase::ToString() const
         str << "point " << i << " : " << points[i].toString() << std::endl;
 
     return str.str();
-}
-
 }

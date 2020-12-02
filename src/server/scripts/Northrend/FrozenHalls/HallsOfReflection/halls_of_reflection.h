@@ -1,12 +1,9 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -98,16 +95,16 @@ enum GameObjects
     GO_ORGRIM_HAMMER                              = 201599,
     GO_PORTAL                                     = 202079,
 
-    GO_CAPTAIN_CHEST_1                            = 202212, //3145
-    GO_CAPTAIN_CHEST_2                            = 201710, //30357
-    GO_CAPTAIN_CHEST_3                            = 202337, //3246
-    GO_CAPTAIN_CHEST_4                            = 202336, //3333
+    GO_CAPTAIN_CHEST_ALLIANCE                     = 201710,
+    GO_CAPTAIN_CHEST_HORDE                        = 202212,
+    //GO_CAPTAIN_CHEST                            = 202336,
+    //GO_CAPTAIN_CHEST                            = 202337,
 };
 
-enum HorWorldStates
+enum Achievements
 {
-    WORLD_STATE_HOR_WAVES_ENABLED                 = 4884,
-    WORLD_STATE_HOR_WAVE_COUNT                    = 4882,
+    ACHIEV_NOT_RETREATING_EVENT                 = 22615,
+    SPELL_ACHIEV_CHECK                          = 72830
 };
 
 // Common actions from Instance Script to Boss Script
@@ -146,7 +143,7 @@ struct boss_horAI : ScriptedAI
     EventMap events;
     SummonList summons;
 
-    void Reset()
+    void Reset() override
     {
         events.Reset();
         me->SetVisible(false);
@@ -156,7 +153,7 @@ struct boss_horAI : ScriptedAI
             instance->ProcessEvent(0, EVENT_DO_WIPE);
     }
 
-    void DoAction(int32 actionID)
+    void DoAction(int32 const actionID) override
     {
         switch (actionID)
         {
@@ -172,16 +169,10 @@ struct boss_horAI : ScriptedAI
         }
     }
 
-    void JustSummoned(Creature* summoned)
+    void JustSummoned(Creature* summoned) override
     {
         summons.Summon(summoned);
     }
 };
-
-template<class AI>
-AI* GetHallsOfReflectionAI(Creature* creature)
-{
-    return GetInstanceAI<AI>(creature, HoRScriptName);
-}
 
 #endif

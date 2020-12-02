@@ -1,12 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -31,40 +29,61 @@ EndScriptData */
 
 enum Says
 {
-    SAY_INTRO                   = 0,
-    SAY_AGGRO                   = 1,
-    SAY_SLAY                    = 2,
-    SAY_DEATH                   = 3,
-    EMOTE_ARCANE_EXP            = 4
+    SAY_INTRO = 0,
+    SAY_AGGRO_1,
+    SAY_AGGRO_2,
+    SAY_AGGRO_3,
+    SAY_SLAY_1,
+    SAY_SLAY_2,
+    SAY_DEATH,
+    EMOTE_ARCANE_EXP
 };
 
-enum Spells
-{
-    SPELL_BLINK                 = 38194,
-    SPELL_BLINK_TELEPORT        = 38203,
-    SPELL_MANA_SHIELD           = 38151,
-    SPELL_ARCANE_BUBBLE         = 9438,
-    H_SPELL_SLOW                = 35032,
-    SPELL_POLYMORPH             = 38245,
-    H_SPELL_POLYMORPH           = 43309,
-    SPELL_ARCANE_VOLLEY         = 35059,
-    H_SPELL_ARCANE_VOLLEY       = 40424,
-    SPELL_ARCANE_EXPLOSION      = 38197,
-    H_SPELL_ARCANE_EXPLOSION    = 40425
-};
+#define SPELL_BLINK                 38194
+#define SPELL_BLINK_TELEPORT        38203
+#define SPELL_MANA_SHIELD           38151
+#define SPELL_ARCANE_BUBBLE         9438
+#define H_SPELL_SLOW                35032
+
+#define SPELL_POLYMORPH             38245
+#define H_SPELL_POLYMORPH           43309
+
+#define SPELL_ARCANE_VOLLEY         35059
+#define H_SPELL_ARCANE_VOLLEY       40424
+
+#define SPELL_ARCANE_EXPLOSION      38197
+#define H_SPELL_ARCANE_EXPLOSION    40425
 
 class boss_talon_king_ikiss : public CreatureScript
 {
 public:
-    boss_talon_king_ikiss() : CreatureScript("boss_talon_king_ikiss") { }
+    boss_talon_king_ikiss() : CreatureScript("boss_talon_king_ikiss") {}
 
-    struct boss_talon_king_ikissAI : public BossAI
+    CreatureAI* GetAI(Creature* creature) const
     {
-        boss_talon_king_ikissAI(Creature* creature) : BossAI(creature, DATA_TALON_KING_IKISS) { }
+        return new boss_talon_king_ikissAI (creature);
+    }
 
-        void Reset() OVERRIDE
+    struct boss_talon_king_ikissAI : public ScriptedAI
+    {
+        boss_talon_king_ikissAI(Creature* creature) : ScriptedAI(creature)
         {
-            _Reset();
+            instance = creature->GetInstanceScript();
+        }
+
+        InstanceScript* instance;
+
+        uint32 ArcaneVolley_Timer;
+        uint32 Sheep_Timer;
+        uint32 Blink_Timer;
+        uint32 Slow_Timer;
+
+        bool ManaShield;
+        bool Blink;
+        bool Intro;
+
+        void Reset() override
+        {
             ArcaneVolley_Timer = 5000;
             Sheep_Timer = 8000;
             Blink_Timer = 35000;
@@ -74,9 +93,9 @@ public:
             ManaShield = false;
         }
 
-        void MoveInLineOfSight(Unit* who) OVERRIDE
+        void MoveInLineOfSight(Unit* who) override
         {
-            if (!me->GetVictim() && me->CanCreatureAttack(who))
+            if (!me->getVictim() && me->canCreatureAttack(who))
             {
                 if (!Intro && me->IsWithinDistInMap(who, 100))
                 {
@@ -88,6 +107,7 @@ public:
                     return;
 
                 float attackRadius = me->GetAttackDistance(who);
+
                 if (me->IsWithinDistInMap(who, attackRadius) && me->IsWithinLOSInMap(who))
                 {
                     //who->RemoveSpellsCausingAura(SPELL_AURA_MOD_STEALTH);
@@ -96,41 +116,43 @@ public:
             }
         }
 
-        void EnterCombat(Unit* /*who*/) OVERRIDE
+        void EnterCombat(Unit* /*who*/) override
         {
-            _EnterCombat();
-            Talk(SAY_AGGRO);
+            Talk(RAND(SAY_AGGRO_1, SAY_AGGRO_2, SAY_AGGRO_3));
         }
 
-        void JustDied(Unit* /*killer*/) OVERRIDE
+        void JustDied(Unit* /*killer*/) override
         {
-            _JustDied();
             Talk(SAY_DEATH);
+
+            if (instance)
+                instance->SetData(DATA_IKISSDOOREVENT, DONE);
         }
 
-        void KilledUnit(Unit* who) OVERRIDE
+        void KilledUnit(Unit* /*victim*/) override
         {
-            if (who->GetTypeId() == TypeID::TYPEID_PLAYER)
-                Talk(SAY_SLAY);
+            Talk(RAND(SAY_SLAY_1, SAY_SLAY_2));
         }
 
-        void UpdateAI(uint32 diff) OVERRIDE
+        void UpdateAI(uint32 diff) override
         {
             if (!UpdateVictim())
                 return;
 
             if (Blink)
             {
-                DoCast(me, SPELL_ARCANE_EXPLOSION);
+                DoCast(SPELL_ARCANE_EXPLOSION);
                 DoCast(me, SPELL_ARCANE_BUBBLE, true);
                 Blink = false;
             }
 
             if (ArcaneVolley_Timer <= diff)
             {
-                DoCast(me, SPELL_ARCANE_VOLLEY);
+                DoCast(SPELL_ARCANE_VOLLEY);
                 ArcaneVolley_Timer = 7000+rand()%5000;
-            } else ArcaneVolley_Timer -= diff;
+            }
+            else
+                ArcaneVolley_Timer -= diff;
 
             if (Sheep_Timer <= diff)
             {
@@ -143,14 +165,17 @@ public:
                     target = SelectTarget(SELECT_TARGET_TOPAGGRO, 1);
 
                 if (target)
-                    DoCast(target, SPELL_POLYMORPH);
+                    DoCast(target, SPELL_POLYMORPH, false);
+
                 Sheep_Timer = 15000+rand()%2500;
-            } else Sheep_Timer -= diff;
+            }
+            else
+                Sheep_Timer -= diff;
 
             //may not be correct time to cast
             if (!ManaShield && HealthBelowPct(20))
             {
-                DoCast(me, SPELL_MANA_SHIELD);
+                DoCast(SPELL_MANA_SHIELD);
                 ManaShield = true;
             }
 
@@ -158,9 +183,11 @@ public:
             {
                 if (Slow_Timer <= diff)
                 {
-                    DoCast(me, H_SPELL_SLOW);
+                    DoCast(H_SPELL_SLOW);
                     Slow_Timer = 15000+rand()%25000;
-                } else Slow_Timer -= diff;
+                }
+                else
+                    Slow_Timer -= diff;
             }
 
             if (Blink_Timer <= diff)
@@ -169,11 +196,11 @@ public:
 
                 if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
                 {
-                    if (me->IsNonMeleeSpellCasted(false))
+                    if (me->IsNonMeleeSpellCast(false))
                         me->InterruptNonMeleeSpells(false);
 
                     //Spell doesn't work, but we use for visual effect at least
-                    DoCast(target, SPELL_BLINK);
+                    DoCast(target, SPELL_BLINK, false);
 
                     float X = target->GetPositionX();
                     float Y = target->GetPositionY();
@@ -181,31 +208,18 @@ public:
 
                     DoTeleportTo(X, Y, Z);
 
-                    DoCast(target, SPELL_BLINK_TELEPORT);
+                    DoCast(target, SPELL_BLINK_TELEPORT, false);
                     Blink = true;
                 }
                 Blink_Timer = 35000+rand()%5000;
-            } else Blink_Timer -= diff;
+            }
+            else
+                Blink_Timer -= diff;
 
             if (!Blink)
                 DoMeleeAttackIfReady();
         }
-
-        private:
-            uint32 ArcaneVolley_Timer;
-            uint32 Sheep_Timer;
-            uint32 Blink_Timer;
-            uint32 Slow_Timer;
-
-            bool ManaShield;
-            bool Blink;
-            bool Intro;
     };
-
-    CreatureAI* GetAI(Creature* creature) const OVERRIDE
-    {
-        return GetSethekkHallsAI<boss_talon_king_ikissAI>(creature);
-    }
 };
 
 void AddSC_boss_talon_king_ikiss()

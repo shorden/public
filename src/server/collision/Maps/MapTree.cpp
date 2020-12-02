@@ -85,14 +85,14 @@ namespace VMAP
             bool result;
     };
 
-    //=========================================================
+    /=========================================================
 
     std::string StaticMapTree::getTileFileName(uint32 mapID, uint32 tileX, uint32 tileY)
     {
         std::stringstream tilefilename;
         tilefilename.fill('0');
         tilefilename << std::setw(4) << mapID << '_';
-        //tilefilename << std::setw(2) << tileX << '_' << std::setw(2) << tileY << ".vmtile";
+        /tilefilename << std::setw(2) << tileX << '_' << std::setw(2) << tileY << ".vmtile";
         tilefilename << std::setw(2) << tileY << '_' << std::setw(2) << tileX << ".vmtile";
         return tilefilename.str();
     }
@@ -138,10 +138,10 @@ namespace VMAP
     }
 
     //=========================================================
-    /**
+    /
     If intersection is found within pMaxDist, sets pMaxDist to intersection distance and returns true.
     Else, pMaxDist is not modified and returns false;
-    */
+    /
 
     bool StaticMapTree::getIntersectionTime(const G3D::Ray& pRay, float &pMaxDist, bool pStopAtFirstHit) const
     {
@@ -175,16 +175,16 @@ namespace VMAP
         return true;
     }
     //=========================================================
-    /**
+    /
     When moving from pos1 to pos2 check if we hit an object. Return true and the position if we hit one
     Return the hit pos or the original dest pos
-    */
+    /
 
     bool StaticMapTree::getObjectHitPos(const Vector3& pPos1, const Vector3& pPos2, Vector3& pResultHitPos, float pModifyDist) const
     {
         bool result=false;
         float maxDist = (pPos2 - pPos1).magnitude();
-        // valid map coords should *never ever* produce float overflow, but this would produce NaNs too
+        / valid map coords should *never ever* produce float overflow, but this would produce NaNs too
         ASSERT(maxDist < std::numeric_limits<float>::max());
         // prevent NaN values which can cause BIH intersection to enter infinite loop
         if (maxDist < 1e-10f)
@@ -299,7 +299,7 @@ namespace VMAP
 
         iIsTiled = bool(tiled);
 
-        // global model spawns
+        / global model spawns
         // only non-tiled maps have them, and if so exactly one (so far at least...)
         ModelSpawn spawn;
 #ifdef VMAP_DEBUG
@@ -371,17 +371,17 @@ namespace VMAP
                 result = false;
             for (uint32 i=0; i<numSpawns && result; ++i)
             {
-                // read model spawns
+                / read model spawns
                 ModelSpawn spawn;
                 result = ModelSpawn::readFromFile(tf, spawn);
                 if (result)
                 {
-                    // acquire model instance
+                    / acquire model instance
                     WorldModel* model = vm->acquireModelInstance(iBasePath, spawn.name);
                     if (!model)
                         VMAP_ERROR_LOG("misc", "StaticMapTree::LoadMapTile() : could not acquire WorldModel pointer [%u, %u]", tileX, tileY);
 
-                    // update tree
+                    / update tree
                     uint32 referencedVal;
 
                     if (fread(&referencedVal, sizeof(uint32), 1, tf) == 1)
@@ -432,7 +432,7 @@ namespace VMAP
             VMAP_ERROR_LOG("misc", "StaticMapTree::UnloadMapTile() : trying to unload non-loaded tile - Map:%u X:%u Y:%u", iMapID, tileX, tileY);
             return;
         }
-        if (tile->second) // file associated with tile
+        if (tile->second) / file associated with tile
         {
             std::string tilefile = iBasePath + getTileFileName(iMapID, tileX, tileY);
             FILE* tf = fopen(tilefile.c_str(), "rb");
@@ -447,15 +447,15 @@ namespace VMAP
                     result = false;
                 for (uint32 i=0; i<numSpawns && result; ++i)
                 {
-                    // read model spawns
+                    / read model spawns
                     ModelSpawn spawn;
                     result = ModelSpawn::readFromFile(tf, spawn);
                     if (result)
                     {
-                        // release model instance
+                        / release model instance
                         vm->releaseModelInstance(spawn.name);
 
-                        // update tree
+                        / update tree
                         uint32 referencedNode;
 
                         if (fread(&referencedNode, sizeof(uint32), 1, tf) != 1)

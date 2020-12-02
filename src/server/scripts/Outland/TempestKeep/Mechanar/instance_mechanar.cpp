@@ -1,12 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -27,7 +25,7 @@ static DoorData const doorData[] =
     { GO_DOOR_MOARG_1,          DATA_GATEWATCHER_IRON_HAND,     DOOR_TYPE_PASSAGE,  BOUNDARY_NONE },
     { GO_DOOR_MOARG_2,          DATA_GATEWATCHER_GYROKILL,      DOOR_TYPE_PASSAGE,  BOUNDARY_NONE },
     { GO_DOOR_NETHERMANCER,     DATA_NETHERMANCER_SEPRETHREA,   DOOR_TYPE_ROOM,     BOUNDARY_NONE },
-    {0,                         0,                              DOOR_TYPE_ROOM,     BOUNDARY_NONE }
+    { 0,                        0,                              DOOR_TYPE_ROOM,     BOUNDARY_NONE }
 };
 
 class instance_mechanar : public InstanceMapScript
@@ -37,14 +35,15 @@ class instance_mechanar : public InstanceMapScript
 
         struct instance_mechanar_InstanceMapScript : public InstanceScript
         {
+            ObjectGuid chahcelegionGUID;
+            
             instance_mechanar_InstanceMapScript(Map* map) : InstanceScript(map)
             {
                 SetBossNumber(EncounterCount);
                 LoadDoorData(doorData);
             }
-
-
-            void OnGameObjectCreate(GameObject* gameObject) OVERRIDE
+            
+            void OnGameObjectCreate(GameObject* gameObject)
             {
                 switch (gameObject->GetEntry())
                 {
@@ -53,12 +52,24 @@ class instance_mechanar : public InstanceMapScript
                     case GO_DOOR_NETHERMANCER:
                         AddDoor(gameObject, true);
                         break;
+                    case GO_CHACHE_LEGION:
+                        chahcelegionGUID = gameObject->GetGUID();
+                        break;
                     default:
                         break;
                 }
             }
-
-            void OnGameObjectRemove(GameObject* gameObject) OVERRIDE
+            ObjectGuid GetGuidData(uint32 identifier) const
+            {
+                switch (identifier)
+                {
+                    case DATA_GO_CHAHCE_LEGION:
+                        return chahcelegionGUID;
+                }
+                return ObjectGuid::Empty;
+            }
+                        
+            void OnGameObjectRemove(GameObject* gameObject)
             {
                 switch (gameObject->GetEntry())
                 {
@@ -72,7 +83,7 @@ class instance_mechanar : public InstanceMapScript
                 }
             }
 
-            bool SetBossState(uint32 type, EncounterState state) OVERRIDE
+            bool SetBossState(uint32 type, EncounterState state)
             {
                 if (!InstanceScript::SetBossState(type, state))
                     return false;
@@ -92,7 +103,7 @@ class instance_mechanar : public InstanceMapScript
                 return true;
             }
 
-            std::string GetSaveData() OVERRIDE
+            std::string GetSaveData()
             {
                 OUT_SAVE_INST_DATA;
 
@@ -103,7 +114,7 @@ class instance_mechanar : public InstanceMapScript
                 return saveStream.str();
             }
 
-            void Load(const char* str) OVERRIDE
+            void Load(const char* str)
             {
                 if (!str)
                 {
@@ -136,7 +147,7 @@ class instance_mechanar : public InstanceMapScript
             }
         };
 
-        InstanceScript* GetInstanceScript(InstanceMap* map) const OVERRIDE
+        InstanceScript* GetInstanceScript(InstanceMap* map) const
         {
             return new instance_mechanar_InstanceMapScript(map);
         }

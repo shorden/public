@@ -22,13 +22,13 @@
 
 #include "IVMapManager.h"
 
-/**
+/
 This is the access point to the VMapManager.
-*/
+/
 
 namespace VMAP
 {
-    //===========================================================
+    /===========================================================
 
     class VMapFactory
     {

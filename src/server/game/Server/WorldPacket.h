@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -17,49 +16,63 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SKYFIRESERVER_WORLDPACKET_H
-#define SKYFIRESERVER_WORLDPACKET_H
+#ifndef TRINITYCORE_WORLDPACKET_H
+#define TRINITYCORE_WORLDPACKET_H
 
 #include "Common.h"
 #include "Opcodes.h"
 #include "ByteBuffer.h"
 
-struct z_stream_s;
-
 class WorldPacket : public ByteBuffer
 {
     public:
-                                                            // just container for later use
-        WorldPacket() : ByteBuffer(0), m_opcode(UNKNOWN_OPCODE), m_rcvdOpcodeNumber(0), _compressionStream(NULL)
+        WorldPacket() : ByteBuffer(0), m_opcode(MAX_OPCODE), _connection(CONNECTION_TYPE_DEFAULT) { }
+        WorldPacket(uint16 opcode, size_t res = 200, ConnectionType connection = CONNECTION_TYPE_DEFAULT) : ByteBuffer(res), m_opcode(opcode), _connection(connection) { }
+        WorldPacket(WorldPacket&& packet) noexcept : ByteBuffer(std::move(packet)), m_opcode(packet.m_opcode), _connection(packet._connection) { }
+        WorldPacket(WorldPacket const& right) : ByteBuffer(right), m_opcode(right.m_opcode), _connection(right._connection) { }
+
+        WorldPacket& operator=(WorldPacket const& right)
         {
+            if (this != &right)
+            {
+                m_opcode = right.m_opcode;
+                _connection = right._connection;
+                ByteBuffer::operator =(right);
+            }
+
+            return *this;
         }
 
-        WorldPacket(Opcodes opcode, size_t res = 200) : ByteBuffer(res), m_opcode(opcode), m_rcvdOpcodeNumber(0), _compressionStream(NULL)
+        WorldPacket& operator=(WorldPacket&& right) noexcept
         {
-        }
-                                                            // copy constructor
-        WorldPacket(WorldPacket const& packet) : ByteBuffer(packet), m_opcode(packet.m_opcode), m_rcvdOpcodeNumber(0), _compressionStream(NULL)
-        {
+            if (this != &right)
+            {
+                m_opcode = right.m_opcode;
+                _connection = right._connection;
+                ByteBuffer::operator=(std::move(right));
+            }
+
+            return *this;
         }
 
-        void Initialize(Opcodes opcode, size_t newres = 200)
+        WorldPacket(uint16 opcode, MessageBuffer&& buffer, ConnectionType connection = CONNECTION_TYPE_DEFAULT) : ByteBuffer(std::move(buffer)), m_opcode(opcode), _connection(connection) { }
+
+        void Initialize(uint16 opcode, size_t newres = 200, ConnectionType connection = CONNECTION_TYPE_DEFAULT)
         {
             clear();
             _storage.reserve(newres);
             m_opcode = opcode;
+            _connection = connection;
         }
 
-        Opcodes GetOpcode() const { return m_opcode; }
-        void SetOpcode(Opcodes opcode) { m_opcode = opcode; }
-        void Compress(z_stream_s* compressionStream);
-        void Compress(z_stream_s* compressionStream, WorldPacket const* source);
-        void SetReceivedOpcode(uint16 opcode) { m_rcvdOpcodeNumber = opcode; }
-        uint16 GetReceivedOpcode() { return m_rcvdOpcodeNumber; }
+        uint16 GetOpcode() const { return m_opcode; }
+        void SetOpcode(uint16 opcode) { m_opcode = opcode; }
+
+        ConnectionType GetConnection() const { return _connection; }
 
     protected:
-        Opcodes m_opcode;
-        uint16 m_rcvdOpcodeNumber;
-        void Compress(void* dst, uint32 *dst_size, const void* src, int src_size);
-        z_stream_s* _compressionStream;
+        uint16 m_opcode;
+        ConnectionType _connection;
 };
+
 #endif

@@ -1,12 +1,9 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -19,7 +16,7 @@
  */
 
 #include "ScriptMgr.h"
-#include "ScriptedCreature.h"
+#include "Packets/WorldStatePackets.h"
 #include "InstanceScript.h"
 #include "Player.h"
 #include "WorldPacket.h"
@@ -76,47 +73,44 @@ public:
 
     struct instance_halls_of_reflection_InstanceMapScript : public InstanceScript
     {
-        instance_halls_of_reflection_InstanceMapScript(Map* map) : InstanceScript(map) { }
+        instance_halls_of_reflection_InstanceMapScript(Map* map) : InstanceScript(map) {}
 
-        void Initialize() OVERRIDE
+        void Initialize() override
         {
             SetBossNumber(MAX_ENCOUNTER);
             events.Reset();
-
-            _falricGUID = 0;
-            _marwynGUID = 0;
-            _jainaOrSylvanasPart1GUID = 0;
-            _jainaOrSylvanasPart2GUID = 0;
-            _lichkingPart1GUID = 0;
-            _frostwornGeneralGUID = 0;
-
-            _frostmourneGUID = 0;
-            _entranceDoorGUID = 0;
-            _frostwornDoorGUID = 0;
-            _arthasDoorGUID = 0;
-            _escapeDoorGUID = 0;
-            _caveGUID = 0;
-
+            _falricGUID.Clear();
+            _marwynGUID.Clear();
+            _jainaOrSylvanasPart1GUID.Clear();
+            _jainaOrSylvanasPart2GUID.Clear();
+            _frostwornGeneralGUID.Clear();
+            _frostmourneGUID.Clear();
+            _entranceDoorGUID.Clear();
+            _frostwornDoorGUID.Clear();
+            _arthasDoorGUID.Clear();
             _teamInInstance = 0;
             _waveCount = 0;
+            _mobsaticewall = 0;
             _introEvent = NOT_STARTED;
             _frostwornGeneral = NOT_STARTED;
             _escapeevent = NOT_STARTED;
-            _mobsaticewall = 0;
         }
 
-        void OnPlayerEnter(Player* player) OVERRIDE
+        void OnPlayerEnter(Player* player) override
         {
             if (!_teamInInstance)
                 _teamInInstance = player->GetTeam();
         }
 
-        void OnCreatureCreate(Creature* creature) OVERRIDE
+        void OnCreatureCreate(Creature* creature) override
         {
-            Map::PlayerList const& players = instance->GetPlayers();
-            if (!players.isEmpty())
-                if (Player* player = players.begin()->GetSource())
-                    _teamInInstance = player->GetTeam();
+            if (!_teamInInstance)
+            {
+                Map::PlayerList const& players = instance->GetPlayers();
+                if (!players.isEmpty())
+                    if (Player* player = players.begin()->getSource())
+                        _teamInInstance = player->GetTeam();
+            }
 
             switch (creature->GetEntry())
             {
@@ -143,7 +137,7 @@ public:
             }
         }
 
-        void OnCreatureRemove(Creature* creature) OVERRIDE
+        void OnCreatureRemove(Creature* creature) override
         {
             switch (creature->GetEntry())
             {
@@ -160,37 +154,37 @@ public:
             }
         }
 
-        void OnGameObjectCreate(GameObject* go) OVERRIDE
+        void OnGameObjectCreate(GameObject* go) override
         {
             switch (go->GetEntry())
             {
                 case GO_FROSTMOURNE:
                     _frostmourneGUID = go->GetGUID();
                     go->SetFlag(GAMEOBJECT_FIELD_FLAGS, GO_FLAG_INTERACT_COND);
-                    HandleGameObject(0, false, go);
+                    HandleGameObject(ObjectGuid::Empty, false, go);
                     if (GetData(DATA_INTRO_EVENT) == DONE)
                         go->SetPhaseMask(2, true);
                     break;
                 case GO_ENTRANCE_DOOR:
                     _entranceDoorGUID = go->GetGUID();
                     go->SetFlag(GAMEOBJECT_FIELD_FLAGS, GO_FLAG_INTERACT_COND);
-                    HandleGameObject(0, true, go);
+                    HandleGameObject(ObjectGuid::Empty, true, go);
                     break;
                 case GO_FROSTWORN_DOOR:
                     _frostwornDoorGUID = go->GetGUID();
                     go->SetFlag(GAMEOBJECT_FIELD_FLAGS, GO_FLAG_INTERACT_COND);
                     if (GetBossState(DATA_MARWYN_EVENT) == DONE)
-                        HandleGameObject(0, true, go);
+                        HandleGameObject(ObjectGuid::Empty, true, go);
                     else
-                        HandleGameObject(0, false, go);
+                        HandleGameObject(ObjectGuid::Empty, false, go);
                     break;
                 case GO_ARTHAS_DOOR:
                     _arthasDoorGUID = go->GetGUID();
                     go->SetFlag(GAMEOBJECT_FIELD_FLAGS, GO_FLAG_INTERACT_COND);
-                    if (GetBossState(DATA_FROSWORN_EVENT) == DONE)
-                        HandleGameObject(0, true, go);
+                    if (GetData(DATA_FROSWORN_EVENT) == DONE)
+                        HandleGameObject(ObjectGuid::Empty, true, go);
                     else
-                        HandleGameObject(0, false, go);
+                        HandleGameObject(ObjectGuid::Empty, false, go);
                     break;
                 case GO_CAVE:
                     _caveGUID = go->GetGUID();
@@ -199,13 +193,13 @@ public:
             }
         }
 
-        void FillInitialWorldStates(WorldStateBuilder& builder) OVERRIDE
+        void FillInitialWorldStates(WorldPackets::WorldState::InitWorldStates& packet) override
         {
-            builder.AppendState(WORLD_STATE_HOR_WAVES_ENABLED, 0);
-            builder.AppendState(WORLD_STATE_HOR_WAVE_COUNT, 0);
+            packet.Worldstates.emplace_back(WorldStates::WORLD_STATE_HOR_WAVES_ENABLED, 0);
+            packet.Worldstates.emplace_back(WorldStates::WORLD_STATE_HOR_WAVE_COUNT, 0);
         }
 
-        bool SetBossState(uint32 type, EncounterState state) OVERRIDE
+        bool SetBossState(uint32 type, EncounterState state) override
         {
             if (!InstanceScript::SetBossState(type, state))
                 return false;
@@ -224,7 +218,7 @@ public:
                     {
                         HandleGameObject(_entranceDoorGUID, true);
                         HandleGameObject(_frostwornDoorGUID, true);
-                        DoUpdateWorldState(WORLD_STATE_HOR_WAVES_ENABLED, 0);
+                        DoUpdateWorldState(WorldStates::WORLD_STATE_HOR_WAVES_ENABLED, 0);
                         if (Creature* general = instance->GetCreature(_frostwornGeneralGUID))
                             general->SetPhaseMask(1, true);
                     }
@@ -237,8 +231,17 @@ public:
             return true;
         }
 
-        void SetData(uint32 type, uint32 data) OVERRIDE
+        void SetData(uint32 type, uint32 data) override
         {
+            if (!_teamInInstance)
+            {
+                Map::PlayerList const& players = instance->GetPlayers();
+                if (!players.isEmpty())
+                    if (Player* player = players.begin()->getSource())
+                        _teamInInstance = player->GetTeam();
+            }
+            if (!_teamInInstance)
+                throw;
             switch (type)
             {
                 case DATA_INTRO_EVENT:
@@ -262,30 +265,34 @@ public:
                     if (data == DONE)
                     {
                         HandleGameObject(_arthasDoorGUID, true);
-                        if (_teamInInstance == ALLIANCE)
-                            instance->SummonCreature(NPC_JAINA_PART2, JainaSpawnPos2);
-                        else
-                            instance->SummonCreature(NPC_SYLVANAS_PART2, SylvanasSpawnPos2);
+                        if (!_jainaOrSylvanasPart2GUID)
+                            if (_teamInInstance == ALLIANCE)
+                                instance->SummonCreature(NPC_JAINA_PART2, JainaSpawnPos2);
+                            else
+                                instance->SummonCreature(NPC_SYLVANAS_PART2, SylvanasSpawnPos2);
                     }
                     _frostwornGeneral = data;
                     break;
                 case DATA_ESCAPE_EVENT:
-                    if (data == IN_PROGRESS)
+                    if (data == NOT_STARTED)
                     {
+                        if (!_jainaOrSylvanasPart2GUID)
+                            if (_teamInInstance == ALLIANCE)
+                                instance->SummonCreature(NPC_JAINA_PART2, JainaSpawnPos2);
+                            else
+                                instance->SummonCreature(NPC_SYLVANAS_PART2, SylvanasSpawnPos2);
+                        //SetData(DATA_ESCAPE_EVENT, IN_PROGRESS);
+                    }
+                    else if (data == IN_PROGRESS)
+                    {
+                        if (!_jainaOrSylvanasPart2GUID)
+                            SetData(DATA_ESCAPE_EVENT, NOT_STARTED);
                         if (!_escapeevent)
                             if (Creature* jaina_or_sylvanas = instance->GetCreature(_jainaOrSylvanasPart2GUID))
                                 jaina_or_sylvanas->AI()->DoAction(ACTION_START_ESCAPING);
                     }
-                    else if (data == NOT_STARTED)
-                    {
-                        if (Creature* jaina_or_sylvanas = instance->GetCreature(_jainaOrSylvanasPart2GUID))
-                            jaina_or_sylvanas->DespawnOrUnsummon(1);
-                        if (_teamInInstance == ALLIANCE)
-                            instance->SummonCreature(NPC_JAINA_PART2, JainaSpawnPos2);
-                        else
-                            instance->SummonCreature(NPC_SYLVANAS_PART2, SylvanasSpawnPos2);
-                        SetData(DATA_ESCAPE_EVENT,IN_PROGRESS);
-                    }
+                    if (data == FAIL)
+                        DoStopTimedAchievement(CRITERIA_TIMED_TYPE_EVENT2, ACHIEV_NOT_RETREATING_EVENT);
                      _escapeevent = data;
                     break;
                 case DATA_SUMMONS:
@@ -308,7 +315,7 @@ public:
 
 
         // wave scheduling,checked when wave npcs die
-        void OnUnitDeath(Unit* unit) OVERRIDE
+        void OnUnitDeath(Unit* unit) override
         {
             Creature* creature = unit->ToCreature();
             if (!creature)
@@ -324,10 +331,10 @@ public:
                 {
                     uint32 deadNpcs = 0;
                     uint32 waveId = creature->AI()->GetData(0);
-                    for (std::set<uint64>::const_iterator itr = waveGuidList[waveId].begin(); itr != waveGuidList[waveId].end(); ++itr)
+                    for (GuidSet::const_iterator itr = waveGuidList[waveId].begin(); itr != waveGuidList[waveId].end(); ++itr)
                     {
                         Creature* npc = instance->GetCreature(*itr);
-                        if (!npc || !npc->IsAlive())
+                        if (!npc || !npc->isAlive())
                             ++deadNpcs;
                     }
                     // because the current npc returns IsAlive when OnUnitDeath happens
@@ -342,7 +349,7 @@ public:
             }
         }
 
-        void Update(uint32 diff) OVERRIDE
+        void Update(uint32 diff) override
         {
             if (!instance->HavePlayers())
                 return;
@@ -357,15 +364,15 @@ public:
             }
         }
 
-        void ProcessEvent(WorldObject* /*go*/, uint32 eventId) OVERRIDE
+        void ProcessEvent(WorldObject* /*go*/, uint32 eventId) override
         {
             switch (eventId)
             {
                 // spawning all wave npcs at once
                 case EVENT_SPAWN_WAVES:
                     _waveCount = 1;
-                    DoUpdateWorldState(WORLD_STATE_HOR_WAVES_ENABLED, 1);
-                    DoUpdateWorldState(WORLD_STATE_HOR_WAVE_COUNT, _waveCount);
+                    DoUpdateWorldState(WorldStates::WORLD_STATE_HOR_WAVES_ENABLED, 1);
+                    DoUpdateWorldState(WorldStates::WORLD_STATE_HOR_WAVE_COUNT, _waveCount);
                     {
                         std::list<uint32> possibilityList, tempList;
                         uint32 posIndex = 0;
@@ -381,18 +388,18 @@ public:
                         {
                             tempList = possibilityList;
 
-                            uint64 bossGuid = i <= 3 ? _falricGUID : _marwynGUID;
+                            ObjectGuid bossGuid = i <= 3 ? _falricGUID : _marwynGUID;
 
                             if (!i)
-                                Skyfire::Containers::RandomResizeList(tempList, 3);
+                                Trinity::Containers::RandomResizeList(tempList, 3);
                             else if (i < 6 && i != 3)
-                                Skyfire::Containers::RandomResizeList(tempList, 4);
+                                Trinity::Containers::RandomResizeList(tempList, 4);
 
                             for (std::list<uint32>::const_iterator itr = tempList.begin(); itr != tempList.end(); ++itr)
                             {
                                 if (Creature* boss = instance->GetCreature(bossGuid))
                                 {
-                                    if (Creature* temp = boss->SummonCreature(*itr, SpawnPos[posIndex], TempSummonType::TEMPSUMMON_DEAD_DESPAWN))
+                                    if (Creature* temp = boss->SummonCreature(*itr, SpawnPos[posIndex], TEMPSUMMON_DEAD_DESPAWN))
                                     {
                                         temp->AI()->SetData(0, i);
                                         waveGuidList[i].insert(temp->GetGUID());
@@ -406,14 +413,14 @@ public:
                     events.ScheduleEvent(EVENT_NEXT_WAVE, 5000);
                     break;
                 case EVENT_ADD_WAVE:
-                    DoUpdateWorldState(WORLD_STATE_HOR_WAVES_ENABLED, 1);
-                    DoUpdateWorldState(WORLD_STATE_HOR_WAVE_COUNT, _waveCount);
+                    DoUpdateWorldState(WorldStates::WORLD_STATE_HOR_WAVES_ENABLED, 1);
+                    DoUpdateWorldState(WorldStates::WORLD_STATE_HOR_WAVE_COUNT, _waveCount);
                     HandleGameObject(_entranceDoorGUID, false);
 
                     if (_waveCount % 5)
                     {
                         uint32 internalWaveId = _waveCount - ((_waveCount < 5) ? 1 : 2);
-                        for (std::set<uint64>::const_iterator itr = waveGuidList[internalWaveId].begin(); itr != waveGuidList[internalWaveId].end(); ++itr)
+                        for (GuidSet::const_iterator itr = waveGuidList[internalWaveId].begin(); itr != waveGuidList[internalWaveId].end(); ++itr)
                         {
                             if (Creature* temp = instance->GetCreature(*itr))
                             {
@@ -441,8 +448,8 @@ public:
                 case EVENT_DO_WIPE:
                     _waveCount = 0;
                     events.Reset();
-                    DoUpdateWorldState(WORLD_STATE_HOR_WAVES_ENABLED, 1);
-                    DoUpdateWorldState(WORLD_STATE_HOR_WAVE_COUNT, _waveCount);
+                    DoUpdateWorldState(WorldStates::WORLD_STATE_HOR_WAVES_ENABLED, 1);
+                    DoUpdateWorldState(WorldStates::WORLD_STATE_HOR_WAVE_COUNT, _waveCount);
                     HandleGameObject(_entranceDoorGUID, true);
 
                     if (Creature* falric = instance->GetCreature(_falricGUID))
@@ -452,7 +459,7 @@ public:
                     //despawn wave npcs
                     for (uint8 i = 0; i < 8; ++i)
                     {
-                        for (std::set<uint64>::const_iterator itr = waveGuidList[i].begin(); itr != waveGuidList[i].end(); ++itr)
+                        for (GuidSet::const_iterator itr = waveGuidList[i].begin(); itr != waveGuidList[i].end(); ++itr)
                             if (Creature* creature = instance->GetCreature(*itr))
                                 creature->DespawnOrUnsummon(1);
                         waveGuidList[i].clear();
@@ -461,13 +468,21 @@ public:
             }
         }
 
-        uint32 GetData(uint32 type) const OVERRIDE
+        uint32 GetData(uint32 type) const override
         {
             switch (type)
             {
                 case DATA_WAVE_COUNT:
                     return _waveCount;
                 case DATA_TEAM_IN_INSTANCE:
+                    //if (!_teamInInstance)
+                    //{
+                    //    Map::PlayerList const& players = instance->GetPlayers();
+                    //    if (!players.isEmpty())
+                    //        if (Player* player = players.begin()->getSource())
+                    //            static_cast<uint32>(_teamInInstance) = player->GetTeam();
+                    //}
+                    ASSERT(_teamInInstance);
                     return _teamInInstance;
                 case DATA_INTRO_EVENT:
                     return _introEvent;
@@ -484,7 +499,7 @@ public:
             return 0;
         }
 
-        uint64 GetData64(uint32 type) const OVERRIDE
+        ObjectGuid GetGuidData(uint32 type) const override
         {
             switch (type)
             {
@@ -506,21 +521,21 @@ public:
                     break;
             }
 
-            return 0;
+            return ObjectGuid::Empty;
         }
 
-        std::string GetSaveData() OVERRIDE
+        std::string GetSaveData() override
         {
             OUT_SAVE_INST_DATA;
 
             std::ostringstream saveStream;
-            saveStream << "H R " << GetBossSaveData() << _introEvent << ' ' << _frostwornGeneral << _escapeevent;
+            saveStream << "H R " << GetBossSaveData() << _introEvent << ' ' << _frostwornGeneral << ' ' << _escapeevent;
 
             OUT_SAVE_INST_DATA_COMPLETE;
             return saveStream.str();
         }
 
-        void Load(char const* in) OVERRIDE
+        void Load(char const* in) override
         {
             if (!in)
             {
@@ -549,22 +564,25 @@ public:
 
                 uint32 temp = 0;
                 loadStream >> temp;
-                if (temp == DONE)
+                _introEvent = temp == DONE ? DONE : NOT_STARTED;
+                /*if (temp == DONE)
                     SetData(DATA_INTRO_EVENT, DONE);
                 else
-                    SetData(DATA_INTRO_EVENT, NOT_STARTED);
+                    SetData(DATA_INTRO_EVENT, NOT_STARTED);*/
 
                 loadStream >> temp;
-                if (temp == DONE)
+                _frostwornGeneral = temp == DONE ? DONE : NOT_STARTED;
+                /*if (temp == DONE)
                     SetData(DATA_FROSWORN_EVENT, DONE);
                 else
-                    SetData(DATA_FROSWORN_EVENT, NOT_STARTED);
+                    SetData(DATA_FROSWORN_EVENT, NOT_STARTED);*/
 
                 loadStream >> temp;
-                if (temp == DONE)
+                _escapeevent = temp == DONE ? DONE : NOT_STARTED;
+                /*if (temp == DONE)
                     SetData(DATA_ESCAPE_EVENT, DONE);
                 else
-                    SetData(DATA_ESCAPE_EVENT, NOT_STARTED);
+                    SetData(DATA_ESCAPE_EVENT, NOT_STARTED);*/
             }
             else
                 OUT_LOAD_INST_DATA_FAIL;
@@ -573,19 +591,19 @@ public:
         }
 
     private:
-        uint64 _falricGUID;
-        uint64 _marwynGUID;
-        uint64 _jainaOrSylvanasPart1GUID;
-        uint64 _jainaOrSylvanasPart2GUID;
-        uint64 _lichkingPart1GUID;
-        uint64 _frostwornGeneralGUID;
+        ObjectGuid _falricGUID;
+        ObjectGuid _marwynGUID;
+        ObjectGuid _jainaOrSylvanasPart1GUID;
+        ObjectGuid _jainaOrSylvanasPart2GUID;
+        ObjectGuid _lichkingPart1GUID;
+        ObjectGuid _frostwornGeneralGUID;
 
-        uint64 _frostmourneGUID;
-        uint64 _entranceDoorGUID;
-        uint64 _frostwornDoorGUID;
-        uint64 _arthasDoorGUID;
-        uint64 _escapeDoorGUID;
-        uint64 _caveGUID;
+        ObjectGuid _frostmourneGUID;
+        ObjectGuid _entranceDoorGUID;
+        ObjectGuid _frostwornDoorGUID;
+        ObjectGuid _arthasDoorGUID;
+        ObjectGuid _escapeDoorGUID;
+        ObjectGuid _caveGUID;
 
         uint32 _teamInInstance;
         uint32 _waveCount;
@@ -596,10 +614,10 @@ public:
 
         EventMap events;
 
-        std::set<uint64> waveGuidList[8];
+        GuidSet waveGuidList[8];
     };
 
-    InstanceScript* GetInstanceScript(InstanceMap* map) const OVERRIDE
+    InstanceScript* GetInstanceScript(InstanceMap* map) const override
     {
         return new instance_halls_of_reflection_InstanceMapScript(map);
     }

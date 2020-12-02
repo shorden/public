@@ -1,11 +1,9 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -16,11 +14,24 @@
  * You should have received a copy of the GNU General Public License along
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef SKYFIRE_PACKETLOG_H
-#define SKYFIRE_PACKETLOG_H
+
+#ifndef TRINITY_PACKETLOG_H
+#define TRINITY_PACKETLOG_H
+
+#include <mutex>
 
 #include "Common.h"
-#include <ace/Singleton.h>
+
+namespace boost
+{
+    namespace asio
+    {
+        namespace ip
+        {
+            class address;
+        }
+    }
+}
 
 enum Direction
 {
@@ -29,23 +40,24 @@ enum Direction
 };
 
 class WorldPacket;
+enum ConnectionType;
 
 class PacketLog
 {
-    friend class ACE_Singleton<PacketLog, ACE_Thread_Mutex>;
+public:
+    static PacketLog* instance();
 
-    private:
-        PacketLog();
-        ~PacketLog();
+    void Initialize();
+    void LogPacket(WorldPacket const& packet, Direction direction, boost::asio::ip::address const& addr, uint16 port, ConnectionType connectionType);
 
-    public:
-        void Initialize();
-        bool CanLogPacket() const { return (_file != NULL); }
-        void LogPacket(WorldPacket const& packet, Direction direction);
+private:
+    PacketLog();
+    ~PacketLog();
 
-    private:
-        FILE* _file;
+    std::mutex _logPacketLock;
+    std::once_flag _initializeFlag;
+    FILE* _file;
 };
 
-#define sPacketLog ACE_Singleton<PacketLog, ACE_Thread_Mutex>::instance()
+#define sPacketLog PacketLog::instance()
 #endif

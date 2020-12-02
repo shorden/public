@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -17,8 +16,8 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SKYFIRE_GRIDNOTIFIERSIMPL_H
-#define SKYFIRE_GRIDNOTIFIERSIMPL_H
+#ifndef TRINITY_GRIDNOTIFIERSIMPL_H
+#define TRINITY_GRIDNOTIFIERSIMPL_H
 
 #include "GridNotifiers.h"
 #include "WorldPacket.h"
@@ -27,16 +26,21 @@
 #include "UpdateData.h"
 #include "CreatureAI.h"
 #include "SpellAuras.h"
-#include "Opcodes.h"
 
-template<class T>
-inline void Skyfire::VisibleNotifier::Visit(GridRefManager<T> &m)
+template <typename AnyMapType>
+void Trinity::VisibleNotifier::Visit(AnyMapType &m)
 {
-    for (typename GridRefManager<T>::iterator iter = m.begin(); iter != m.end(); ++iter)
+    for (auto &object : m)
     {
-        vis_guids.erase(iter->GetSource()->GetGUID());
-        i_player.UpdateVisibilityOf(iter->GetSource(), i_data, i_visibleNow);
+        vis_guids.erase(object->GetGUID());
+        i_player.UpdateVisibilityOf(object, i_data, i_visibleNow);
     }
+}
+
+inline void Trinity::VisibleNotifier::Visit(EventObjectMapType &m)
+{
+    for (auto &object : m)
+        vis_guids.erase(object->GetGUID());
 }
 
 // SEARCHERS & LIST SEARCHERS & WORKERS
@@ -44,7 +48,7 @@ inline void Skyfire::VisibleNotifier::Visit(GridRefManager<T> &m)
 // WorldObject searchers & workers
 
 template<class Check>
-void Skyfire::WorldObjectSearcher<Check>::Visit(GameObjectMapType &m)
+void Trinity::WorldObjectSearcher<Check>::Visit(GameObjectMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_GAMEOBJECT))
         return;
@@ -53,21 +57,18 @@ void Skyfire::WorldObjectSearcher<Check>::Visit(GameObjectMapType &m)
     if (i_object)
         return;
 
-    for (GameObjectMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
+    for (auto &obj : m)
     {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
+        if (obj->InSamePhase(i_phaseMask) && i_check(obj))
         {
-            i_object = itr->GetSource();
+            i_object = obj;
             return;
         }
     }
 }
 
 template<class Check>
-void Skyfire::WorldObjectSearcher<Check>::Visit(PlayerMapType &m)
+void Trinity::WorldObjectSearcher<Check>::Visit(PlayerMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_PLAYER))
         return;
@@ -76,21 +77,18 @@ void Skyfire::WorldObjectSearcher<Check>::Visit(PlayerMapType &m)
     if (i_object)
         return;
 
-    for (PlayerMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
+    for (auto &player : m)
     {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
+        if (player->InSamePhase(i_phaseMask) && i_check(player))
         {
-            i_object = itr->GetSource();
+            i_object = player;
             return;
         }
     }
 }
 
 template<class Check>
-void Skyfire::WorldObjectSearcher<Check>::Visit(CreatureMapType &m)
+void Trinity::WorldObjectSearcher<Check>::Visit(CreatureMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_CREATURE))
         return;
@@ -99,21 +97,18 @@ void Skyfire::WorldObjectSearcher<Check>::Visit(CreatureMapType &m)
     if (i_object)
         return;
 
-    for (CreatureMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
+    for (auto &creature : m)
     {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
+        if (creature->InSamePhase(i_phaseMask) && i_check(creature))
         {
-            i_object = itr->GetSource();
+            i_object = creature;
             return;
         }
     }
 }
 
 template<class Check>
-void Skyfire::WorldObjectSearcher<Check>::Visit(CorpseMapType &m)
+void Trinity::WorldObjectSearcher<Check>::Visit(CorpseMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_CORPSE))
         return;
@@ -122,21 +117,18 @@ void Skyfire::WorldObjectSearcher<Check>::Visit(CorpseMapType &m)
     if (i_object)
         return;
 
-    for (CorpseMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
+    for (auto &corpse : m)
     {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
+        if (corpse->InSamePhase(i_phaseMask) && i_check(corpse))
         {
-            i_object = itr->GetSource();
+            i_object = corpse;
             return;
         }
     }
 }
 
 template<class Check>
-void Skyfire::WorldObjectSearcher<Check>::Visit(DynamicObjectMapType &m)
+void Trinity::WorldObjectSearcher<Check>::Visit(DynamicObjectMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_DYNAMICOBJECT))
         return;
@@ -145,21 +137,18 @@ void Skyfire::WorldObjectSearcher<Check>::Visit(DynamicObjectMapType &m)
     if (i_object)
         return;
 
-    for (DynamicObjectMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
+    for (auto &obj : m)
     {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
+        if (obj->InSamePhase(i_phaseMask) && i_check(obj))
         {
-            i_object = itr->GetSource();
+            i_object = obj;
             return;
         }
     }
 }
 
 template<class Check>
-void Skyfire::WorldObjectSearcher<Check>::Visit(AreaTriggerMapType &m)
+void Trinity::WorldObjectSearcher<Check>::Visit(AreaTriggerMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_AREATRIGGER))
         return;
@@ -168,446 +157,460 @@ void Skyfire::WorldObjectSearcher<Check>::Visit(AreaTriggerMapType &m)
     if (i_object)
         return;
 
-    for (AreaTriggerMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
+    for (auto &trigger : m)
     {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
+        if (trigger->InSamePhase(i_phaseMask) && i_check(trigger))
         {
-            i_object = itr->GetSource();
+            i_object = trigger;
             return;
         }
     }
 }
 
 template<class Check>
-void Skyfire::WorldObjectLastSearcher<Check>::Visit(GameObjectMapType &m)
+void Trinity::WorldObjectSearcher<Check>::Visit(ConversationMapType &m)
+{
+    if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_CONVERSATION))
+        return;
+
+    // already found
+    if (i_object)
+        return;
+
+    for (auto &conver : m)
+    {
+        if (conver->InSamePhase(i_phaseMask) && i_check(conver))
+        {
+            i_object = conver;
+            return;
+        }
+    }
+}
+
+template<class Check>
+void Trinity::WorldObjectSearcher<Check>::Visit(EventObjectMapType &m)
+{
+    if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_EVENTOBJECT))
+        return;
+
+    // already found
+    if (i_object)
+        return;
+
+    for (auto &event : m)
+    {
+        if (event->InSamePhase(i_phaseMask) && i_check(event))
+        {
+            i_object = event;
+            return;
+        }
+    }
+}
+
+template<class Check>
+void Trinity::WorldObjectLastSearcher<Check>::Visit(GameObjectMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_GAMEOBJECT))
         return;
 
-    for (GameObjectMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-    {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
-            i_object = itr->GetSource();
-    }
+    for (auto &obj : m)
+        if (obj->InSamePhase(i_phaseMask) && i_check(obj))
+            i_object = obj;
 }
 
 template<class Check>
-void Skyfire::WorldObjectLastSearcher<Check>::Visit(PlayerMapType &m)
+void Trinity::WorldObjectLastSearcher<Check>::Visit(PlayerMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_PLAYER))
         return;
 
-    for (PlayerMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-    {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
-            i_object = itr->GetSource();
-    }
+    for (auto &player : m)
+        if (player->InSamePhase(i_phaseMask) && i_check(player))
+            i_object = player;
 }
 
 template<class Check>
-void Skyfire::WorldObjectLastSearcher<Check>::Visit(CreatureMapType &m)
+void Trinity::WorldObjectLastSearcher<Check>::Visit(CreatureMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_CREATURE))
         return;
 
-    for (CreatureMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-    {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
-            i_object = itr->GetSource();
-    }
+    for (auto &creature : m)
+        if (creature->InSamePhase(i_phaseMask) && i_check(creature))
+            i_object = creature;
 }
 
 template<class Check>
-void Skyfire::WorldObjectLastSearcher<Check>::Visit(CorpseMapType &m)
+void Trinity::WorldObjectLastSearcher<Check>::Visit(CorpseMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_CORPSE))
         return;
 
-    for (CorpseMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-    {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
-            i_object = itr->GetSource();
-    }
+    for (auto &corpse : m)
+        if (corpse->InSamePhase(i_phaseMask) && i_check(corpse))
+            i_object = corpse;
 }
 
 template<class Check>
-void Skyfire::WorldObjectLastSearcher<Check>::Visit(DynamicObjectMapType &m)
+void Trinity::WorldObjectLastSearcher<Check>::Visit(DynamicObjectMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_DYNAMICOBJECT))
         return;
 
-    for (DynamicObjectMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-    {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
-            i_object = itr->GetSource();
-    }
+    for (auto &obj : m)
+        if (obj->InSamePhase(i_phaseMask) && i_check(obj))
+            i_object = obj;
 }
 
 template<class Check>
-void Skyfire::WorldObjectLastSearcher<Check>::Visit(AreaTriggerMapType &m)
+void Trinity::WorldObjectLastSearcher<Check>::Visit(AreaTriggerMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_AREATRIGGER))
         return;
 
-    for (AreaTriggerMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-    {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
-            i_object = itr->GetSource();
-    }
+    for (auto &trigger : m)
+        if (trigger->InSamePhase(i_phaseMask) && i_check(trigger))
+            i_object = trigger;
 }
 
 template<class Check>
-void Skyfire::WorldObjectListSearcher<Check>::Visit(PlayerMapType &m)
+void Trinity::WorldObjectLastSearcher<Check>::Visit(ConversationMapType &m)
+{
+    if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_CONVERSATION))
+        return;
+
+    for (auto &conver : m)
+        if (conver->InSamePhase(i_phaseMask) && i_check(conver))
+            i_object = conver;
+}
+
+template<class Check>
+void Trinity::WorldObjectLastSearcher<Check>::Visit(EventObjectMapType &m)
+{
+    if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_EVENTOBJECT))
+        return;
+
+    for (auto &event : m)
+        if (event->InSamePhase(i_phaseMask) && i_check(event))
+            i_object = event;
+}
+
+template<class Check>
+void Trinity::WorldObjectListSearcher<Check>::Visit(PlayerMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_PLAYER))
         return;
 
-    for (PlayerMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-        if (i_check(itr->GetSource()))
-            i_objects.push_back(itr->GetSource());
+    for (auto &player : m)
+        if (i_check(player))
+            i_objects.push_back(player);
 }
 
 template<class Check>
-void Skyfire::WorldObjectListSearcher<Check>::Visit(CreatureMapType &m)
+void Trinity::WorldObjectListSearcher<Check>::Visit(CreatureMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_CREATURE))
         return;
 
-    for (CreatureMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-        if (i_check(itr->GetSource()))
-            i_objects.push_back(itr->GetSource());
+    for (auto &creature : m)
+        if (i_check(creature))
+            i_objects.push_back(creature);
 }
 
 template<class Check>
-void Skyfire::WorldObjectListSearcher<Check>::Visit(CorpseMapType &m)
+void Trinity::WorldObjectListSearcher<Check>::Visit(CorpseMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_CORPSE))
         return;
 
-    for (CorpseMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-        if (i_check(itr->GetSource()))
-            i_objects.push_back(itr->GetSource());
+    for (auto &corpse : m)
+        if (i_check(corpse))
+            i_objects.push_back(corpse);
 }
 
 template<class Check>
-void Skyfire::WorldObjectListSearcher<Check>::Visit(GameObjectMapType &m)
+void Trinity::WorldObjectListSearcher<Check>::Visit(GameObjectMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_GAMEOBJECT))
         return;
 
-    for (GameObjectMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-        if (i_check(itr->GetSource()))
-            i_objects.push_back(itr->GetSource());
+    for (auto &obj : m)
+        if (i_check(obj))
+            i_objects.push_back(obj);
 }
 
 template<class Check>
-void Skyfire::WorldObjectListSearcher<Check>::Visit(DynamicObjectMapType &m)
+void Trinity::WorldObjectListSearcher<Check>::Visit(DynamicObjectMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_DYNAMICOBJECT))
         return;
 
-    for (DynamicObjectMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-        if (i_check(itr->GetSource()))
-            i_objects.push_back(itr->GetSource());
+    for (auto &obj : m)
+        if (i_check(obj))
+            i_objects.push_back(obj);
 }
 
 template<class Check>
-void Skyfire::WorldObjectListSearcher<Check>::Visit(AreaTriggerMapType &m)
+void Trinity::WorldObjectListSearcher<Check>::Visit(AreaTriggerMapType &m)
 {
     if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_AREATRIGGER))
         return;
 
-    for (AreaTriggerMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-        if (i_check(itr->GetSource()))
-            i_objects.push_back(itr->GetSource());
+    for (auto &trigger : m)
+        if (i_check(trigger))
+            i_objects.push_back(trigger);
+}
+
+template<class Check>
+void Trinity::WorldObjectListSearcher<Check>::Visit(ConversationMapType &m)
+{
+    if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_CONVERSATION))
+        return;
+
+    for (auto &conver : m)
+        if (i_check(conver))
+            i_objects.push_back(conver);
+}
+
+template<class Check>
+void Trinity::WorldObjectListSearcher<Check>::Visit(EventObjectMapType &m)
+{
+    if (!(i_mapTypeMask & GRID_MAP_TYPE_MASK_EVENTOBJECT))
+        return;
+
+    for (auto &event : m)
+        if (i_check(event))
+            i_objects.push_back(event);
 }
 
 // Gameobject searchers
 
 template<class Check>
-void Skyfire::GameObjectSearcher<Check>::Visit(GameObjectMapType &m)
+void Trinity::GameObjectSearcher<Check>::Visit(GameObjectMapType &m)
 {
     // already found
     if (i_object)
         return;
 
-    for (GameObjectMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
+    for (auto &obj : m)
     {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
+        if (obj->InSamePhase(i_phaseMask) && i_check(obj))
         {
-            i_object = itr->GetSource();
+            i_object = obj;
             return;
         }
     }
 }
 
 template<class Check>
-void Skyfire::GameObjectLastSearcher<Check>::Visit(GameObjectMapType &m)
+void Trinity::GameObjectLastSearcher<Check>::Visit(GameObjectMapType &m)
 {
-    for (GameObjectMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-    {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
-            i_object = itr->GetSource();
-    }
+    for (auto &obj : m)
+        if (obj->InSamePhase(i_phaseMask) && i_check(obj))
+            i_object = obj;
 }
 
 template<class Check>
-void Skyfire::GameObjectListSearcher<Check>::Visit(GameObjectMapType &m)
+void Trinity::GameObjectListSearcher<Check>::Visit(GameObjectMapType &m)
 {
-    for (GameObjectMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-        if (itr->GetSource()->InSamePhase(i_phaseMask))
-            if (i_check(itr->GetSource()))
-                i_objects.push_back(itr->GetSource());
+    for (auto &obj : m)
+        if (obj->InSamePhase(i_phaseMask) && i_check(obj))
+            i_objects.push_back(obj);
 }
 
 // Unit searchers
 
 template<class Check>
-void Skyfire::UnitSearcher<Check>::Visit(CreatureMapType &m)
+void Trinity::UnitSearcher<Check>::Visit(CreatureMapType &m)
 {
     // already found
     if (i_object)
         return;
 
-    for (CreatureMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
+    for (auto &creature : m)
     {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
+        if (creature->InSamePhase(i_phaseMask) && i_check(creature))
         {
-            i_object = itr->GetSource();
+            i_object = creature;
             return;
         }
     }
 }
 
 template<class Check>
-void Skyfire::UnitSearcher<Check>::Visit(PlayerMapType &m)
+void Trinity::UnitSearcher<Check>::Visit(PlayerMapType &m)
 {
     // already found
     if (i_object)
         return;
 
-    for (PlayerMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
+    for (auto &player : m)
     {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
+        if (player->InSamePhase(i_phaseMask) && i_check(player))
         {
-            i_object = itr->GetSource();
+            i_object = player;
             return;
         }
     }
 }
 
 template<class Check>
-void Skyfire::UnitLastSearcher<Check>::Visit(CreatureMapType &m)
+void Trinity::UnitLastSearcher<Check>::Visit(CreatureMapType &m)
 {
-    for (CreatureMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-    {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
-            i_object = itr->GetSource();
-    }
+    for (auto &creature : m)
+        if (creature->InSamePhase(i_phaseMask) && i_check(creature))
+            i_object = creature;
 }
 
 template<class Check>
-void Skyfire::UnitLastSearcher<Check>::Visit(PlayerMapType &m)
+void Trinity::UnitLastSearcher<Check>::Visit(PlayerMapType &m)
 {
-    for (PlayerMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-    {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
-            i_object = itr->GetSource();
-    }
+    for (auto &player : m)
+        if (player->InSamePhase(i_phaseMask) && i_check(player))
+            i_object = player;
 }
 
 template<class Check>
-void Skyfire::UnitListSearcher<Check>::Visit(PlayerMapType &m)
+void Trinity::UnitListSearcher<Check>::Visit(PlayerMapType &m)
 {
-    for (PlayerMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-        if (itr->GetSource()->InSamePhase(i_phaseMask))
-            if (i_check(itr->GetSource()))
-                i_objects.push_back(itr->GetSource());
+    for (auto &player : m)
+        if (player->InSamePhase(i_phaseMask) && i_check(player))
+            i_objects.push_back(player);
 }
 
 template<class Check>
-void Skyfire::UnitListSearcher<Check>::Visit(CreatureMapType &m)
+void Trinity::UnitListSearcher<Check>::Visit(CreatureMapType &m)
 {
-    for (CreatureMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-        if (itr->GetSource()->InSamePhase(i_phaseMask))
-            if (i_check(itr->GetSource()))
-                i_objects.push_back(itr->GetSource());
+    for (auto &creature : m)
+        if (creature->InSamePhase(i_phaseMask) && i_check(creature))
+            i_objects.push_back(creature);
 }
 
+template<class Check>
+void Trinity::AreaTriggerListSearcher<Check>::Visit(AreaTriggerMapType &m)
+{
+    for (auto &trigger : m)
+        if (trigger->InSamePhase(i_phaseMask) && i_check(trigger))
+            i_objects.push_back(trigger);
+}
+ 
 // Creature searchers
 
 template<class Check>
-void Skyfire::CreatureSearcher<Check>::Visit(CreatureMapType &m)
+void Trinity::CreatureSearcher<Check>::Visit(CreatureMapType &m)
 {
     // already found
     if (i_object)
         return;
 
-    for (CreatureMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
+    for (auto &creature : m)
     {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
+        if (creature->InSamePhase(i_phaseMask) && i_check(creature))
         {
-            i_object = itr->GetSource();
+            i_object = creature;
             return;
         }
     }
 }
 
 template<class Check>
-void Skyfire::CreatureLastSearcher<Check>::Visit(CreatureMapType &m)
+void Trinity::CreatureLastSearcher<Check>::Visit(CreatureMapType &m)
 {
-    for (CreatureMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-    {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
-            i_object = itr->GetSource();
-    }
+    for (auto &creature : m)
+        if (creature->InSamePhase(i_phaseMask) && i_check(creature))
+            i_object = creature;
 }
 
 template<class Check>
-void Skyfire::CreatureListSearcher<Check>::Visit(CreatureMapType &m)
+void Trinity::CreatureListSearcher<Check>::Visit(CreatureMapType &m)
 {
-    for (CreatureMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-        if (itr->GetSource()->InSamePhase(i_phaseMask))
-            if (i_check(itr->GetSource()))
-                i_objects.push_back(itr->GetSource());
+    for (auto &creature : m)
+        if (creature->InSamePhase(i_phaseMask) && i_check(creature))
+            i_objects.push_back(creature);
 }
 
 template<class Check>
-void Skyfire::PlayerListSearcher<Check>::Visit(PlayerMapType &m)
+void Trinity::PlayerListSearcher<Check>::Visit(PlayerMapType &m)
 {
-    for (PlayerMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
-        if (itr->GetSource()->InSamePhase(i_phaseMask))
-            if (i_check(itr->GetSource()))
-                i_objects.push_back(itr->GetSource());
+    for (auto &player : m)
+        if (player->InSamePhase(i_phaseMask) && i_check(player))
+            i_objects.push_back(player);
 }
 
 template<class Check>
-void Skyfire::PlayerSearcher<Check>::Visit(PlayerMapType &m)
+void Trinity::PlayerSearcher<Check>::Visit(PlayerMapType &m)
 {
     // already found
     if (i_object)
         return;
 
-    for (PlayerMapType::iterator itr=m.begin(); itr != m.end(); ++itr)
+    for (auto &player : m)
     {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
+        if (player->InSamePhase(i_phaseMask) && i_check(player))
         {
-            i_object = itr->GetSource();
+            i_object = player;
             return;
         }
     }
 }
 
 template<class Check>
-void Skyfire::PlayerLastSearcher<Check>::Visit(PlayerMapType& m)
+void Trinity::PlayerLastSearcher<Check>::Visit(PlayerMapType& m)
 {
-    for (PlayerMapType::iterator itr = m.begin(); itr != m.end(); ++itr)
-    {
-        if (!itr->GetSource()->InSamePhase(i_phaseMask))
-            continue;
-
-        if (i_check(itr->GetSource()))
-            i_object = itr->GetSource();
-    }
+    for (auto &player : m)
+        if (player->InSamePhase(i_phaseMask) && i_check(player))
+            i_object = player;
 }
 
 template<class Builder>
-void Skyfire::LocalizedPacketDo<Builder>::operator()(Player* p)
+void Trinity::LocalizedPacketDo<Builder>::operator()(Player* p)
 {
-    LocaleConstant loc_idx = p->GetSession()->GetSessionDbLocaleIndex();
-    uint32 cache_idx = loc_idx + 1;
-    WorldPacket* data;
+    LocaleConstant localeConstant = p->GetSession()->GetSessionDbLocaleIndex();
+    uint32 cache_idx = localeConstant + 1;
+    WorldPackets::Packet* data;
 
     // create if not cached yet
-    if (i_data_cache.size() < cache_idx + 1 || !i_data_cache[cache_idx])
+    if (_dataCache.size() < cache_idx + 1 || !_dataCache[cache_idx])
     {
-        if (i_data_cache.size() < cache_idx + 1)
-            i_data_cache.resize(cache_idx + 1);
+        if (_dataCache.size() < cache_idx + 1)
+            _dataCache.resize(cache_idx + 1);
 
-        data = new WorldPacket();
+        data = _builder(localeConstant);
 
-        i_builder(*data, loc_idx);
+        ASSERT(data->GetSize() == 0);
 
-        //ASSERT(data->GetOpcode() != MSG_NULL_ACTION); // ???
+        data->Write();
 
-        i_data_cache[cache_idx] = data;
+        _dataCache[cache_idx] = data;
     }
     else
-        data = i_data_cache[cache_idx];
+        data = _dataCache[cache_idx];
 
-    p->SendDirectMessage(data);
+    p->SendDirectMessage(data->GetRawPacket());
 }
 
 template<class Builder>
-void Skyfire::LocalizedPacketListDo<Builder>::operator()(Player* p)
+void Trinity::LocalizedPacketListDo<Builder>::operator()(Player* p)
 {
-    LocaleConstant loc_idx = p->GetSession()->GetSessionDbLocaleIndex();
-    uint32 cache_idx = loc_idx+1;
-    WorldPacketList* data_list;
+    LocaleConstant localeConstant = p->GetSession()->GetSessionDbLocaleIndex();
+    uint32 cache_idx = localeConstant + 1;
+    WorldPacketList* data;
 
     // create if not cached yet
-    if (i_data_cache.size() < cache_idx+1 || i_data_cache[cache_idx].empty())
+    if (_dataCache.size() < cache_idx + 1 || _dataCache[cache_idx].empty())
     {
-        if (i_data_cache.size() < cache_idx+1)
-            i_data_cache.resize(cache_idx+1);
+        if (_dataCache.size() < cache_idx + 1)
+            _dataCache.resize(cache_idx + 1);
 
-        data_list = &i_data_cache[cache_idx];
+        data = &_dataCache[cache_idx];
 
-        i_builder(*data_list, loc_idx);
+        _builder(*data, localeConstant);
     }
     else
-        data_list = &i_data_cache[cache_idx];
+        data = &_dataCache[cache_idx];
 
-    for (size_t i = 0; i < data_list->size(); ++i)
-        p->SendDirectMessage((*data_list)[i]);
+    for (size_t i = 0; i < data->size(); ++i)
+        p->SendDirectMessage((*data)[i]->GetRawPacket());
 }
 
-#endif                                                      // SKYFIRE_GRIDNOTIFIERSIMPL_H
+#endif                                                      // TRINITY_GRIDNOTIFIERSIMPL_H

@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -19,10 +18,8 @@
 
 #include "AddonMgr.h"
 #include "DatabaseEnv.h"
-#include "DBCStores.h"
 #include "Log.h"
 #include "Timer.h"
-#include <openssl/md5.h>
 
 namespace AddonMgr
 {
@@ -35,8 +32,6 @@ namespace
     typedef std::list<SavedAddon> SavedAddonsList;
 
     SavedAddonsList m_knownAddons;
-
-    BannedAddonList m_bannedAddons;
 }
 
 void LoadFromDB()
@@ -44,57 +39,30 @@ void LoadFromDB()
     uint32 oldMSTime = getMSTime();
 
     QueryResult result = CharacterDatabase.Query("SELECT name, crc FROM addons");
-    if (result)
+    if (!result)
     {
-        uint32 count = 0;
+        TC_LOG_INFO(LOG_FILTER_SERVER_LOADING, ">> Loaded 0 known addons. DB table `addons` is empty!");
 
-        do
-        {
-            Field* fields = result->Fetch();
-
-            std::string name = fields[0].GetString();
-            uint32 crc = fields[1].GetUInt32();
-
-            m_knownAddons.push_back(SavedAddon(name, crc));
-
-            ++count;
-        }
-        while (result->NextRow());
-
-        SF_LOG_INFO("server.loading", ">> Loaded %u known addons in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+        return;
     }
-    else
-        SF_LOG_INFO("server.loading", ">> Loaded 0 known addons. DB table `addons` is empty!");
 
-    oldMSTime = getMSTime();
-    result = CharacterDatabase.Query("SELECT id, name, version, UNIX_TIMESTAMP(timestamp) FROM banned_addons");
-    if (result)
+    uint32 count = 0;
+
+    do
     {
-        uint32 count = 0;
-        uint32 dbcMaxBannedAddon = sBannedAddOnsStore.GetNumRows();
+        Field* fields = result->Fetch();
 
-        do
-        {
-            Field* fields = result->Fetch();
+        std::string name = fields[0].GetString();
+        uint32 crc = fields[1].GetUInt32();
 
-            BannedAddon addon;
-            addon.Id = fields[0].GetUInt32() + dbcMaxBannedAddon;
-            addon.Timestamp = uint32(fields[3].GetUInt64());
+        m_knownAddons.push_back(SavedAddon(name, crc));
 
-            std::string name = fields[1].GetString();
-            std::string version = fields[2].GetString();
-
-            MD5(reinterpret_cast<uint8 const*>(name.c_str()), name.length(), addon.NameMD5);
-            MD5(reinterpret_cast<uint8 const*>(version.c_str()), version.length(), addon.VersionMD5);
-
-            m_bannedAddons.push_back(addon);
-
-            ++count;
-        }
-        while (result->NextRow());
-
-        SF_LOG_INFO("server.loading", ">> Loaded %u banned addons in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+        ++count;
     }
+    while (result->NextRow());
+
+    TC_LOG_INFO(LOG_FILTER_SERVER_LOADING, ">> Loaded %u known addons in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+
 }
 
 void SaveAddon(AddonInfo const& addon)
@@ -111,7 +79,7 @@ void SaveAddon(AddonInfo const& addon)
     m_knownAddons.push_back(SavedAddon(addon.Name, addon.CRC));
 }
 
-SavedAddon const* GetAddonInfo(const std::string& name)
+SavedAddon const* GetAddonInfo(std::string const& name)
 {
     for (SavedAddonsList::const_iterator it = m_knownAddons.begin(); it != m_knownAddons.end(); ++it)
     {
@@ -120,12 +88,7 @@ SavedAddon const* GetAddonInfo(const std::string& name)
             return &addon;
     }
 
-    return NULL;
-}
-
-BannedAddonList const* GetBannedAddons()
-{
-    return &m_bannedAddons;
+    return nullptr;
 }
 
 } // Namespace

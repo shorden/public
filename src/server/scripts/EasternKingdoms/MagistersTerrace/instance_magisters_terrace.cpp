@@ -1,12 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -62,28 +60,34 @@ class instance_magisters_terrace : public InstanceMapScript
 public:
     instance_magisters_terrace() : InstanceMapScript("instance_magisters_terrace", 585) { }
 
+    InstanceScript* GetInstanceScript(InstanceMap* map) const
+    {
+        return new instance_magisters_terrace_InstanceMapScript(map);
+    }
+
     struct instance_magisters_terrace_InstanceMapScript : public InstanceScript
     {
-        instance_magisters_terrace_InstanceMapScript(Map* map) : InstanceScript(map) { }
+        instance_magisters_terrace_InstanceMapScript(Map* map) : InstanceScript(map) {}
 
         uint32 Encounter[MAX_ENCOUNTER];
         uint32 DelrissaDeathCount;
 
-        std::vector<uint64> FelCrystals;
+        GuidList FelCrystals;
+        GuidList::const_iterator CrystalItr;
 
-        uint64 SelinGUID;
-        uint64 DelrissaGUID;
-        uint64 VexallusDoorGUID;
-        uint64 SelinDoorGUID;
-        uint64 SelinEncounterDoorGUID;
-        uint64 DelrissaDoorGUID;
-        uint64 KaelDoorGUID;
-        uint64 KaelStatue[2];
-        uint64 EscapeOrbGUID;
-        uint32 StatuesState;
-        uint8 felCristalIndex;
+        ObjectGuid SelinGUID;
+        ObjectGuid DelrissaGUID;
+        ObjectGuid VexallusDoorGUID;
+        ObjectGuid SelinDoorGUID;
+        ObjectGuid SelinEncounterDoorGUID;
+        ObjectGuid DelrissaDoorGUID;
+        ObjectGuid KaelDoorGUID;
+        ObjectGuid KaelStatue[2];
+        ObjectGuid EscapeOrbGUID;
 
-        void Initialize() OVERRIDE
+        bool InitializedItr;
+
+        void Initialize()
         {
             memset(&Encounter, 0, sizeof(Encounter));
 
@@ -91,21 +95,21 @@ public:
 
             DelrissaDeathCount = 0;
 
-            SelinGUID = 0;
-            DelrissaGUID = 0;
-            VexallusDoorGUID = 0;
-            SelinDoorGUID = 0;
-            SelinEncounterDoorGUID = 0;
-            DelrissaDoorGUID = 0;
-            KaelDoorGUID = 0;
-            KaelStatue[0] = 0;
-            KaelStatue[1] = 0;
-            EscapeOrbGUID = 0;
-            StatuesState = 0;
-            felCristalIndex = 0;
+            SelinGUID.Clear();
+            DelrissaGUID.Clear();
+            VexallusDoorGUID.Clear();
+            SelinDoorGUID.Clear();
+            SelinEncounterDoorGUID.Clear();
+            DelrissaDoorGUID.Clear();
+            KaelDoorGUID.Clear();
+            KaelStatue[0].Clear();
+            KaelStatue[1].Clear();
+            EscapeOrbGUID.Clear();
+
+            InitializedItr = false;
         }
 
-        bool IsEncounterInProgress() const OVERRIDE
+        bool IsEncounterInProgress() const
         {
             for (uint8 i = 0; i < MAX_ENCOUNTER; ++i)
                 if (Encounter[i] == IN_PROGRESS)
@@ -113,7 +117,7 @@ public:
             return false;
         }
 
-        uint32 GetData(uint32 identifier) const OVERRIDE
+        uint32 GetData(uint32 identifier) const
         {
             switch (identifier)
             {
@@ -133,40 +137,26 @@ public:
             return 0;
         }
 
-        void SetData(uint32 identifier, uint32 data) OVERRIDE
+        void SetData(uint32 identifier, uint32 data)
         {
             switch (identifier)
             {
                 case DATA_SELIN_EVENT:
-                    if (data == DONE)
-                    {
-                        HandleGameObject(SelinEncounterDoorGUID, true);
-                        HandleGameObject(SelinDoorGUID, true);
-                    }
-                    else if (data == IN_PROGRESS)
-                        HandleGameObject(SelinEncounterDoorGUID, false);
-                    else if (data == NOT_STARTED)
-                        HandleGameObject(SelinEncounterDoorGUID, true);
-
                     Encounter[0] = data;
                     break;
                 case DATA_VEXALLUS_EVENT:
                     if (data == DONE)
-                        HandleGameObject(VexallusDoorGUID, true);
+                        DoUseDoorOrButton(VexallusDoorGUID);
                     Encounter[1] = data;
                     break;
                 case DATA_DELRISSA_EVENT:
                     if (data == DONE)
-                        HandleGameObject(DelrissaDoorGUID, true);
+                        DoUseDoorOrButton(DelrissaDoorGUID);
                     if (data == IN_PROGRESS)
                         DelrissaDeathCount = 0;
                     Encounter[2] = data;
                     break;
                 case DATA_KAELTHAS_EVENT:
-                    if (data == NOT_STARTED || data == DONE)
-                        HandleGameObject(KaelDoorGUID, true);
-                    else if (data == IN_PROGRESS)
-                        HandleGameObject(KaelDoorGUID, false);
                     Encounter[3] = data;
                     break;
                 case DATA_DELRISSA_DEATH_COUNT:
@@ -175,17 +165,10 @@ public:
                     else
                         DelrissaDeathCount = 0;
                     break;
-                case DATA_KAELTHAS_STATUES:
-                    HandleGameObject(KaelStatue[0], data);
-                    HandleGameObject(KaelStatue[1], data);
-                    StatuesState = data;
-                    break;
             }
-
-            SaveToDB();
         }
 
-        void OnCreatureCreate(Creature* creature) OVERRIDE
+        void OnCreatureCreate(Creature* creature)
         {
             switch (creature->GetEntry())
             {
@@ -201,7 +184,7 @@ public:
             }
         }
 
-        void OnGameObjectCreate(GameObject* go) OVERRIDE
+        void OnGameObjectCreate(GameObject* go)
         {
             switch (go->GetEntry())
             {
@@ -232,45 +215,20 @@ public:
             }
         }
 
-        std::string GetSaveData() OVERRIDE
+        ObjectGuid CrystalItrGet()
         {
-            OUT_SAVE_INST_DATA;
-
-            std::ostringstream saveStream;
-            saveStream << Encounter[0] << ' ' << Encounter[1] << ' ' << Encounter[2] << ' ' << Encounter[3] << ' ' << StatuesState;
-
-            OUT_SAVE_INST_DATA_COMPLETE;
-            return saveStream.str();
-        }
-
-        void Load(const char* str) OVERRIDE
-        {
-            if (!str)
+            if (!InitializedItr)
             {
-                OUT_LOAD_INST_DATA_FAIL;
-                return;
+                CrystalItr = FelCrystals.begin();
+                InitializedItr = true;
             }
 
-            OUT_LOAD_INST_DATA(str);
-
-            std::istringstream loadStream(str);
-
-            for (uint32 i = 0; i < MAX_ENCOUNTER; ++i)
-            {
-                uint32 tmpState;
-                loadStream >> tmpState;
-                if (tmpState == IN_PROGRESS || tmpState > SPECIAL)
-                    tmpState = NOT_STARTED;
-                SetData(i, tmpState);
-            }
-
-            loadStream >> StatuesState;
-            SetData(DATA_KAELTHAS_STATUES, StatuesState);
-
-            OUT_LOAD_INST_DATA_COMPLETE;
+            ObjectGuid guid = *CrystalItr;
+            ++CrystalItr;
+            return guid;
         }
 
-        uint64 GetData64(uint32 identifier) const OVERRIDE
+        ObjectGuid GetGuidData(uint32 identifier) const
         {
             switch (identifier)
             {
@@ -280,6 +238,10 @@ public:
                     return DelrissaGUID;
                 case DATA_VEXALLUS_DOOR:
                     return VexallusDoorGUID;
+                case DATA_SELIN_DOOR:
+                    return SelinDoorGUID;
+                case DATA_SELIN_ENCOUNTER_DOOR:
+                    return SelinEncounterDoorGUID;
                 case DATA_DELRISSA_DOOR:
                     return DelrissaDoorGUID;
                 case DATA_KAEL_DOOR:
@@ -290,29 +252,22 @@ public:
                     return KaelStatue[1];
                 case DATA_ESCAPE_ORB:
                     return EscapeOrbGUID;
+
                 case DATA_FEL_CRYSTAL:
-                    if (FelCrystals.size() < felCristalIndex)
+                {
+                    if (FelCrystals.empty())
                     {
-                        SF_LOG_ERROR("scripts", "Magisters Terrace: No Fel Crystals loaded in Inst Data");
-                        return 0;
+                        TC_LOG_ERROR(LOG_FILTER_TSCR, "Magisters Terrace: No Fel Crystals loaded in Inst Data");
+                        return ObjectGuid::Empty;
                     }
 
-                    return FelCrystals.at(felCristalIndex);
+                    return const_cast<instance_magisters_terrace_InstanceMapScript*>(this)->CrystalItrGet();
+                }
             }
-            return 0;
-        }
-
-        void SetData64(uint32 identifier, uint64 value) OVERRIDE
-        {
-            if (identifier == DATA_FEL_CRYSTAL)
-                felCristalIndex = value;
+            return ObjectGuid::Empty;
         }
     };
 
-    InstanceScript* GetInstanceScript(InstanceMap* map) const OVERRIDE
-    {
-        return new instance_magisters_terrace_InstanceMapScript(map);
-    }
 };
 
 void AddSC_instance_magisters_terrace()

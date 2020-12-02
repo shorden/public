@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -17,8 +16,8 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SKYFIRESERVER_PATH_H
-#define SKYFIRESERVER_PATH_H
+#ifndef TRINITYCORE_PATH_H
+#define TRINITYCORE_PATH_H
 
 #include "Common.h"
 #include <deque>
@@ -36,18 +35,18 @@ class Path
     public:
         size_t size() const { return i_nodes.size(); }
         bool empty() const { return i_nodes.empty(); }
-        void resize(unsigned int sz) { i_nodes.resize(sz); }
+        void resize(uint32 sz) { i_nodes.resize(sz); }
         void clear() { i_nodes.clear(); }
         void erase(uint32 idx) { i_nodes.erase(i_nodes.begin()+idx); }
-        void crop(unsigned int start, unsigned int end)
+        void crop(uint32 start, uint32 end)
         {
-            while (start && !i_nodes.empty())
+            while(start && !i_nodes.empty())
             {
                 i_nodes.pop_front();
                 --start;
             }
 
-            while (end && !i_nodes.empty())
+            while(end && !i_nodes.empty())
             {
                 i_nodes.pop_back();
                 --end;
@@ -99,3 +98,4 @@ class Path
 typedef Path<PathNode> SimplePath;
 
 #endif
+

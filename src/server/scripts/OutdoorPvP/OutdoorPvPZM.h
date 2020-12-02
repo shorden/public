@@ -1,11 +1,9 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -29,23 +27,23 @@ const uint8 OutdoorPvPZMBuffZonesNum = 5;
 const uint32 OutdoorPvPZMBuffZones[OutdoorPvPZMBuffZonesNum] = {3521, 3607, 3717, 3715, 3716};
 
 // linked when the central tower is controlled
-const uint32 ZM_GRAVEYARD_ZONE = 3521;
+const uint32 ZM_GRAVEYARD_ZONE      = 3521;
 
 // linked when the central tower is controlled
-const uint32 ZM_GRAVEYARD_ID = 969;
+const uint32 ZM_GRAVEYARD_ID        = 969;
 
 enum OutdoorPvPZMSpells
 {
     // cast on the players of the controlling faction
-    ZM_CAPTURE_BUFF = 33779,  // twin spire blessing
+    ZM_CAPTURE_BUFF                 = 33779,  // twin spire blessing
     // spell that the field scout casts on the player to carry the flag
-    ZM_BATTLE_STANDARD_A = 32430,
+    ZM_BATTLE_STANDARD_A            = 32430,
     // spell that the field scout casts on the player to carry the flag
-    ZM_BATTLE_STANDARD_H = 32431,
+    ZM_BATTLE_STANDARD_H            = 32431,
     // token create spell
-    ZM_AlliancePlayerKillReward = 32155,
+    ZM_AlliancePlayerKillReward     = 32155,
     // token create spell
-    ZM_HordePlayerKillReward = 32158
+    ZM_HordePlayerKillReward        = 32158
 };
 
 // banners 182527, 182528, 182529, gotta check them ingame
@@ -124,46 +122,11 @@ const go_type ZMCapturePoints[ZM_NUM_BEACONS] =
     {182522, 530, 336.466f, 7340.26f, 41.4984f, -1.58825f, 0.0f, 0.0f, 0.71325f, -0.700909f}
 };
 
-enum OutdoorPvPZMWorldStates
-{
-    ZM_UI_TOWER_SLIDER_N_W = 2529,
-    ZM_UI_TOWER_SLIDER_POS_W = 2528,
-    ZM_UI_TOWER_SLIDER_DISPLAY_W = 2527,
-
-    ZM_UI_TOWER_SLIDER_N_E = 2535,
-    ZM_UI_TOWER_SLIDER_POS_E = 2534,
-    ZM_UI_TOWER_SLIDER_DISPLAY_E = 2533,
-
-    ZM_WORLDSTATE_UNK_1 = 2653,
-
-    ZM_UI_TOWER_EAST_N = 2560,
-    ZM_UI_TOWER_EAST_H = 2559,
-    ZM_UI_TOWER_EAST_A = 2558,
-    ZM_UI_TOWER_WEST_N = 2557,
-    ZM_UI_TOWER_WEST_H = 2556,
-    ZM_UI_TOWER_WEST_A = 2555,
-
-    ZM_MAP_TOWER_EAST_N = 2652,
-    ZM_MAP_TOWER_EAST_H = 2651,
-    ZM_MAP_TOWER_EAST_A = 2650,
-    ZM_MAP_GRAVEYARD_H = 2649,
-    ZM_MAP_GRAVEYARD_A = 2648,
-    ZM_MAP_GRAVEYARD_N = 2647,
-    ZM_MAP_TOWER_WEST_N = 2646,
-    ZM_MAP_TOWER_WEST_H = 2645,
-    ZM_MAP_TOWER_WEST_A = 2644,
-
-    ZM_MAP_HORDE_FLAG_READY = 2658,
-    ZM_MAP_HORDE_FLAG_NOT_READY = 2657,
-    ZM_MAP_ALLIANCE_FLAG_NOT_READY = 2656,
-    ZM_MAP_ALLIANCE_FLAG_READY = 2655
-};
-
 enum ZM_TowerStateMask
 {
-    ZM_TOWERSTATE_N = 1,
-    ZM_TOWERSTATE_A = 2,
-    ZM_TOWERSTATE_H = 4
+    ZM_TOWERSTATE_N                 = 1,
+    ZM_TOWERSTATE_A                 = 2,
+    ZM_TOWERSTATE_H                 = 4
 };
 
 class OutdoorPvPZM;
@@ -171,83 +134,90 @@ class OutdoorPvPZM;
 class OPvPCapturePointZM_Beacon : public OPvPCapturePoint
 {
     public:
+
         OPvPCapturePointZM_Beacon(OutdoorPvP* pvp, ZM_BeaconType type);
 
-        void ChangeState();
+        void ChangeState() override;
 
-        void SendChangePhase();
+        void SendChangePhase() override;
 
-        void FillInitialWorldStates(WorldStateBuilder& builder);
+        void FillInitialWorldStates(WorldPackets::WorldState::InitWorldStates& packet) override;
 
         // used when player is activated/inactivated in the area
-        bool HandlePlayerEnter(Player* player);
-        void HandlePlayerLeave(Player* player);
+        bool HandlePlayerEnter(Player* player) override;
+        void HandlePlayerLeave(Player* player) override;
 
         void UpdateTowerState();
 
     protected:
+
         ZM_BeaconType m_TowerType;
         uint32 m_TowerState;
 };
 
 enum ZM_GraveYardState
 {
-    ZM_GRAVEYARD_N = 1,
-    ZM_GRAVEYARD_A = 2,
-    ZM_GRAVEYARD_H = 4
+    ZM_GRAVEYARD_N          = 1,
+    ZM_GRAVEYARD_A          = 2,
+    ZM_GRAVEYARD_H          = 4
 };
 
 class OPvPCapturePointZM_GraveYard : public OPvPCapturePoint
 {
     public:
+
         OPvPCapturePointZM_GraveYard(OutdoorPvP* pvp);
 
-        bool Update(uint32 diff);
+        bool Update(uint32 diff) override;
 
-        void ChangeState() { }
+        void ChangeState() override {}
 
-        void FillInitialWorldStates(WorldStateBuilder& builder);
+        void FillInitialWorldStates(WorldPackets::WorldState::InitWorldStates& packet) override;
 
         void UpdateTowerState();
 
-        int32 HandleOpenGo(Player* player, uint64 guid);
+        int32 HandleOpenGo(Player* player, ObjectGuid guid) override;
 
         void SetBeaconState(uint32 controlling_team); // not good atm
 
-        bool HandleGossipOption(Player* player, uint64 guid, uint32 gossipid);
+        bool HandleGossipOption(Player* player, ObjectGuid guid, uint32 gossipid) override;
 
-        bool HandleDropFlag(Player* player, uint32 spellId);
+        bool HandleDropFlag(Player* player, uint32 spellId) override;
 
-        bool CanTalkTo(Player* player, Creature* creature, GossipMenuItems const& gso);
+        bool CanTalkTo(Player* player, Creature* creature, GossipMenuItems const& gso) override;
 
         uint32 GetGraveYardState() const;
 
     private:
+
         uint32 m_GraveYardState;
 
     protected:
+
         uint32 m_BothControllingFaction;
 
-        uint64 m_FlagCarrierGUID;
+        ObjectGuid m_FlagCarrierGUID;
 };
 
 class OutdoorPvPZM : public OutdoorPvP
 {
     public:
+
         OutdoorPvPZM();
 
-        bool SetupOutdoorPvP();
+        bool SetupOutdoorPvP() override;
+        void Initialize(uint32 zone) override;
 
-        void HandlePlayerEnterZone(Player* player, uint32 zone);
-        void HandlePlayerLeaveZone(Player* player, uint32 zone);
+        void HandlePlayerEnterZone(ObjectGuid guid, uint32 zone) override;
+        void HandlePlayerLeaveZone(ObjectGuid guid, uint32 zone) override;
 
-        bool Update(uint32 diff);
+        bool Update(uint32 diff) override;
 
-        void FillInitialWorldStates(WorldStateBuilder& builder);
+        void FillInitialWorldStates(WorldPackets::WorldState::InitWorldStates& packet) override;
 
-        void SendRemoveWorldStates(Player* player);
+        void SendRemoveWorldStates(Player* player) override;
 
-        void HandleKillImpl(Player* player, Unit* killed);
+        void HandleKillImpl(Player* player, Unit* killed) override;
 
         uint32 GetAllianceTowersControlled() const;
         void SetAllianceTowersControlled(uint32 count);
@@ -256,11 +226,13 @@ class OutdoorPvPZM : public OutdoorPvP
         void SetHordeTowersControlled(uint32 count);
 
     private:
+
         OPvPCapturePointZM_GraveYard * m_GraveYard;
 
         uint32 m_AllianceTowersControlled;
         uint32 m_HordeTowersControlled;
+        bool m_zonesRegistered = false;
 };
 
-/// @todo flag carrier death/leave/mount/activitychange should give back the gossip options
+// todo: flag carrier death/leave/mount/activitychange should give back the gossip options
 #endif

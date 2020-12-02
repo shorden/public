@@ -1,12 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -30,72 +28,66 @@ EndScriptData */
 #include "karazhan.h"
 #include "PassiveAI.h"
 
-enum TerestianIllhoof
+enum Says
 {
-    SAY_SLAY                    = 1,
-    SAY_DEATH                   = 2,
-    SAY_AGGRO                   = 3,
-    SAY_SACRIFICE               = 4,
-    SAY_SUMMON                  = 5
+    SAY_SLAY = 0,
+    SAY_DEATH,
+    SAY_AGGRO,
+    SAY_SACRIFICE,
+    SAY_SUMMON
 };
 
-enum Spells
-{
-    SPELL_SUMMON_DEMONCHAINS    = 30120,               // Summons demonic chains that maintain the ritual of sacrifice.
-    SPELL_DEMON_CHAINS          = 30206,                   // Instant - Visual Effect
-    SPELL_ENRAGE                = 23537,                   // Increases the caster's attack speed by 50% and the Physical damage it deals by 219 to 281 for 10 min.
-    SPELL_SHADOW_BOLT           = 30055,                   // Hurls a bolt of dark magic at an enemy, inflicting Shadow damage.
-    SPELL_SACRIFICE             = 30115,                   // Teleports and adds the debuff
-    SPELL_BERSERK               = 32965,                   // Increases attack speed by 75%. Periodically casts Shadow Bolt Volley.
-    SPELL_SUMMON_FIENDISIMP     = 30184,                   // Summons a Fiendish Imp.
-    SPELL_SUMMON_IMP            = 30066,                   // Summons Kil'rek
+#define SPELL_SUMMON_DEMONCHAINS    30120                   // Summons demonic chains that maintain the ritual of sacrifice.
+#define SPELL_DEMON_CHAINS          30206                   // Instant - Visual Effect
+#define SPELL_ENRAGE                23537                   // Increases the caster's attack speed by 50% and the Physical damage it deals by 219 to 281 for 10 min.
+#define SPELL_SHADOW_BOLT           30055                   // Hurls a bolt of dark magic at an enemy, inflicting Shadow damage.
+#define SPELL_SACRIFICE             30115                   // Teleports and adds the debuff
+#define SPELL_BERSERK               32965                   // Increases attack speed by 75%. Periodically casts Shadow Bolt Volley.
+#define SPELL_SUMMON_FIENDISIMP     30184                   // Summons a Fiendish Imp.
+#define SPELL_SUMMON_IMP            30066                   // Summons Kil'rek
 
-    SPELL_FIENDISH_PORTAL       = 30171,                   // Opens portal and summons Fiendish Portal, 2 sec cast
-    SPELL_FIENDISH_PORTAL_1     = 30179,                   // Opens portal and summons Fiendish Portal, instant cast
+#define SPELL_FIENDISH_PORTAL       30171                   // Opens portal and summons Fiendish Portal, 2 sec cast
+#define SPELL_FIENDISH_PORTAL_1     30179                   // Opens portal and summons Fiendish Portal, instant cast
 
-    SPELL_FIREBOLT              = 30050,                   // Blasts a target for 150 Fire damage.
-    SPELL_BROKEN_PACT           = 30065,                   // All damage taken increased by 25%.
-    SPELL_AMPLIFY_FLAMES        = 30053,                   // Increases the Fire damage taken by an enemy by 500 for 25 sec.
-};
+#define SPELL_FIREBOLT              30050                   // Blasts a target for 150 Fire damage.
+#define SPELL_BROKEN_PACT           30065                   // All damage taken increased by 25%.
+#define SPELL_AMPLIFY_FLAMES        30053                   // Increases the Fire damage taken by an enemy by 500 for 25 sec.
 
-enum Creatures
-{
-    NPC_DEMONCHAINS             = 17248,
-    NPC_FIENDISHIMP             = 17267,
-    NPC_PORTAL                  = 17265,
-    NPC_KILREK                  = 17229
-};
+#define CREATURE_DEMONCHAINS    17248
+#define CREATURE_FIENDISHIMP    17267
+#define CREATURE_PORTAL         17265
+#define CREATURE_KILREK         17229
 
-class npc_kilrek : public CreatureScript
+class mob_kilrek : public CreatureScript
 {
 public:
-    npc_kilrek() : CreatureScript("npc_kilrek") { }
+    mob_kilrek() : CreatureScript("mob_kilrek") {}
 
-    CreatureAI* GetAI(Creature* creature) const OVERRIDE
+    CreatureAI* GetAI(Creature* creature) const
     {
-        return new npc_kilrekAI(creature);
+        return new mob_kilrekAI (creature);
     }
 
-    struct npc_kilrekAI : public ScriptedAI
+    struct mob_kilrekAI : public ScriptedAI
     {
-        npc_kilrekAI(Creature* creature) : ScriptedAI(creature)
+        mob_kilrekAI(Creature* creature) : ScriptedAI(creature)
         {
             instance = creature->GetInstanceScript();
         }
 
         InstanceScript* instance;
 
-        uint64 TerestianGUID;
+        ObjectGuid TerestianGUID;
 
         uint32 AmplifyTimer;
 
-        void Reset() OVERRIDE
+        void Reset() override
         {
-            TerestianGUID = 0;
+            TerestianGUID.Clear();
             AmplifyTimer = 2000;
         }
 
-        void EnterCombat(Unit* /*who*/) OVERRIDE
+        void EnterCombat(Unit* /*who*/) override
         {
             if (!instance)
             {
@@ -104,21 +96,23 @@ public:
             }
         }
 
-        void JustDied(Unit* /*killer*/) OVERRIDE
+        void JustDied(Unit* /*killer*/) override
         {
             if (instance)
             {
-                uint64 TerestianGUID = instance->GetData64(DATA_TERESTIAN);
+                ObjectGuid TerestianGUID = instance->GetGuidData(DATA_TERESTIAN);
                 if (TerestianGUID)
                 {
                     Unit* Terestian = Unit::GetUnit(*me, TerestianGUID);
-                    if (Terestian && Terestian->IsAlive())
+                    if (Terestian && Terestian->isAlive())
                         DoCast(Terestian, SPELL_BROKEN_PACT, true);
                 }
-            } else ERROR_INST_DATA(me);
+            }
+            else
+                ERROR_INST_DATA(me);
         }
 
-        void UpdateAI(uint32 diff) OVERRIDE
+        void UpdateAI(uint32 diff) override
         {
             //Return since we have no target
             if (!UpdateVictim())
@@ -127,76 +121,78 @@ public:
             if (AmplifyTimer <= diff)
             {
                 me->InterruptNonMeleeSpells(false);
-                DoCastVictim(SPELL_AMPLIFY_FLAMES);
+
+                if (auto victim = me->getVictim())
+                    DoCast(victim, SPELL_AMPLIFY_FLAMES, false);
 
                 AmplifyTimer = urand(10000, 20000);
-            } else AmplifyTimer -= diff;
+            }
+            else
+                AmplifyTimer -= diff;
 
             DoMeleeAttackIfReady();
         }
     };
 };
 
-class npc_demon_chain : public CreatureScript
+class mob_demon_chain : public CreatureScript
 {
 public:
-    npc_demon_chain() : CreatureScript("npc_demon_chain") { }
+    mob_demon_chain() : CreatureScript("mob_demon_chain") {}
 
-    CreatureAI* GetAI(Creature* creature) const OVERRIDE
+    CreatureAI* GetAI(Creature* creature) const
     {
-        return new npc_demon_chainAI(creature);
+        return new mob_demon_chainAI(creature);
     }
 
-    struct npc_demon_chainAI : public ScriptedAI
+    struct mob_demon_chainAI : public ScriptedAI
     {
-        npc_demon_chainAI(Creature* creature) : ScriptedAI(creature) { }
+        mob_demon_chainAI(Creature* creature) : ScriptedAI(creature) {}
 
-        uint64 SacrificeGUID;
+        ObjectGuid SacrificeGUID;
 
-        void Reset() OVERRIDE
+        void Reset() override
         {
-            SacrificeGUID = 0;
+            SacrificeGUID.Clear();
         }
 
-        void EnterCombat(Unit* /*who*/) OVERRIDE { }
-        void AttackStart(Unit* /*who*/) OVERRIDE { }
-        void MoveInLineOfSight(Unit* /*who*/) OVERRIDE { }
+        void EnterCombat(Unit* /*who*/) override {}
+        void AttackStart(Unit* /*who*/) override {}
+        void MoveInLineOfSight(Unit* /*who*/) override {}
 
-
-        void JustDied(Unit* /*killer*/) OVERRIDE
+        void JustDied(Unit* /*killer*/) override
         {
             if (SacrificeGUID)
             {
-                Unit* Sacrifice = Unit::GetUnit(*me, SacrificeGUID);
-                if (Sacrifice)
+                if (Unit* Sacrifice = Unit::GetUnit(*me, SacrificeGUID))
                     Sacrifice->RemoveAurasDueToSpell(SPELL_SACRIFICE);
             }
         }
     };
 };
 
-class npc_fiendish_portal : public CreatureScript
+class mob_fiendish_portal : public CreatureScript
 {
 public:
-    npc_fiendish_portal() : CreatureScript("npc_fiendish_portal") { }
+    mob_fiendish_portal() : CreatureScript("mob_fiendish_portal") {}
 
-    CreatureAI* GetAI(Creature* creature) const OVERRIDE
+    CreatureAI* GetAI(Creature* creature) const
     {
-        return new npc_fiendish_portalAI(creature);
+        return new mob_fiendish_portalAI (creature);
     }
 
-    struct npc_fiendish_portalAI : public PassiveAI
+    struct mob_fiendish_portalAI : public PassiveAI
     {
-        npc_fiendish_portalAI(Creature* creature) : PassiveAI(creature), summons(me){ }
+        mob_fiendish_portalAI(Creature* creature) : PassiveAI(creature), summons(me) {}
 
         SummonList summons;
 
-        void Reset() OVERRIDE
+        void Reset() override
         {
             DespawnAllImp();
         }
 
-        void JustSummoned(Creature* summon) OVERRIDE
+        void JustSummoned(Creature* summon) override
         {
             summons.Summon(summon);
             DoZoneInCombat(summon);
@@ -209,32 +205,34 @@ public:
     };
 };
 
-class npc_fiendish_imp : public CreatureScript
+#define SPELL_FIREBOLT  30050   // Blasts a target for 181-209 Fire damage.
+
+class mob_fiendish_imp : public CreatureScript
 {
 public:
-    npc_fiendish_imp() : CreatureScript("npc_fiendish_imp") { }
+    mob_fiendish_imp() : CreatureScript("mob_fiendish_imp") {}
 
-    CreatureAI* GetAI(Creature* creature) const OVERRIDE
+    CreatureAI* GetAI(Creature* creature) const
     {
-        return new npc_fiendish_impAI(creature);
+        return new mob_fiendish_impAI (creature);
     }
 
-    struct npc_fiendish_impAI : public ScriptedAI
+    struct mob_fiendish_impAI : public ScriptedAI
     {
-        npc_fiendish_impAI(Creature* creature) : ScriptedAI(creature) { }
+        mob_fiendish_impAI(Creature* creature) : ScriptedAI(creature) {}
 
         uint32 FireboltTimer;
 
-        void Reset() OVERRIDE
+        void Reset() override
         {
             FireboltTimer = 2000;
 
             me->ApplySpellImmune(0, IMMUNITY_SCHOOL, SPELL_SCHOOL_MASK_FIRE, true);
         }
 
-        void EnterCombat(Unit* /*who*/) OVERRIDE { }
+        void EnterCombat(Unit* /*who*/) override {}
 
-        void UpdateAI(uint32 diff) OVERRIDE
+        void UpdateAI(uint32 diff) override
         {
             //Return since we have no target
             if (!UpdateVictim())
@@ -242,9 +240,13 @@ public:
 
             if (FireboltTimer <= diff)
             {
-                DoCastVictim(SPELL_FIREBOLT);
+                if (auto victim = me->getVictim())
+                    DoCast(victim, SPELL_FIREBOLT, false);
+
                 FireboltTimer = 2200;
-            } else FireboltTimer -= diff;
+            }
+            else
+                FireboltTimer -= diff;
 
             DoMeleeAttackIfReady();
         }
@@ -254,11 +256,11 @@ public:
 class boss_terestian_illhoof : public CreatureScript
 {
 public:
-    boss_terestian_illhoof() : CreatureScript("boss_terestian_illhoof") { }
+    boss_terestian_illhoof() : CreatureScript("boss_terestian_illhoof") {}
 
-    CreatureAI* GetAI(Creature* creature) const OVERRIDE
+    CreatureAI* GetAI(Creature* creature) const
     {
-        return new boss_terestianAI(creature);
+        return new boss_terestianAI (creature);
     }
 
     struct boss_terestianAI : public ScriptedAI
@@ -266,13 +268,14 @@ public:
         boss_terestianAI(Creature* creature) : ScriptedAI(creature)
         {
             for (uint8 i = 0; i < 2; ++i)
-                PortalGUID[i] = 0;
+                PortalGUID[i].Clear();
+
             instance = creature->GetInstanceScript();
         }
 
         InstanceScript* instance;
 
-        uint64 PortalGUID[2];
+        ObjectGuid PortalGUID[2];
         uint8 PortalsCount;
 
         uint32 SacrificeTimer;
@@ -283,7 +286,7 @@ public:
         bool SummonedPortals;
         bool Berserk;
 
-        void Reset() OVERRIDE
+        void Reset() override
         {
             for (uint8 i = 0; i < 2; ++i)
             {
@@ -291,11 +294,11 @@ public:
                 {
                     if (Creature* pPortal = Unit::GetCreature(*me, PortalGUID[i]))
                     {
-                        CAST_AI(npc_fiendish_portal::npc_fiendish_portalAI, pPortal->AI())->DespawnAllImp();
+                        CAST_AI(mob_fiendish_portal::mob_fiendish_portalAI, pPortal->AI())->DespawnAllImp();
                         pPortal->DespawnOrUnsummon();
                     }
 
-                    PortalGUID[i] = 0;
+                    PortalGUID[i].Clear();
                 }
             }
 
@@ -315,23 +318,24 @@ public:
 
             if (Minion* Kilrek = me->GetFirstMinion())
             {
-                if (!Kilrek->IsAlive())
+                if (!Kilrek->isAlive())
                 {
                     Kilrek->UnSummon();
                     DoCast(me, SPELL_SUMMON_IMP, true);
                 }
             }
-            else DoCast(me, SPELL_SUMMON_IMP, true);
+            else
+                DoCast(me, SPELL_SUMMON_IMP, true);
         }
 
-        void EnterCombat(Unit* /*who*/) OVERRIDE
+        void EnterCombat(Unit* /*who*/) override
         {
             Talk(SAY_AGGRO);
         }
 
-        void JustSummoned(Creature* summoned) OVERRIDE
+        void JustSummoned(Creature* summoned) override
         {
-            if (summoned->GetEntry() == NPC_PORTAL)
+            if (summoned->GetEntry() == CREATURE_PORTAL)
             {
                 PortalGUID[PortalsCount] = summoned->GetGUID();
                 ++PortalsCount;
@@ -344,12 +348,12 @@ public:
             }
         }
 
-        void KilledUnit(Unit* /*victim*/) OVERRIDE
+        void KilledUnit(Unit* /*victim*/) override
         {
             Talk(SAY_SLAY);
         }
 
-        void JustDied(Unit* /*killer*/) OVERRIDE
+        void JustDied(Unit* /*killer*/) override
         {
             for (uint8 i = 0; i < 2; ++i)
             {
@@ -358,7 +362,7 @@ public:
                     if (Creature* pPortal = Unit::GetCreature((*me), PortalGUID[i]))
                         pPortal->DespawnOrUnsummon();
 
-                    PortalGUID[i] = 0;
+                    PortalGUID[i].Clear();
                 }
             }
 
@@ -368,7 +372,7 @@ public:
                 instance->SetData(TYPE_TERESTIAN, DONE);
         }
 
-        void UpdateAI(uint32 diff) OVERRIDE
+        void UpdateAI(uint32 diff) override
         {
             if (!UpdateVictim())
                 return;
@@ -376,50 +380,64 @@ public:
             if (SacrificeTimer <= diff)
             {
                 Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 1, 100, true);
-                if (target && target->IsAlive())
+                if (target && target->isAlive())
                 {
                     DoCast(target, SPELL_SACRIFICE, true);
                     DoCast(target, SPELL_SUMMON_DEMONCHAINS, true);
 
-                    if (Creature* Chains = me->FindNearestCreature(NPC_DEMONCHAINS, 5000))
+                    if (Creature* Chains = me->FindNearestCreature(CREATURE_DEMONCHAINS, 5000))
                     {
-                        CAST_AI(npc_demon_chain::npc_demon_chainAI, Chains->AI())->SacrificeGUID = target->GetGUID();
+                        CAST_AI(mob_demon_chain::mob_demon_chainAI, Chains->AI())->SacrificeGUID = target->GetGUID();
                         Chains->CastSpell(Chains, SPELL_DEMON_CHAINS, true);
                         Talk(SAY_SACRIFICE);
                         SacrificeTimer = 30000;
                     }
                 }
-            } else SacrificeTimer -= diff;
+            }
+            else
+                SacrificeTimer -= diff;
 
             if (ShadowboltTimer <= diff)
             {
-                DoCast(SelectTarget(SELECT_TARGET_TOPAGGRO, 0), SPELL_SHADOW_BOLT);
+                if (auto target = SelectTarget(SELECT_TARGET_TOPAGGRO, 0))
+                    DoCast(target, SPELL_SHADOW_BOLT, false);
+
                 ShadowboltTimer = 10000;
-            } else ShadowboltTimer -= diff;
+            }
+            else
+                ShadowboltTimer -= diff;
 
             if (SummonTimer <= diff)
             {
                 if (!PortalGUID[0])
-                    DoCastVictim(SPELL_FIENDISH_PORTAL, false);
+                    if (auto victim = me->getVictim())
+                        DoCast(victim, SPELL_FIENDISH_PORTAL, false);
 
                 if (!PortalGUID[1])
-                    DoCastVictim(SPELL_FIENDISH_PORTAL_1, false);
+                    if (auto victim = me->getVictim())
+                        DoCast(victim, SPELL_FIENDISH_PORTAL_1, false);
 
                 if (PortalGUID[0] && PortalGUID[1])
                 {
                     if (Creature* pPortal = Unit::GetCreature(*me, PortalGUID[urand(0, 1)]))
-                        pPortal->CastSpell(me->GetVictim(), SPELL_SUMMON_FIENDISIMP, false);
+                        if (auto victim = me->getVictim())
+                            pPortal->CastSpell(victim, SPELL_SUMMON_FIENDISIMP, false);
+
                     SummonTimer = 5000;
                 }
-            } else SummonTimer -= diff;
+            }
+            else
+                SummonTimer -= diff;
 
             if (!Berserk)
             {
                 if (BerserkTimer <= diff)
                 {
-                    DoCast(me, SPELL_BERSERK);
+                    DoCast(SPELL_BERSERK);
                     Berserk = true;
-                } else BerserkTimer -= diff;
+                }
+                else
+                    BerserkTimer -= diff;
             }
 
             DoMeleeAttackIfReady();
@@ -430,8 +448,8 @@ public:
 void AddSC_boss_terestian_illhoof()
 {
     new boss_terestian_illhoof();
-    new npc_fiendish_imp();
-    new npc_fiendish_portal();
-    new npc_kilrek();
-    new npc_demon_chain();
+    new mob_fiendish_imp();
+    new mob_fiendish_portal();
+    new mob_kilrek();
+    new mob_demon_chain();
 }

@@ -1,12 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -21,7 +19,7 @@
 /* ScriptData
 SDName: Instance_Karazhan
 SD%Complete: 70
-SDComment: Instance Script for Karazhan to help in various encounters. @todo GameObject visibility for Opera event.
+SDComment: Instance Script for Karazhan to help in various encounters. TODO: GameObject visibility for Opera event.
 SDCategory: Karazhan
 EndScriptData */
 
@@ -51,14 +49,14 @@ class instance_karazhan : public InstanceMapScript
 public:
     instance_karazhan() : InstanceMapScript("instance_karazhan", 532) { }
 
-    InstanceScript* GetInstanceScript(InstanceMap* map) const OVERRIDE
+    InstanceScript* GetInstanceScript(InstanceMap* map) const
     {
         return new instance_karazhan_InstanceMapScript(map);
     }
 
     struct instance_karazhan_InstanceMapScript : public InstanceScript
     {
-        instance_karazhan_InstanceMapScript(Map* map) : InstanceScript(map) { }
+        instance_karazhan_InstanceMapScript(Map* map) : InstanceScript(map) {}
 
         uint32 m_auiEncounter[MAX_ENCOUNTER];
         std::string strSaveData;
@@ -66,23 +64,23 @@ public:
         uint32 m_uiOperaEvent;
         uint32 m_uiOzDeathCount;
 
-        uint64 m_uiCurtainGUID;
-        uint64 m_uiStageDoorLeftGUID;
-        uint64 m_uiStageDoorRightGUID;
-        uint64 m_uiKilrekGUID;
-        uint64 m_uiTerestianGUID;
-        uint64 m_uiMoroesGUID;
-        uint64 m_uiLibraryDoor;                                     // Door at Shade of Aran
-        uint64 m_uiMassiveDoor;                                     // Door at Netherspite
-        uint64 m_uiSideEntranceDoor;                                // Side Entrance
-        uint64 m_uiGamesmansDoor;                                   // Door before Chess
-        uint64 m_uiGamesmansExitDoor;                               // Door after Chess
-        uint64 m_uiNetherspaceDoor;                                // Door at Malchezaar
-        uint64 MastersTerraceDoor[2];
-        uint64 ImageGUID;
-        uint64 DustCoveredChest;
+        ObjectGuid m_uiCurtainGUID;
+        ObjectGuid m_uiStageDoorLeftGUID;
+        ObjectGuid m_uiStageDoorRightGUID;
+        ObjectGuid m_uiKilrekGUID;
+        ObjectGuid m_uiTerestianGUID;
+        ObjectGuid m_uiMoroesGUID;
+        ObjectGuid m_uiLibraryDoor;                                     // Door at Shade of Aran
+        ObjectGuid m_uiMassiveDoor;                                     // Door at Netherspite
+        ObjectGuid m_uiSideEntranceDoor;                                // Side Entrance
+        ObjectGuid m_uiGamesmansDoor;                                   // Door before Chess
+        ObjectGuid m_uiGamesmansExitDoor;                               // Door after Chess
+        ObjectGuid m_uiNetherspaceDoor;                                // Door at Malchezaar
+        ObjectGuid MastersTerraceDoor[2];
+        ObjectGuid ImageGUID;
+        ObjectGuid DustCoveredChest;
 
-        void Initialize() OVERRIDE
+        void Initialize()
         {
             memset(&m_auiEncounter, 0, sizeof(m_auiEncounter));
 
@@ -90,27 +88,27 @@ public:
             m_uiOperaEvent      = urand(1, 3);
             m_uiOzDeathCount    = 0;
 
-            m_uiCurtainGUID         = 0;
-            m_uiStageDoorLeftGUID   = 0;
-            m_uiStageDoorRightGUID  = 0;
+            m_uiCurtainGUID.Clear();
+            m_uiStageDoorLeftGUID.Clear();
+            m_uiStageDoorRightGUID.Clear();
 
-            m_uiKilrekGUID      = 0;
-            m_uiTerestianGUID   = 0;
-            m_uiMoroesGUID      = 0;
+            m_uiKilrekGUID.Clear();
+            m_uiTerestianGUID.Clear();
+            m_uiMoroesGUID.Clear();
 
-            m_uiLibraryDoor         = 0;
-            m_uiMassiveDoor         = 0;
-            m_uiSideEntranceDoor    = 0;
-            m_uiGamesmansDoor       = 0;
-            m_uiGamesmansExitDoor   = 0;
-            m_uiNetherspaceDoor     = 0;
-            MastersTerraceDoor[0]= 0;
-            MastersTerraceDoor[1]= 0;
-            ImageGUID = 0;
-            DustCoveredChest    = 0;
+            m_uiLibraryDoor.Clear();
+            m_uiMassiveDoor.Clear();
+            m_uiSideEntranceDoor.Clear();
+            m_uiGamesmansDoor.Clear();
+            m_uiGamesmansExitDoor.Clear();
+            m_uiNetherspaceDoor.Clear();
+            MastersTerraceDoor[0].Clear();
+            MastersTerraceDoor[1].Clear();
+            ImageGUID.Clear();
+            DustCoveredChest.Clear();
         }
 
-        bool IsEncounterInProgress() const OVERRIDE
+        bool IsEncounterInProgress() const
         {
             for (uint8 i = 0; i < MAX_ENCOUNTER; ++i)
                 if (m_auiEncounter[i] == IN_PROGRESS)
@@ -119,7 +117,7 @@ public:
             return false;
         }
 
-        void OnCreatureCreate(Creature* creature) OVERRIDE
+        void OnCreatureCreate(Creature* creature)
         {
             switch (creature->GetEntry())
             {
@@ -129,7 +127,7 @@ public:
             }
         }
 
-        void SetData(uint32 type, uint32 uiData) OVERRIDE
+        void SetData(uint32 type, uint32 uiData)
         {
             switch (type)
             {
@@ -143,8 +141,6 @@ public:
                 case TYPE_OPTIONAL_BOSS:        m_auiEncounter[3] = uiData; break;
                 case TYPE_OPERA:
                     m_auiEncounter[4] = uiData;
-                    if (uiData == DONE)
-                        UpdateEncounterState(EncounterCreditType::ENCOUNTER_CREDIT_KILL_CREATURE, 16812, NULL);
                     break;
                 case TYPE_CURATOR:              m_auiEncounter[5] = uiData; break;
                 case TYPE_ARAN:                 m_auiEncounter[6] = uiData; break;
@@ -184,7 +180,7 @@ public:
             }
         }
 
-         void SetData64(uint32 identifier, uint64 data) OVERRIDE
+         void SetGuidData(uint32 identifier, ObjectGuid data)
          {
              switch (identifier)
              {
@@ -192,7 +188,7 @@ public:
              }
          }
 
-        void OnGameObjectCreate(GameObject* go) OVERRIDE
+        void OnGameObjectCreate(GameObject* go)
         {
             switch (go->GetEntry())
             {
@@ -200,12 +196,12 @@ public:
                 case 184278:
                     m_uiStageDoorLeftGUID = go->GetGUID();
                     if (m_auiEncounter[4] == DONE)
-                        go->SetGoState(GOState::GO_STATE_ACTIVE);
+                        go->SetGoState(GO_STATE_ACTIVE);
                     break;
                 case 184279:
                     m_uiStageDoorRightGUID = go->GetGUID();
                     if (m_auiEncounter[4] == DONE)
-                        go->SetGoState(GOState::GO_STATE_ACTIVE);
+                        go->SetGoState(GO_STATE_ACTIVE);
                     break;
                 case 184517:   m_uiLibraryDoor          = go->GetGUID();         break;
                 case 185521:   m_uiMassiveDoor          = go->GetGUID();         break;
@@ -226,7 +222,7 @@ public:
 
             switch (m_uiOperaEvent)
             {
-                /// @todo Set Object visibilities for Opera based on performance
+                //TODO: Set Object visibilities for Opera based on performance
                 case EVENT_OZ:
                     break;
 
@@ -238,12 +234,12 @@ public:
             }
         }
 
-        std::string GetSaveData() OVERRIDE
+        std::string GetSaveData()
         {
             return strSaveData;
         }
 
-        uint32 GetData(uint32 uiData) const OVERRIDE
+        uint32 GetData(uint32 uiData) const
         {
             switch (uiData)
             {
@@ -266,7 +262,7 @@ public:
             return 0;
         }
 
-        uint64 GetData64(uint32 uiData) const OVERRIDE
+        ObjectGuid GetGuidData(uint32 uiData) const
         {
             switch (uiData)
             {
@@ -287,10 +283,10 @@ public:
                 case DATA_IMAGE_OF_MEDIVH:          return ImageGUID;
             }
 
-            return 0;
+            return ObjectGuid::Empty;
         }
 
-        void Load(char const* chrIn) OVERRIDE
+        void Load(const char* chrIn)
         {
             if (!chrIn)
             {
@@ -310,6 +306,7 @@ public:
             OUT_LOAD_INST_DATA_COMPLETE;
         }
     };
+
 };
 
 void AddSC_instance_karazhan()

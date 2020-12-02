@@ -37,23 +37,23 @@ namespace VMAP
     {
         if (!iModel)
         {
-            //std::cout << "<object not loaded>\n";
+            /std::cout << "<object not loaded>\n";
             return false;
         }
         float time = pRay.intersectionTime(iBound);
         if (time == G3D::inf())
         {
-//            std::cout << "Ray does not hit '" << name << "'\n";
+/            std::cout << "Ray does not hit '" << name << "'\n";
 
             return false;
         }
-//        std::cout << "Ray crosses bound of '" << name << "'\n";
-/*        std::cout << "ray from:" << pRay.origin().x << ", " << pRay.origin().y << ", " << pRay.origin().z
+/        std::cout << "Ray crosses bound of '" << name << "'\n";
+/        std::cout << "ray from:" << pRay.origin().x << ", " << pRay.origin().y << ", " << pRay.origin().z
                   << " dir:" << pRay.direction().x << ", " << pRay.direction().y << ", " << pRay.direction().z
                   << " t/tmax:" << time << '/' << pMaxDist;
         std::cout << "\nBound lo:" << iBound.low().x << ", " << iBound.low().y << ", " << iBound.low().z << " hi: "
                   << iBound.high().x << ", " << iBound.high().y << ", " << iBound.high().z << std::endl; */
-        // child bounds are defined in object space:
+        / child bounds are defined in object space:
         Vector3 p = iInvRot * (pRay.origin() - iPos) * iInvScale;
         Ray modRay(p, iInvRot * pRay.direction());
         float distance = pMaxDist * iInvScale;
@@ -76,7 +76,7 @@ namespace VMAP
             return;
         }
 
-        // M2 files don't contain area info, only WMO files
+        / M2 files don't contain area info, only WMO files
         if (flags & MOD_M2)
             return;
         if (!iBound.contains(p))
@@ -115,18 +115,18 @@ namespace VMAP
             return false;
         if (!iBound.contains(p))
             return false;
-        // child bounds are defined in object space:
+        / child bounds are defined in object space:
         Vector3 pModel = iInvRot * (p - iPos) * iInvScale;
         Vector3 zDirModel = iInvRot * Vector3(0.f, 0.f, -1.f);
         float zDist;
         if (iModel->GetLocationInfo(pModel, zDirModel, zDist, info))
         {
             Vector3 modelGround = pModel + zDist * zDirModel;
-            // Transform back to world space. Note that:
-            // Mat * vec == vec * Mat.transpose()
-            // and for rotation matrices: Mat.inverse() == Mat.transpose()
+            / Transform back to world space. Note that:
+            / Mat * vec == vec * Mat.transpose()
+            / and for rotation matrices: Mat.inverse() == Mat.transpose()
             float world_Z = ((modelGround * iInvRot) * iScale + iPos).z;
-            if (info.ground_Z < world_Z) // hm...could it be handled automatically with zDist at intersection?
+            if (info.ground_Z < world_Z) / hm...could it be handled automatically with zDist at intersection?
             {
                 info.ground_Z = world_Z;
                 info.hitInstance = this;
@@ -138,14 +138,14 @@ namespace VMAP
 
     bool ModelInstance::GetLiquidLevel(const G3D::Vector3& p, LocationInfo &info, float &liqHeight) const
     {
-        // child bounds are defined in object space:
+        / child bounds are defined in object space:
         Vector3 pModel = iInvRot * (p - iPos) * iInvScale;
-        //Vector3 zDirModel = iInvRot * Vector3(0.f, 0.f, -1.f);
+        /Vector3 zDirModel = iInvRot * Vector3(0.f, 0.f, -1.f);
         float zDist;
         if (info.hitModel->GetLiquidLevel(pModel, zDist))
         {
-            // calculate world height (zDist in model coords):
-            // assume WMO not tilted (wouldn't make much sense anyway)
+            / calculate world height (zDist in model coords):
+            / assume WMO not tilted (wouldn't make much sense anyway)
             liqHeight = zDist * iScale + iPos.z;
             return true;
         }

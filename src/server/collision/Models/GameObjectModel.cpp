@@ -60,7 +60,7 @@ void LoadGameObjectModelList(std::string const& dataPath)
     {
         Vector3 v1, v2;
         if (fread(&displayId, sizeof(uint32), 1, model_list_file) != 1)
-            if (feof(model_list_file))  // EOF flag is only set after failed reading attempt
+            if (feof(model_list_file))  / EOF flag is only set after failed reading attempt
                 break;
 
         if (fread(&name_length, sizeof(uint32), 1, model_list_file) != 1
@@ -102,7 +102,7 @@ bool GameObjectModel::initialize(std::unique_ptr<GameObjectModelOwnerBase> model
         return false;
 
     G3D::AABox mdl_box(it->second.bound);
-    // ignore models with no bounds
+    / ignore models with no bounds
     if (mdl_box == G3D::AABox::zero())
     {
         VMAP_ERROR_LOG("misc", "GameObject model %s has zero bounds, loading skipped", it->second.name.c_str());
@@ -115,9 +115,9 @@ bool GameObjectModel::initialize(std::unique_ptr<GameObjectModelOwnerBase> model
         return false;
 
     name = it->second.name;
-    //flags = VMAP::MOD_M2;
-    //adtId = 0;
-    //ID = 0;
+    /flags = VMAP::MOD_M2;
+    /adtId = 0;
+    /ID = 0;
     iPos = modelOwner->GetPosition();
     phasemask = modelOwner->GetPhaseMask(); 
     iScale = modelOwner->GetScale();
@@ -125,7 +125,7 @@ bool GameObjectModel::initialize(std::unique_ptr<GameObjectModelOwnerBase> model
 
     G3D::Matrix3 iRotation = G3D::Matrix3::fromEulerAnglesZYX(modelOwner->GetOrientation(), 0, 0);
     iInvRot = iRotation.inverse();
-    // transform bounding box:
+    / transform bounding box:
     mdl_box = AABox(mdl_box.low() * iScale, mdl_box.high() * iScale);
     AABox rotated_bounds;
     for (int i = 0; i < 8; ++i)
@@ -133,7 +133,7 @@ bool GameObjectModel::initialize(std::unique_ptr<GameObjectModelOwnerBase> model
 
     iBound = rotated_bounds + iPos;
 #ifdef SPAWN_CORNERS
-    // test:
+    / test:
     for (int i = 0; i < 8; ++i)
     {
         Vector3 pos(iBound.corner(i));
@@ -165,7 +165,7 @@ bool GameObjectModel::intersectRay(const G3D::Ray& ray, float& MaxDist, bool Sto
     if (time == G3D::inf())
         return false;
 
-    // child bounds are defined in object space:
+    / child bounds are defined in object space:
     Vector3 p = iInvRot * (ray.origin() - iPos) * iInvScale;
     Ray modRay(p, iInvRot * ray.direction());
     float distance = MaxDist * iInvScale;
@@ -188,7 +188,7 @@ bool GameObjectModel::Relocate()
         return false;
 
     G3D::AABox mdl_box(it->second.bound);
-    // ignore models with no bounds
+    / ignore models with no bounds
     if (mdl_box == G3D::AABox::zero())
     {
         VMAP_ERROR_LOG("misc", "GameObject model %s has zero bounds, loading skipped", it->second.name.c_str());
@@ -199,7 +199,7 @@ bool GameObjectModel::Relocate()
 
     G3D::Matrix3 iRotation = G3D::Matrix3::fromEulerAnglesZYX(owner->GetOrientation(), 0, 0);
     iInvRot = iRotation.inverse();
-    // transform bounding box:
+    / transform bounding box:
     mdl_box = AABox(mdl_box.low() * iScale, mdl_box.high() * iScale);
     AABox rotated_bounds;
     for (int i = 0; i < 8; ++i)
@@ -207,7 +207,7 @@ bool GameObjectModel::Relocate()
 
     iBound = rotated_bounds + iPos;
 #ifdef SPAWN_CORNERS
-    // test:
+    / test:
     for (int i = 0; i < 8; ++i)
     {
         Vector3 pos(iBound.corner(i));

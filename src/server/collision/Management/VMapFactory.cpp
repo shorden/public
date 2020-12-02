@@ -24,12 +24,12 @@ namespace VMAP
 {
     IVMapManager* gVMapManager = NULL;
 
-    //===============================================
-    // just return the instance
+    /===============================================
+    / just return the instance
     IVMapManager* VMapFactory::createOrGetVMapManager()
     {
         if (gVMapManager == 0)
-            gVMapManager= new VMapManager2();                // should be taken from config ... Please change if you like :-)
+            gVMapManager= new VMapManager2();                / should be taken from config ... Please change if you like :-)
         return gVMapManager;
     }
 

@@ -25,7 +25,7 @@
 #include "Define.h"
 #include "revision.h"
 
-#define _PACKAGENAME "SkyFire 5.x.x"
+#define _PACKAGENAME "Fuzion 5.4.8"
 
 // Format is YYYYMMDDRR where RR is the change in the conf file
 // for that day.

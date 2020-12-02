@@ -1,12 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -63,14 +61,13 @@ enum Events
 
 class boss_nethermancer_sepethrea : public CreatureScript
 {
-    public:
-        boss_nethermancer_sepethrea(): CreatureScript("boss_nethermancer_sepethrea") { }
+    public: boss_nethermancer_sepethrea(): CreatureScript("boss_nethermancer_sepethrea") { }
 
         struct boss_nethermancer_sepethreaAI : public BossAI
         {
             boss_nethermancer_sepethreaAI(Creature* creature) : BossAI(creature, DATA_NETHERMANCER_SEPRETHREA) { }
 
-            void EnterCombat(Unit* who) OVERRIDE
+            void EnterCombat(Unit* who)
             {
                 _EnterCombat();
                 events.ScheduleEvent(EVENT_FROST_ATTACK, urand(7000, 10000));
@@ -83,18 +80,18 @@ class boss_nethermancer_sepethrea : public CreatureScript
                 Talk(SAY_SUMMON);
             }
 
-            void KilledUnit(Unit* /*victim*/) OVERRIDE
+            void KilledUnit(Unit* /*victim*/)
             {
                 Talk(SAY_SLAY);
             }
 
-            void JustDied(Unit* /*killer*/) OVERRIDE
+            void JustDied(Unit* /*killer*/)
             {
                 _JustDied();
                 Talk(SAY_DEATH);
             }
 
-            void UpdateAI(uint32 diff) OVERRIDE
+            void UpdateAI(uint32 diff)
             {
                 if (!UpdateVictim())
                     return;
@@ -139,7 +136,7 @@ class boss_nethermancer_sepethrea : public CreatureScript
             }
         };
 
-        CreatureAI* GetAI(Creature* creature) const OVERRIDE
+        CreatureAI* GetAI(Creature* creature) const
         {
             return new boss_nethermancer_sepethreaAI(creature);
         }
@@ -165,7 +162,7 @@ class npc_ragin_flames : public CreatureScript
 
                 bool onlyonce;
 
-                void Reset() OVERRIDE
+                void Reset()
                 {
                     inferno_Timer = 10000;
                     flame_timer = 500;
@@ -176,23 +173,20 @@ class npc_ragin_flames : public CreatureScript
                     me->SetSpeed(MOVE_RUN, DUNGEON_MODE(0.5f, 0.7f));
                 }
 
-                void EnterCombat(Unit* /*who*/) OVERRIDE
+                void EnterCombat(Unit* /*who*/)
                 {
                 }
 
-                void UpdateAI(uint32 diff) OVERRIDE
+                void UpdateAI(uint32 diff)
                 {
                     //Check_Timer
                     if (Check_Timer <= diff)
                     {
-                        if (instance)
+                        if (instance->GetData(DATA_NETHERMANCER_SEPRETHREA) != IN_PROGRESS)
                         {
-                            if (instance->GetData(DATA_NETHERMANCER_SEPRETHREA) != IN_PROGRESS)
-                            {
-                                //remove
-                                me->setDeathState(DeathState::JUST_DIED);
-                                me->RemoveCorpse();
-                            }
+                            //remove
+                            me->setDeathState(JUST_DIED);
+                            me->RemoveCorpse();
                         }
                         Check_Timer = 1000;
                     } else Check_Timer -= diff;
@@ -210,7 +204,7 @@ class npc_ragin_flames : public CreatureScript
                     if (inferno_Timer <= diff)
                     {
                         DoCastVictim(SPELL_INFERNO);
-                        me->TauntApply(me->GetVictim());
+                        me->TauntApply(me->getVictim());
                         inferno_Timer = 10000;
                     } else inferno_Timer -= diff;
 
@@ -222,9 +216,9 @@ class npc_ragin_flames : public CreatureScript
 
                     DoMeleeAttackIfReady();
                 }
-            };
 
-            CreatureAI* GetAI(Creature* creature) const OVERRIDE
+            };
+            CreatureAI* GetAI(Creature* creature) const
             {
                 return new npc_ragin_flamesAI(creature);
             }

@@ -1,12 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -66,7 +64,7 @@ class boss_murmur : public CreatureScript
                 SetCombatMovement(false);
             }
 
-            void Reset() OVERRIDE
+            void Reset()
             {
                 _Reset();
                 events.ScheduleEvent(EVENT_SONIC_BOOM, 30000);
@@ -86,17 +84,17 @@ class boss_murmur : public CreatureScript
                 me->ResetPlayerDamageReq();
             }
 
-            void EnterCombat(Unit* /*who*/) OVERRIDE
+            void EnterCombat(Unit* /*who*/)
             {
                 _EnterCombat();
             }
 
-            void JustDied(Unit* /*killer*/) OVERRIDE
+            void JustDied(Unit* /*killer*/)
             {
                 _JustDied();
             }
 
-            void UpdateAI(uint32 diff) OVERRIDE
+            void UpdateAI(uint32 diff)
             {
                 if (!UpdateVictim())
                     return;
@@ -122,7 +120,7 @@ class boss_murmur : public CreatureScript
                             events.ScheduleEvent(EVENT_MURMURS_TOUCH, urand(25000, 35000));
                             break;
                         case EVENT_RESONANCE:
-                            if (!(me->IsWithinMeleeRange(me->GetVictim())))
+                            if (!(me->IsWithinMeleeRange(me->getVictim())))
                             {
                                 DoCast(me, SPELL_RESONANCE);
                                 events.ScheduleEvent(EVENT_RESONANCE, 5000);
@@ -153,12 +151,12 @@ class boss_murmur : public CreatureScript
                 if (!me->isAttackReady())
                     return;
 
-                if (!me->IsWithinMeleeRange(me->GetVictim()))
+                if (!me->IsWithinMeleeRange(me->getVictim()))
                 {
-                    ThreatContainer::StorageType threatlist = me->getThreatManager().getThreatList();
-                    for (ThreatContainer::StorageType::const_iterator i = threatlist.begin(); i != threatlist.end(); ++i)
-                        if (Unit* target = ObjectAccessor::GetUnit(*me, (*i)->getUnitGuid()))
-                            if (me->IsWithinMeleeRange(target))
+                    std::list<HostileReference*>& m_threatlist = me->getThreatManager().getThreatList();
+                    for (std::list<HostileReference*>::const_iterator i = m_threatlist.begin(); i != m_threatlist.end(); ++i)
+                        if (Unit* target = Unit::GetUnit(*me, (*i)->getUnitGuid()))
+                            if (target->isAlive() && me->IsWithinMeleeRange(target))
                             {
                                 me->TauntApply(target);
                                 break;
@@ -169,9 +167,9 @@ class boss_murmur : public CreatureScript
             }
         };
 
-        CreatureAI* GetAI(Creature* creature) const OVERRIDE
+        CreatureAI* GetAI(Creature* creature) const
         {
-            return GetShadowLabyrinthAI<boss_murmurAI>(creature);
+            return new boss_murmurAI(creature);
         }
 };
 
@@ -185,7 +183,7 @@ class spell_murmur_sonic_boom : public SpellScriptLoader
         {
             PrepareSpellScript(spell_murmur_sonic_boom_SpellScript);
 
-            bool Validate(SpellInfo const* /*spellInfo*/) OVERRIDE
+            bool Validate(SpellInfo const* /*spellInfo*/)
             {
                 if (!sSpellMgr->GetSpellInfo(SPELL_SONIC_BOOM_EFFECT))
                     return false;
@@ -197,13 +195,13 @@ class spell_murmur_sonic_boom : public SpellScriptLoader
                 GetCaster()->CastSpell((Unit*)NULL, SPELL_SONIC_BOOM_EFFECT, true);
             }
 
-            void Register() OVERRIDE
+            void Register()
             {
                 OnEffectHit += SpellEffectFn(spell_murmur_sonic_boom_SpellScript::HandleEffect, EFFECT_0, SPELL_EFFECT_DUMMY);
             }
         };
 
-        SpellScript* GetSpellScript() const OVERRIDE
+        SpellScript* GetSpellScript() const
         {
             return new spell_murmur_sonic_boom_SpellScript();
         }
@@ -225,13 +223,13 @@ class spell_murmur_sonic_boom_effect : public SpellScriptLoader
                     SetHitDamage(target->CountPctFromMaxHealth(80)); /// @todo: find correct value
             }
 
-            void Register() OVERRIDE
+            void Register()
             {
                 OnHit += SpellHitFn(spell_murmur_sonic_boom_effect_SpellScript::CalcDamage);
             }
         };
 
-        SpellScript* GetSpellScript() const OVERRIDE
+        SpellScript* GetSpellScript() const
         {
             return new spell_murmur_sonic_boom_effect_SpellScript();
         }
@@ -267,13 +265,13 @@ class spell_murmur_thundering_storm : public SpellScriptLoader
                 targets.remove_if(ThunderingStormCheck(GetCaster()));
             }
 
-            void Register() OVERRIDE
+            void Register()
             {
                 OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_murmur_thundering_storm_SpellScript::FilterTarget, EFFECT_0, TARGET_UNIT_SRC_AREA_ENEMY);
             }
         };
 
-        SpellScript* GetSpellScript() const OVERRIDE
+        SpellScript* GetSpellScript() const
         {
             return new spell_murmur_thundering_storm_SpellScript();
         }

@@ -1,12 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
- * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -23,7 +21,7 @@
 
 uint32 const EncounterCount       = 4;
 
-enum DataTypes
+enum HRDataTypes
 {
     DATA_WATCHKEEPER_GARGOLMAR    = 0,
     DATA_OMOR_THE_UNSCARRED       = 1,
@@ -31,7 +29,7 @@ enum DataTypes
     DATA_NAZAN                    = 3
 };
 
-enum CreatureIds
+enum HRCreatureIds
 {
     NPC_HELLFIRE_SENTRY           = 17517,
     NPC_VAZRUDEN_HERALD           = 17307,
@@ -40,10 +38,10 @@ enum CreatureIds
     NPC_LIQUID_FIRE               = 22515
 };
 
-enum GameobjectIds
+enum HRGameobjectIds
 {
     GO_FEL_IRON_CHEST_NORMAL      = 185168,
-    GO_FEL_IRON_CHECT_HEROIC      = 185169
+    GO_FEL_IRON_CHEST_HEROIC      = 185169
 };
 
 #endif

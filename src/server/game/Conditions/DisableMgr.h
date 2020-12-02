@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -17,10 +16,8 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SKYFIRE_DISABLEMGR_H
-#define SKYFIRE_DISABLEMGR_H
-
-#include "Define.h"
+#ifndef TRINITY_DISABLEMGR_H
+#define TRINITY_DISABLEMGR_H
 
 class Unit;
 
@@ -30,10 +27,14 @@ enum DisableType
     DISABLE_TYPE_QUEST                  = 1,
     DISABLE_TYPE_MAP                    = 2,
     DISABLE_TYPE_BATTLEGROUND           = 3,
-    DISABLE_TYPE_ACHIEVEMENT_CRITERIA   = 4,
+    DISABLE_TYPE_CRITERIA               = 4,
     DISABLE_TYPE_OUTDOORPVP             = 5,
     DISABLE_TYPE_VMAP                   = 6,
-    DISABLE_TYPE_MMAP                   = 7
+    DISABLE_TYPE_MMAP                   = 7,
+    DISABLE_TYPE_LFG                    = 8,
+    DISABLE_TYPE_ACHIEVEMENT            = 9,
+    DISABLE_TYPE_CRITERIA_TREE          = 10,
+    DISABLE_TYPE_MAX                    = 11,
 };
 
 enum SpellDisableTypes
@@ -55,7 +56,7 @@ enum VmapDisableTypes
     VMAP_DISABLE_AREAFLAG       = 0x1,
     VMAP_DISABLE_HEIGHT         = 0x2,
     VMAP_DISABLE_LOS            = 0x4,
-    VMAP_DISABLE_LIQUIDSTATUS   = 0x8
+    VMAP_DISABLE_LIQUIDSTATUS   = 0x8,
 };
 
 enum MMapDisableTypes
@@ -66,8 +67,10 @@ enum MMapDisableTypes
 namespace DisableMgr
 {
     void LoadDisables();
-    bool IsDisabledFor(DisableType type, uint32 entry, Unit const* unit, uint8 flags = 0);
+    bool IsDisabledFor(DisableType type, uint32 entry, Unit const* unit = nullptr, uint8 flags = 0);
     void CheckQuestDisables();
+    bool IsVMAPDisabledFor(uint32 entry, uint8 flags);
+    bool IsPathfindingEnabled(uint32 mapId);
 }
 
-#endif //SKYFIRE_DISABLEMGR_H
+#endif //TRINITY_DISABLEMGR_H

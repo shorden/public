@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
- * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
+ * Free Software Foundation; either version 2 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -20,28 +19,44 @@
 #include "TotemAI.h"
 #include "Totem.h"
 #include "Creature.h"
-#include "DBCStores.h"
 #include "ObjectAccessor.h"
 #include "SpellMgr.h"
 
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
 #include "CellImpl.h"
+#include "PartyPackets.h"
 
 int TotemAI::Permissible(Creature const* creature)
 {
-    if (creature->IsTotem())
+    if (creature->isTotem())
         return PERMIT_BASE_PROACTIVE;
 
     return PERMIT_BASE_NO;
 }
 
-TotemAI::TotemAI(Creature* c) : CreatureAI(c), i_victimGuid(0)
+TotemAI::TotemAI(Creature* c) : CreatureAI(c)
 {
-    ASSERT(c->IsTotem());
+    ASSERT(c->isTotem());
 }
 
-void TotemAI::MoveInLineOfSight(Unit* /*who*/) { }
+void TotemAI::InitializeAI()
+{
+    CreatureAI::InitializeAI();
+
+    if (PetStats const* pStats = sObjectMgr->GetPetStats(me->GetEntry()))
+        if (pStats->state)
+        {
+            me->SetReactState(ReactStates(pStats->state));
+            if (Unit* victim = me->GetTargetUnit())
+                me->Attack(victim, !me->GetCasterPet());
+        }
+
+    i_victimGuid.Clear();
+}
+
+void TotemAI::MoveInLineOfSight(Unit* /*who*/)
+{ }
 
 void TotemAI::EnterEvadeMode()
 {
@@ -53,7 +68,7 @@ void TotemAI::UpdateAI(uint32 /*diff*/)
     if (me->ToTotem()->GetTotemType() != TOTEM_ACTIVE)
         return;
 
-    if (!me->IsAlive() || me->IsNonMeleeSpellCasted(false))
+    if (!me->isAlive())
         return;
 
     // Search spell
@@ -61,39 +76,44 @@ void TotemAI::UpdateAI(uint32 /*diff*/)
     if (!spellInfo)
         return;
 
-    // Get spell range
-    float max_range = spellInfo->GetMaxRange(false);
+    Unit* owner = me->GetCharmerOrOwner();
+    Unit* victim = !i_victimGuid.IsEmpty() ? ObjectAccessor::GetUnit(*me, i_victimGuid) : nullptr;
+    if (!owner)
+        return;
 
-    // SPELLMOD_RANGE not applied in this place just because not existence range mods for attacking totems
-
-    // pointer to appropriate target if found any
-    Unit* victim = i_victimGuid ? ObjectAccessor::GetUnit(*me, i_victimGuid) : NULL;
-
-    // Search victim if no, not attackable, or out of range, or friendly (possible in case duel end)
-    if (!victim ||
-        !victim->isTargetableForAttack() || !me->IsWithinDistInMap(victim, max_range) ||
-        me->IsFriendlyTo(victim) || !me->CanSeeOrDetect(victim))
+    Unit* targetOwner = owner->getAttackerForHelper();
+    if (targetOwner != nullptr && targetOwner != victim && me->IsWithinDistInMap(targetOwner, spellInfo->GetMaxRange(false, me)))
     {
-        victim = NULL;
-        Skyfire::NearestAttackableUnitInObjectRangeCheck u_check(me, me, max_range);
-        Skyfire::UnitLastSearcher<Skyfire::NearestAttackableUnitInObjectRangeCheck> checker(me, victim, u_check);
-        me->VisitNearbyObject(max_range, checker);
+        victim = targetOwner;
+        i_victimGuid = victim->GetGUID();
     }
 
-    // If have target
+    if (me->IsNonMeleeSpellCast(false))
+    {
+        if (victim && victim->HasCrowdControlAura())
+            victim = nullptr;
+        else
+            return;
+    }
+
     if (victim)
     {
-        // remember
-        i_victimGuid = victim->GetGUID();
+        if (!owner->isInCombat())
+            owner->SetInCombatWith(victim);
 
-        // attack
         me->SetInFront(victim);                         // client change orientation by self
-        me->CastSpell(victim, me->ToTotem()->GetSpell(), false);
+        me->CastSpell(victim, spellInfo, false);
     }
-    else
-        i_victimGuid = 0;
 }
 
 void TotemAI::AttackStart(Unit* /*victim*/)
 {
+    if (me->GetEntry() == SENTRY_TOTEM_ENTRY && me->GetOwner()->IsPlayer())
+    {
+        WorldPackets::Party::MinimapPing ping;
+        ping.Sender = me->GetGUID();
+        ping.PositionX = me->GetPositionX();
+        ping.PositionY = me->GetPositionY();
+        me->GetOwner()->ToPlayer()->SendDirectMessage(ping.Write());
+    }
 }
