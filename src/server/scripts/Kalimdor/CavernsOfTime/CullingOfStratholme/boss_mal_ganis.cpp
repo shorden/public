@@ -1,9 +1,12 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -19,10 +22,12 @@
 SDName: Boss mal_ganis
 SDAuthor: Tartalo
 SD%Complete: 80
-SDComment: TODO: Intro & outro
+SDComment: @todo Intro & outro
 SDCategory:
 Script Data End */
 
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "culling_of_stratholme.h"
 
 enum Spells
@@ -62,9 +67,9 @@ class boss_mal_ganis : public CreatureScript
 public:
     boss_mal_ganis() : CreatureScript("boss_mal_ganis") { }
 
-    CreatureAI* GetAI(Creature* creature) const
+    CreatureAI* GetAI(Creature* creature) const OVERRIDE
     {
-        return new boss_mal_ganisAI (creature);
+        return new boss_mal_ganisAI(creature);
     }
 
     struct boss_mal_ganisAI : public ScriptedAI
@@ -89,42 +94,35 @@ public:
 
         InstanceScript* instance;
 
-        void Reset()
+        void Reset() OVERRIDE
         {
-            bYelled = false;
-            bYelled2 = false;
-            Phase = COMBAT;
-            uiCarrionSwarmTimer = 6000;
-            uiMindBlastTimer = 11000;
-            uiVampiricTouchTimer = urand(10000, 15000);
-            uiSleepTimer = urand(15000, 20000);
-            uiOutroTimer = 1000;
+             bYelled = false;
+             bYelled2 = false;
+             Phase = COMBAT;
+             uiCarrionSwarmTimer = 6000;
+             uiMindBlastTimer = 11000;
+             uiVampiricTouchTimer = urand(10000, 15000);
+             uiSleepTimer = urand(15000, 20000);
+             uiOutroTimer = 1000;
 
-            if (instance)
-                instance->SetData(DATA_MAL_GANIS_EVENT, NOT_STARTED);
+             if (instance)
+                 instance->SetData(DATA_MAL_GANIS_EVENT, NOT_STARTED);
         }
 
-        void EnterCombat(Unit* /*who*/)
+        void EnterCombat(Unit* /*who*/) OVERRIDE
         {
             Talk(SAY_AGGRO);
             if (instance)
                 instance->SetData(DATA_MAL_GANIS_EVENT, IN_PROGRESS);
         }
 
-        void DamageTaken(Unit* done_by, uint32 &damage, DamageEffectType dmgType)
+        void DamageTaken(Unit* done_by, uint32 &damage) OVERRIDE
         {
             if (damage >= me->GetHealth() && done_by != me)
-            {
                 damage = me->GetHealth()-1;
-                if (instance)
-                {
-                    instance->DoUpdateAchievementCriteria(CRITERIA_TYPE_KILL_CREATURE, 26533, 0, 0, me);
-                    instance->DoUpdateAchievementCriteria(CRITERIA_TYPE_BE_SPELL_TARGET, 58630, 0, 0, me);
-                }
-            }
         }
 
-        void UpdateAI(uint32 diff)
+        void UpdateAI(uint32 diff) OVERRIDE
         {
             switch (Phase)
             {
@@ -154,7 +152,7 @@ public:
                         return;
                     }
 
-                    if (Creature* pArthas = me->GetCreature(*me, instance ? instance->GetGuidData(DATA_ARTHAS) : ObjectGuid::Empty))
+                    if (Creature* pArthas = me->GetCreature(*me, instance ? instance->GetData64(DATA_ARTHAS) : 0))
                         if (pArthas->isDead())
                         {
                             EnterEvadeMode();
@@ -204,7 +202,7 @@ public:
                                 uiOutroTimer = 8000;
                                 break;
                             case 2:
-                                me->SetTarget(instance ? instance->GetGuidData(DATA_ARTHAS) : ObjectGuid::Empty);
+                                me->SetTarget(instance ? instance->GetData64(DATA_ARTHAS) : 0);
                                 me->HandleEmoteCommand(29);
                                 Talk(SAY_ESCAPE_SPEECH_2);
                                 ++uiOutroStep;
@@ -224,18 +222,16 @@ public:
                                 me->SetVisible(false);
                                 me->Kill(me);
                                 break;
-
                         }
                     } else uiOutroTimer -= diff;
                     break;
             }
         }
 
-        void JustDied(Unit* /*killer*/)
+        void JustDied(Unit* /*killer*/) OVERRIDE
         {
             if (instance)
             {
-                instance->DoUpdateAchievementCriteria(CRITERIA_TYPE_BE_SPELL_TARGET, 1, SPELL_KILL_CREDIT, 0, me);
                 instance->SetData(DATA_MAL_GANIS_EVENT, DONE);
                 DoCastAOE(SPELL_MAL_GANIS_KILL_CREDIT);
                 // give achievement credit and LFG rewards to players. criteria use spell 58630 which doesn't exist, but it was created in spell_dbc
@@ -243,15 +239,14 @@ public:
             }
         }
 
-        void KilledUnit(Unit* victim)
+        void KilledUnit(Unit* victim) OVERRIDE
         {
-            if (victim == me)
+            if (victim->GetTypeId() != TypeID::TYPEID_PLAYER)
                 return;
 
             Talk(SAY_SLAY);
         }
     };
-
 };
 
 void AddSC_boss_mal_ganis()

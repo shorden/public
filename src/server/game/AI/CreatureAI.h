@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -16,8 +17,8 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TRINITY_CREATUREAI_H
-#define TRINITY_CREATUREAI_H
+#ifndef SKYFIRE_CREATUREAI_H
+#define SKYFIRE_CREATUREAI_H
 
 #include "Creature.h"
 #include "UnitAI.h"
@@ -30,6 +31,7 @@ class Player;
 class SpellInfo;
 
 #define TIME_INTERVAL_LOOK   5000
+#define VISIBILITY_RANGE    10000
 
 //Spell targets used by SelectSpell
 enum SelectTargetType
@@ -44,7 +46,7 @@ enum SelectTargetType
 
     SELECT_TARGET_SINGLE_FRIEND,                            //Only Single Friend
     SELECT_TARGET_AOE_FRIEND,                               //Only AoE Friend
-    SELECT_TARGET_ANY_FRIEND,                               //AoE or Single Friend
+    SELECT_TARGET_ANY_FRIEND                                //AoE or Single Friend
 };
 
 //Spell Effects used by SelectSpell
@@ -53,7 +55,7 @@ enum SelectEffect
     SELECT_EFFECT_DONTCARE = 0,                             //All spell effects allowed
     SELECT_EFFECT_DAMAGE,                                   //Spell does damage
     SELECT_EFFECT_HEALING,                                  //Spell does healing
-    SELECT_EFFECT_AURA,                                     //Spell applies an aura
+    SELECT_EFFECT_AURA                                      //Spell applies an aura
 };
 
 enum SCEquip
@@ -62,164 +64,127 @@ enum SCEquip
     EQUIP_UNEQUIP   = 0
 };
 
-enum CreatureSummonGroup
-{
-    CREATURE_SUMMON_GROUP_RESET      = 0,
-    CREATURE_SUMMON_GROUP_COMBAT     = 1,
-};
-
 class CreatureAI : public UnitAI
 {
-protected:
-    Creature* const me;
+    protected:
+        Creature* const me;
 
-    bool UpdateVictim();
-    bool UpdateVictimWithGaze();
+        bool UpdateVictim();
+        bool UpdateVictimWithGaze();
 
-    void SetGazeOn(Unit* target);
+        void SetGazeOn(Unit* target);
 
-    Creature* DoSummon(uint32 entry, Position const& pos, uint32 despawnTime = 30000, TempSummonType summonType = TEMPSUMMON_CORPSE_TIMED_DESPAWN);
-    Creature* DoSummon(uint32 entry, WorldObject* obj, float radius = 5.0f, uint32 despawnTime = 30000, TempSummonType summonType = TEMPSUMMON_CORPSE_TIMED_DESPAWN);
-    Creature* DoSummonFlyer(uint32 entry, WorldObject* obj, float flightZ, float radius = 5.0f, uint32 despawnTime = 30000, TempSummonType summonType = TEMPSUMMON_CORPSE_TIMED_DESPAWN);
+        Creature* DoSummon(uint32 entry, Position const& pos, uint32 despawnTime = 30000, TempSummonType summonType = TempSummonType::TEMPSUMMON_CORPSE_TIMED_DESPAWN);
+        Creature* DoSummon(uint32 entry, WorldObject* obj, float radius = 5.0f, uint32 despawnTime = 30000, TempSummonType summonType = TempSummonType::TEMPSUMMON_CORPSE_TIMED_DESPAWN);
+        Creature* DoSummonFlyer(uint32 entry, WorldObject* obj, float flightZ, float radius = 5.0f, uint32 despawnTime = 30000, TempSummonType summonType = TempSummonType::TEMPSUMMON_CORPSE_TIMED_DESPAWN);
 
-public:
-    explicit CreatureAI(Creature* creature);
-    virtual ~CreatureAI() = default;
+    public:
+        void Talk(uint8 id, WorldObject const* whisperTarget = NULL);
+        explicit CreatureAI(Creature* creature) : UnitAI(creature), me(creature), m_MoveInLineOfSight_locked(false), m_canSeeEvenInPassiveMode(false)
+        { }
 
-    void DoAggroPulse(uint32 diff);
-    bool IsInDisable();
-    bool IsInControl();
-    void Talk(std::initializer_list<uint8> ids, ObjectGuid WhisperGuid = ObjectGuid::Empty);
-    void Talk(uint8 id, ObjectGuid WhisperGuid = ObjectGuid::Empty);
-    void TalkAuto(uint8 id, ObjectGuid WhisperGuid = ObjectGuid::Empty);
-    void DelayTalk(uint32 delayTimer, uint8 id, ObjectGuid WhisperGuid = ObjectGuid::Empty);
-    void ZoneTalk(uint8 id, ObjectGuid WhisperGuid = ObjectGuid::Empty);
+        virtual ~CreatureAI() { }
 
-    void AddDelayedEvent(uint64 timeOffset, std::function<void()>&& function);
-    void KillAllDelayedEvents();
-    void AddDelayedCombat(uint64 timeOffset, std::function<void()>&& function);
-    void KillAllDelayedCombats();
+        /// == Reactions At =================================
 
-    // Called if IsVisible(Unit* who) is true at each who move, reaction at visibility zone enter
-    void MoveInLineOfSight_Safe(Unit* who);
+        // Called if IsVisible(Unit* who) is true at each who move, reaction at visibility zone enter
+        void MoveInLineOfSight_Safe(Unit* who);
 
-    bool CanSeeEvenInPassiveMode();
+		bool CanSeeEvenInPassiveMode() { return m_canSeeEvenInPassiveMode; }
+        void SetCanSeeEvenInPassiveMode(bool canSeeEvenInPassiveMode) { m_canSeeEvenInPassiveMode = canSeeEvenInPassiveMode; }
+		
+        // Called in Creature::Update when deathstate = DEAD. Inherited classes may maniuplate the ability to respawn based on scripted events.
+        virtual bool CanRespawn() { return true; }
 
-    void SetCanSeeEvenInPassiveMode(bool canSeeEvenInPassiveMode);
+        // Called for reaction at stopping attack at no attackers or targets
+        virtual void EnterEvadeMode();
 
-    // Called in Creature::Update when deathstate = DEAD. Inherited classes may maniuplate the ability to respawn based on scripted events.
-    virtual bool CanRespawn() { return true; }
+        // Called for reaction at enter to combat if not in combat yet (enemy can be NULL)
+        virtual void EnterCombat(Unit* /*victim*/) { }
 
-    // Called for reaction at stopping attack at no attackers or targets
-    virtual void EnterEvadeMode();
+        // Called when the creature is killed
+        virtual void JustDied(Unit* /*killer*/) { }
 
-    // Called for reaction at enter to combat if not in combat yet (enemy can be NULL)
-    virtual void EnterCombat(Unit* /*victim*/) {}
+        // Called when the creature kills a unit
+        virtual void KilledUnit(Unit* /*victim*/) { }
 
-    // Called when the creature is killed
-    virtual void JustDied(Unit* /*killer*/) {}
+        // Called when the creature summon successfully other creature
+        virtual void JustSummoned(Creature* /*summon*/) { }
+        virtual void IsSummonedBy(Unit* /*summoner*/) { }
 
-    // Called when the creature kills a unit
-    virtual void KilledUnit(Unit* /*victim*/) {}
+        virtual void SummonedCreatureDespawn(Creature* /*summon*/) { }
+        virtual void SummonedCreatureDies(Creature* /*summon*/, Unit* /*killer*/) { }
 
-    // Called when the creature summon successfully other creature
-    virtual void JustSummoned(Creature* /*summon*/) {}
-    virtual void IsSummonedBy(Unit* /*summoner*/) {}
+        // Called when hit by a spell
+        virtual void SpellHit(Unit* /*caster*/, SpellInfo const* /*spell*/) { }
 
-    virtual void SummonedCreatureDespawn(Creature* /*summon*/) {}
-    virtual void SummonedCreatureDies(Creature* /*summon*/, Unit* /*killer*/) {}
+        // Called when spell hits a target
+        virtual void SpellHitTarget(Unit* /*target*/, SpellInfo const* /*spell*/) { }
 
-    virtual void DespawnOnRespawn(uint32 uiTimeToDespawn);
+        // Called when the creature is target of hostile action: swing, hostile spell landed, fear/etc)
+        virtual void AttackedBy(Unit* /*attacker*/) { }
+        virtual bool IsEscorted() { return false; }
 
-    // Called when the creature summon successfully gameobject
-    virtual void JustSummonedGO(GameObject* /*summoner*/) {}
+        // Called when creature is spawned or respawned (for reseting variables)
+        virtual void JustRespawned() { Reset(); }
 
-    // Called when hit by a spell
-    virtual void SpellHit(Unit* /*caster*/, SpellInfo const* /*spell*/) {}
+        // Called at waypoint reached or point movement finished
+        virtual void MovementInform(uint32 /*type*/, uint32 /*id*/) { }
 
-    // Called when spell hits a target
-    virtual void SpellHitTarget(Unit* /*target*/, SpellInfo const* /*spell*/) {}
+        void OnCharmed(bool apply);
 
-    /// Called when spell miss a target
-    virtual void SpellMissTarget(Unit* /*target*/, SpellInfo const* /*spellInfo*/, SpellMissInfo /*missInfo*/) {}
+        // Called at reaching home after evade
+        virtual void JustReachedHome() { }
 
-    // Called when on finish cast spell
-    virtual void SpellFinishCast(SpellInfo const* /*spell*/) {}
+        void DoZoneInCombat(Creature* creature = NULL, float maxRangeToNearestTarget = 50.0f);
 
-    // Called when the creature is target of hostile action: swing, hostile spell landed, fear/etc). It's can be BEFORE EnterCombat
-    virtual void AttackedBy(Unit* attacker) {}
-    virtual bool IsEscorted() { return false; }
+        // Called at text emote receive from player
+        virtual void ReceiveEmote(Player* /*player*/, uint32 /*emoteId*/) { }
 
-    // Called when creature is spawned or respawned (for reseting variables)
-    virtual void JustRespawned() { Reset(); }
+        // Called when owner takes damage
+        virtual void OwnerAttackedBy(Unit* /*attacker*/) { }
 
-    // Called at waypoint reached or point movement finished
-    virtual void MovementInform(uint32 /*type*/, uint32 /*id*/) {}
-    virtual void LastWPReached() {}
+        // Called when owner attacks something
+        virtual void OwnerAttacked(Unit* /*target*/) { }
 
-    virtual void OnCharmed(bool apply);
+        /// == Triggered Actions Requested ==================
 
-    void SetFlyMode(bool /*fly*/);
+        // Called when creature attack expected (if creature can and no have current victim)
+        // Note: for reaction at hostile action must be called AttackedBy function.
+        //virtual void AttackStart(Unit*) { }
 
-    // Called at reaching home after evade
-    virtual void JustReachedHome() {}
+        // Called at World update tick
+        //virtual void UpdateAI(const uint32 /*diff*/) { }
 
-    void DoZoneInCombat(Creature* creature = nullptr, float maxRangeToNearestTarget = 50.0f);
-    void DoAttackerAreaInCombat(Unit* attacker, float range, Unit* pUnit = nullptr);
-    void DoAttackerGroupInCombat(Player* attacker);
+        /// == State checks =================================
 
-    // Called at text emote receive from player
-    virtual void ReceiveEmote(Player* /*player*/, uint32 /*emoteId*/) {}
+        // Is unit visible for MoveInLineOfSight
+        //virtual bool IsVisible(Unit*) const { return false; }
 
-    // Called when owner takes damage
-    virtual void OwnerDamagedBy(Unit* /*attacker*/) {}
+        // called when the corpse of this creature gets removed
+        virtual void CorpseRemoved(uint32& /*respawnDelay*/) { }
 
-    // Called when owner attacks something
-    virtual void OwnerAttacked(Unit* /*target*/) {}
+        // Called when victim entered water and creature can not enter water
+        //virtual bool CanReachByRangeAttack(Unit*) { return false; }
 
-    // Called when a creature regen one of his power
-    virtual void RegeneratePower(Powers power, float& value) {}
-    virtual void SetPower(Powers power, int32 value) {}
+        /// == Fields =======================================
 
-    virtual void RecalcStats() {}
+        // Pointer to controlled by AI creature
+        //Creature* const me;
 
-    virtual void ComonOnHome() {}
+        virtual void PassengerBoarded(Unit* /*passenger*/, int8 /*seatId*/, bool /*apply*/) { }
 
-    // Called at any threat added from any attacker (before threat apply)
-    virtual void OnAddThreat(Unit* /*victim*/, float& /*fThreat*/, SpellSchoolMask /*schoolMask*/, SpellInfo const* /*threatSpell*/) {}
+        virtual void OnSpellClick(Unit* /*clicker*/, bool& /*result*/) { }
 
-    virtual void CalcExitVehiclePos(Position & pos) {}
+        virtual bool CanSeeAlways(WorldObject const* /*obj*/) { return false; }
+    protected:
+        virtual void MoveInLineOfSight(Unit* /*who*/);
 
-    // called when the corpse of this creature gets removed
-    virtual void CorpseRemoved(uint32& /*respawnDelay*/) {}
+        bool _EnterEvadeMode();
 
-    virtual void PassengerBoarded(Unit* /*passenger*/, int8 /*seatId*/, bool /*apply*/) {}
-
-    virtual void OnSpellClick(Unit* /*clicker*/) { }
-
-    virtual bool CanSeeAlways(WorldObject const* /*obj*/) { return false; }
-
-    virtual void OnQuestReward(Player* /*player*/, Quest const* /*quest*/) {}
-    virtual void OnStartQuest(Player* /*player*/, Quest const* /*quest*/) {}
-
-    virtual void OnApplyOrRemoveAura(uint32 /*spellId*/, AuraRemoveMode /*mode*/, bool /*apply*/) {}
-    virtual void OnRemoveAuraTarget(Unit* /*target*/, uint32 /*spellId*/, AuraRemoveMode /*mode*/) {}
-    virtual void OnInterruptCast(Unit* /*caster*/, uint32 /*spellId*/, uint32 /*curSpellID*/, uint32 /*schoolMask*/) {}
-    virtual void OnAreaTriggerCast(Unit* /*caster*/, Unit* /*target*/, uint32 /*spellId*/, uint32 /*createATSpellId*/) {}
-    virtual void OnAreaTriggerDespawn(uint32 spellId, Position pos, bool duration) {}
-
-    virtual void AddClientVisibility(ObjectGuid /*guid*/) { }
-    virtual void RemoveClientVisibility(ObjectGuid /*guid*/) { }
-
-protected:
-    virtual void MoveInLineOfSight(Unit* /*who*/);
-
-    bool _EnterEvadeMode();
-
-private:
-    bool m_MoveInLineOfSight_locked;
-    bool m_canSeeEvenInPassiveMode;
-    uint32 inFightAggroCheck_Timer;
+    private:
+        bool m_MoveInLineOfSight_locked;
+        bool m_canSeeEvenInPassiveMode;
 };
 
 enum Permitions

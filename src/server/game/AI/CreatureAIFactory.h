@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -16,29 +17,32 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TRINITY_CREATUREAIFACTORY_H
-#define TRINITY_CREATUREAIFACTORY_H
+#ifndef SKYFIRE_CREATUREAIFACTORY_H
+#define SKYFIRE_CREATUREAIFACTORY_H
 
+//#include "Policies/Singleton.h"
+#include "ObjectRegistry.h"
 #include "FactoryHolder.h"
 #include "GameObjectAI.h"
 
-struct SelectableAI : FactoryHolder<CreatureAI>, Permissible<Creature>
+struct SelectableAI : public FactoryHolder<CreatureAI>, public Permissible<Creature>
 {
-    SelectableAI(std::string id) : FactoryHolder<CreatureAI>(id) { }
+    SelectableAI(const char* id) : FactoryHolder<CreatureAI>(id) { }
 };
 
 template<class REAL_AI>
-struct CreatureAIFactory : SelectableAI
+struct CreatureAIFactory : public SelectableAI
 {
-    CreatureAIFactory(std::string name) : SelectableAI(name) { }
+    CreatureAIFactory(const char* name) : SelectableAI(name) { }
 
-    CreatureAI* Create(void*) const override;
+    CreatureAI* Create(void*) const;
 
-    int Permit(const Creature* c) const override { return REAL_AI::Permissible(c); }
+    int Permit(const Creature* c) const { return REAL_AI::Permissible(c); }
 };
 
 template<class REAL_AI>
-CreatureAI* CreatureAIFactory<REAL_AI>::Create(void* data) const
+inline CreatureAI*
+CreatureAIFactory<REAL_AI>::Create(void* data) const
 {
     Creature* creature = reinterpret_cast<Creature*>(data);
     return (new REAL_AI(creature));
@@ -46,26 +50,27 @@ CreatureAI* CreatureAIFactory<REAL_AI>::Create(void* data) const
 
 typedef FactoryHolder<CreatureAI> CreatureAICreator;
 typedef FactoryHolder<CreatureAI>::FactoryHolderRegistry CreatureAIRegistry;
+typedef FactoryHolder<CreatureAI>::FactoryHolderRepository CreatureAIRepository;
 
-#define sCreatureAIRegistry CreatureAIRegistry::instance()
-
-struct SelectableGameObjectAI : FactoryHolder<GameObjectAI>, Permissible<GameObject>
+//GO
+struct SelectableGameObjectAI : public FactoryHolder<GameObjectAI>, public Permissible<GameObject>
 {
-    SelectableGameObjectAI(std::string id) : FactoryHolder<GameObjectAI>(id) { }
+    SelectableGameObjectAI(const char* id) : FactoryHolder<GameObjectAI>(id) { }
 };
 
 template<class REAL_GO_AI>
-struct GameObjectAIFactory : SelectableGameObjectAI
+struct GameObjectAIFactory : public SelectableGameObjectAI
 {
-    GameObjectAIFactory(std::string name) : SelectableGameObjectAI(name) { }
+    GameObjectAIFactory(const char* name) : SelectableGameObjectAI(name) { }
 
-    GameObjectAI* Create(void*) const override;
+    GameObjectAI* Create(void*) const;
 
-    int Permit(const GameObject* g) const override { return REAL_GO_AI::Permissible(g); }
+    int Permit(const GameObject* g) const { return REAL_GO_AI::Permissible(g); }
 };
 
 template<class REAL_GO_AI>
-GameObjectAI* GameObjectAIFactory<REAL_GO_AI>::Create(void* data) const
+inline GameObjectAI*
+GameObjectAIFactory<REAL_GO_AI>::Create(void* data) const
 {
     GameObject* go = reinterpret_cast<GameObject*>(data);
     return (new REAL_GO_AI(go));
@@ -73,7 +78,5 @@ GameObjectAI* GameObjectAIFactory<REAL_GO_AI>::Create(void* data) const
 
 typedef FactoryHolder<GameObjectAI> GameObjectAICreator;
 typedef FactoryHolder<GameObjectAI>::FactoryHolderRegistry GameObjectAIRegistry;
-
-#define sGameObjectAIRegistry GameObjectAIRegistry::instance()
-
+typedef FactoryHolder<GameObjectAI>::FactoryHolderRepository GameObjectAIRepository;
 #endif

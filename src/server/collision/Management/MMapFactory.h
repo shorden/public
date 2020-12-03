@@ -35,9 +35,9 @@ namespace MMAP
         MMAP_LOAD_RESULT_IGNORED
     };
 
-    / static class
-    / holds all mmap global data
-    / access point to MMapManager singleton
+    // static class
+    // holds all mmap global data
+    // access point to MMapManager singleton
     class MMapFactory
     {
         public:

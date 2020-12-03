@@ -1,9 +1,12 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -19,7 +22,7 @@
 #include "InstanceScript.h"
 #include "ruby_sanctum.h"
 #include "Player.h"
-#include "Packets/WorldStatePackets.h"
+#include "TemporarySummon.h"
 #include "WorldPacket.h"
 
 DoorData const doorData[] =
@@ -31,7 +34,7 @@ DoorData const doorData[] =
 class instance_ruby_sanctum : public InstanceMapScript
 {
     public:
-        instance_ruby_sanctum() : InstanceMapScript("instance_ruby_sanctum", 724) { }
+        instance_ruby_sanctum() : InstanceMapScript(RSScriptName, 724) { }
 
         struct instance_ruby_sanctum_InstanceMapScript : public InstanceScript
         {
@@ -39,27 +42,27 @@ class instance_ruby_sanctum : public InstanceMapScript
             {
                 SetBossNumber(EncounterCount);
                 LoadDoorData(doorData);
-                BaltharusTheWarbornGUID.Clear();
-                GeneralZarithrianGUID.Clear();
-                SavianaRagefireGUID.Clear();
-                HalionGUID.Clear();
-                TwilightHalionGUID.Clear();
-                OrbCarrierGUID.Clear();
-                OrbRotationFocusGUID.Clear();
-                HalionControllerGUID.Clear();
-                CrystalChannelTargetGUID.Clear();
-                XerestraszaGUID.Clear();
+                BaltharusTheWarbornGUID  = 0;
+                GeneralZarithrianGUID    = 0;
+                SavianaRagefireGUID      = 0;
+                HalionGUID               = 0;
+                TwilightHalionGUID       = 0;
+                OrbCarrierGUID           = 0;
+                OrbRotationFocusGUID     = 0;
+                HalionControllerGUID     = 0;
+                CrystalChannelTargetGUID = 0;
+                XerestraszaGUID          = 0;
                 BaltharusSharedHealth    = 0;
-                FlameWallsGUID.Clear();
-                FlameRingGUID.Clear();
+                FlameWallsGUID           = 0;
+                FlameRingGUID            = 0;
 
-                //memset(ZarithrianSpawnStalkerGUID, 0, 2 * sizeof(uint64));
-                //memset(BurningTreeGUID, 0, 4 * sizeof(uint64));
+                memset(ZarithrianSpawnStalkerGUID, 0, 2 * sizeof(uint64));
+                memset(BurningTreeGUID, 0, 4 * sizeof(uint64));
             }
 
-            void OnPlayerEnter(Player* /*player*/) override
+            void OnPlayerEnter(Player* /*player*/) OVERRIDE
             {
-                if (!GetGuidData(DATA_HALION_CONTROLLER) && GetBossState(DATA_HALION) != DONE && GetBossState(DATA_GENERAL_ZARITHRIAN) == DONE)
+                if (!GetData64(DATA_HALION_CONTROLLER) && GetBossState(DATA_HALION) != DONE && GetBossState(DATA_GENERAL_ZARITHRIAN) == DONE)
                 {
                     instance->LoadGrid(HalionControllerSpawnPos.GetPositionX(), HalionControllerSpawnPos.GetPositionY());
                     if (Creature* halionController = instance->SummonCreature(NPC_HALION_CONTROLLER, HalionControllerSpawnPos))
@@ -67,7 +70,7 @@ class instance_ruby_sanctum : public InstanceMapScript
                 }
             }
 
-            void OnCreatureCreate(Creature* creature) override
+            void OnCreatureCreate(Creature* creature) OVERRIDE
             {
                 switch (creature->GetEntry())
                 {
@@ -112,7 +115,7 @@ class instance_ruby_sanctum : public InstanceMapScript
                 }
             }
 
-            void OnGameObjectCreate(GameObject* go) override
+            void OnGameObjectCreate(GameObject* go) OVERRIDE
             {
                 switch (go->GetEntry())
                 {
@@ -155,7 +158,7 @@ class instance_ruby_sanctum : public InstanceMapScript
                 }
             }
 
-            void OnGameObjectRemove(GameObject* go) override
+            void OnGameObjectRemove(GameObject* go) OVERRIDE
             {
                 switch (go->GetEntry())
                 {
@@ -167,7 +170,7 @@ class instance_ruby_sanctum : public InstanceMapScript
                 }
             }
 
-            void OnUnitDeath(Unit* unit) override
+            void OnUnitDeath(Unit* unit) OVERRIDE
             {
                 Creature* creature = unit->ToCreature();
                 if (!creature)
@@ -181,9 +184,9 @@ class instance_ruby_sanctum : public InstanceMapScript
                 }
             }
 
-            ObjectGuid GetGuidData(uint32 data) const override
+            uint64 GetData64(uint32 type) const OVERRIDE
             {
-                switch (data)
+                switch (type)
                 {
                     case DATA_BALTHARUS_THE_WARBORN:
                         return BaltharusTheWarbornGUID;
@@ -197,7 +200,7 @@ class instance_ruby_sanctum : public InstanceMapScript
                         return GeneralZarithrianGUID;
                     case DATA_ZARITHRIAN_SPAWN_STALKER_1:
                     case DATA_ZARITHRIAN_SPAWN_STALKER_2:
-                        return ZarithrianSpawnStalkerGUID[data - DATA_ZARITHRIAN_SPAWN_STALKER_1];
+                        return ZarithrianSpawnStalkerGUID[type - DATA_ZARITHRIAN_SPAWN_STALKER_1];
                     case DATA_HALION:
                         return HalionGUID;
                     case DATA_TWILIGHT_HALION:
@@ -212,7 +215,7 @@ class instance_ruby_sanctum : public InstanceMapScript
                     case DATA_BURNING_TREE_2:
                     case DATA_BURNING_TREE_3:
                     case DATA_BURNING_TREE_4:
-                        return BurningTreeGUID[data - DATA_BURNING_TREE_1];
+                        return BurningTreeGUID[type - DATA_BURNING_TREE_1];
                     case DATA_FLAME_RING:
                         return FlameRingGUID;
                     case DATA_TWILIGHT_FLAME_RING:
@@ -221,10 +224,10 @@ class instance_ruby_sanctum : public InstanceMapScript
                         break;
                 }
 
-                return ObjectGuid::Empty;
+                return 0;
             }
 
-            bool SetBossState(uint32 type, EncounterState state) override
+            bool SetBossState(uint32 type, EncounterState state) OVERRIDE
             {
                 if (!InstanceScript::SetBossState(type, state))
                     return false;
@@ -259,9 +262,9 @@ class instance_ruby_sanctum : public InstanceMapScript
                     }
                     case DATA_HALION:
                     {
-                        DoUpdateWorldState(WorldStates::WORLDSTATE_CORPOREALITY_TOGGLE, 0);
-                        DoUpdateWorldState(WorldStates::WORLDSTATE_CORPOREALITY_TWILIGHT, 0);
-                        DoUpdateWorldState(WorldStates::WORLDSTATE_CORPOREALITY_MATERIAL, 0);
+                        DoUpdateWorldState(WORLDSTATE_CORPOREALITY_TOGGLE, 0);
+                        DoUpdateWorldState(WORLDSTATE_CORPOREALITY_TWILIGHT, 0);
+                        DoUpdateWorldState(WORLDSTATE_CORPOREALITY_MATERIAL, 0);
 
                         // Reopen rings on wipe or success
                         if (state == DONE || state == FAIL)
@@ -278,7 +281,7 @@ class instance_ruby_sanctum : public InstanceMapScript
                 return true;
             }
 
-            void SetData(uint32 type, uint32 data) override
+            void SetData(uint32 type, uint32 data) OVERRIDE
             {
                 if (type != DATA_BALTHARUS_SHARED_HEALTH)
                     return;
@@ -286,7 +289,7 @@ class instance_ruby_sanctum : public InstanceMapScript
                 BaltharusSharedHealth = data;
             }
 
-            uint32 GetData(uint32 type) const override
+            uint32 GetData(uint32 type) const OVERRIDE
             {
                 if (type != DATA_BALTHARUS_SHARED_HEALTH)
                     return 0;
@@ -294,7 +297,7 @@ class instance_ruby_sanctum : public InstanceMapScript
                 return BaltharusSharedHealth;
             }
 
-            std::string GetSaveData() override
+            std::string GetSaveData() OVERRIDE
             {
                 OUT_SAVE_INST_DATA;
 
@@ -305,14 +308,14 @@ class instance_ruby_sanctum : public InstanceMapScript
                 return saveStream.str();
             }
 
-            void FillInitialWorldStates(WorldPackets::WorldState::InitWorldStates& packet) override
+            void FillInitialWorldStates(WorldStateBuilder& builder) OVERRIDE
             {
-                packet.Worldstates.emplace_back(WorldStates::WORLDSTATE_CORPOREALITY_MATERIAL, 50);
-                packet.Worldstates.emplace_back(WorldStates::WORLDSTATE_CORPOREALITY_TWILIGHT, 50);
-                packet.Worldstates.emplace_back(WorldStates::WORLDSTATE_CORPOREALITY_TOGGLE, 0);
+                builder.AppendState(WORLDSTATE_CORPOREALITY_MATERIAL, 50);
+                builder.AppendState(WORLDSTATE_CORPOREALITY_TWILIGHT, 50);
+                builder.AppendState(WORLDSTATE_CORPOREALITY_TOGGLE, 0);
             }
 
-            void Load(char const* str) override
+            void Load(char const* str) OVERRIDE
             {
                 if (!str)
                 {
@@ -346,26 +349,26 @@ class instance_ruby_sanctum : public InstanceMapScript
             }
 
         protected:
-            ObjectGuid BaltharusTheWarbornGUID;
-            ObjectGuid GeneralZarithrianGUID;
-            ObjectGuid SavianaRagefireGUID;
-            ObjectGuid HalionGUID;
-            ObjectGuid TwilightHalionGUID;
-            ObjectGuid HalionControllerGUID;
-            ObjectGuid OrbCarrierGUID;
-            ObjectGuid OrbRotationFocusGUID;
-            ObjectGuid CrystalChannelTargetGUID;
-            ObjectGuid XerestraszaGUID;
-            ObjectGuid FlameWallsGUID;
-            ObjectGuid ZarithrianSpawnStalkerGUID[2];
-            ObjectGuid BurningTreeGUID[4];
-            ObjectGuid FlameRingGUID;
-            ObjectGuid TwilightFlameRingGUID;
+            uint64 BaltharusTheWarbornGUID;
+            uint64 GeneralZarithrianGUID;
+            uint64 SavianaRagefireGUID;
+            uint64 HalionGUID;
+            uint64 TwilightHalionGUID;
+            uint64 HalionControllerGUID;
+            uint64 OrbCarrierGUID;
+            uint64 OrbRotationFocusGUID;
+            uint64 CrystalChannelTargetGUID;
+            uint64 XerestraszaGUID;
+            uint64 FlameWallsGUID;
+            uint64 ZarithrianSpawnStalkerGUID[2];
+            uint64 BurningTreeGUID[4];
+            uint64 FlameRingGUID;
+            uint64 TwilightFlameRingGUID;
 
             uint32 BaltharusSharedHealth;
         };
 
-        InstanceScript* GetInstanceScript(InstanceMap* map) const override
+        InstanceScript* GetInstanceScript(InstanceMap* map) const OVERRIDE
         {
             return new instance_ruby_sanctum_InstanceMapScript(map);
         }

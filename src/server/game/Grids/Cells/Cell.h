@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -16,19 +17,23 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TRINITY_CELL_H
-#define TRINITY_CELL_H
+#ifndef SKYFIRE_CELL_H
+#define SKYFIRE_CELL_H
+
+#include <cmath>
+
+#include "TypeContainer.h"
+#include "TypeContainerVisitor.h"
 
 #include "GridDefines.h"
-#include <cmath>
 
 class Map;
 class WorldObject;
 
-struct CellArea final
+struct CellArea
 {
     CellArea() { }
-    CellArea(CellCoord low, CellCoord high) : low_bound(low), high_bound(high) {}
+    CellArea(CellCoord low, CellCoord high) : low_bound(low), high_bound(high) { }
 
     bool operator!() const { return low_bound == high_bound; }
 
@@ -42,7 +47,7 @@ struct CellArea final
     CellCoord high_bound;
 };
 
-struct Cell final
+struct Cell
 {
     Cell() { data.All = 0; }
     Cell(Cell const& cell) { data.All = cell.data.All; }
@@ -57,13 +62,13 @@ struct Cell final
 
     bool DiffCell(const Cell &cell) const
     {
-        return(data.Part.cell_x != cell.data.Part.cell_x ||
+        return (data.Part.cell_x != cell.data.Part.cell_x ||
             data.Part.cell_y != cell.data.Part.cell_y);
     }
 
     bool DiffGrid(const Cell &cell) const
     {
-        return(data.Part.grid_x != cell.data.Part.grid_x ||
+        return (data.Part.grid_x != cell.data.Part.grid_x ||
             data.Part.grid_y != cell.data.Part.grid_y);
     }
 
@@ -103,17 +108,13 @@ struct Cell final
         uint32 All;
     } data;
 
-    template <typename Visitor>
-    void Visit(CellCoord const&, Visitor &&visitor, Map &, WorldObject const&, float) const;
-
-    template <typename Visitor>
-    void Visit(CellCoord const&, Visitor &&visitor, Map &, float, float, float) const;
+    template<class T, class CONTAINER> void Visit(CellCoord const&, TypeContainerVisitor<T, CONTAINER>& visitor, Map &, WorldObject const&, float) const;
+    template<class T, class CONTAINER> void Visit(CellCoord const&, TypeContainerVisitor<T, CONTAINER>& visitor, Map &, float, float, float) const;
 
     static CellArea CalculateCellArea(float x, float y, float radius);
 
 private:
-    template <typename Visitor>
-    void VisitCircle(Visitor &, Map &, CellCoord const&, CellCoord const&, CellCoord const&) const;
+    template<class T, class CONTAINER> void VisitCircle(TypeContainerVisitor<T, CONTAINER> &, Map &, CellCoord const&, CellCoord const&) const;
 };
 
 #endif

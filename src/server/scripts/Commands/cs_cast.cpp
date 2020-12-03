@@ -1,9 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -24,32 +26,29 @@ EndScriptData */
 
 #include "ScriptMgr.h"
 #include "Chat.h"
-#include "SpellPackets.h"
+#include "Creature.h"
+#include "Language.h"
+#include "Player.h"
 
 class cast_commandscript : public CommandScript
 {
 public:
     cast_commandscript() : CommandScript("cast_commandscript") { }
 
-    ChatCommand* GetCommands() const override
+    std::vector<ChatCommand> GetCommands() const OVERRIDE
     {
-        static ChatCommand castCommandTable[] =
+        static std::vector<ChatCommand> castCommandTable =
         {
-            { "back",           SEC_ADMINISTRATOR,  false, &HandleCastBackCommand,              "", NULL },
-            { "dist",           SEC_ADMINISTRATOR,  false, &HandleCastDistCommand,              "", NULL },
-            { "self",           SEC_ADMINISTRATOR,  false, &HandleCastSelfCommand,              "", NULL },
-            { "target",         SEC_ADMINISTRATOR,  false, &HandleCastTargetCommad,             "", NULL },
-            { "dest",           SEC_ADMINISTRATOR,  false, &HandleCastDestCommand,              "", NULL },
-            { "custom",         SEC_ADMINISTRATOR,  false, &HandleCastCustomCommand,            "", NULL },
-            { "visual",         SEC_ADMINISTRATOR,  false, &HandleCastVisualCommand,            "", NULL },
-            { "orphan",         SEC_ADMINISTRATOR,  false, &HandleCastOrphanVisualCommand,      "", NULL },
-            { "",               SEC_ADMINISTRATOR,  false, &HandleCastCommand,                  "", NULL },
-            { NULL,             0,                  false, NULL,                                "", NULL }
+            { "back",   rbac::RBAC_PERM_COMMAND_CAST_BACK,   false, &HandleCastBackCommand,  "", },
+            { "dist",   rbac::RBAC_PERM_COMMAND_CAST_DIST,   false, &HandleCastDistCommand,  "", },
+            { "self",   rbac::RBAC_PERM_COMMAND_CAST_SELF,   false, &HandleCastSelfCommand,  "", },
+            { "target", rbac::RBAC_PERM_COMMAND_CAST_TARGET, false, &HandleCastTargetCommad, "", },
+            { "dest",   rbac::RBAC_PERM_COMMAND_CAST_DEST,   false, &HandleCastDestCommand,  "", },
+            { "",       rbac::RBAC_PERM_COMMAND_CAST,        false, &HandleCastCommand,      "", },
         };
-        static ChatCommand commandTable[] =
+        static std::vector<ChatCommand> commandTable =
         {
-            { "cast",           SEC_ADMINISTRATOR,  false, NULL,                                "", castCommandTable },
-            { NULL,             0,                  false, NULL,                                "", NULL }
+            { "cast",   rbac::RBAC_PERM_COMMAND_CAST,        false, NULL,                    "", castCommandTable },
         };
         return commandTable;
     }
@@ -223,7 +222,7 @@ public:
 
     static bool HandleCastTargetCommad(ChatHandler* handler, char const* args)
     {
-        Unit* caster = handler->getSelectedUnit();
+        Creature* caster = handler->getSelectedCreature();
         if (!caster)
         {
             handler->SendSysMessage(LANG_SELECT_CHAR_OR_CREATURE);
@@ -231,12 +230,12 @@ public:
             return false;
         }
 
-        // if (!caster->getVictim())
-        // {
-            // handler->SendSysMessage(LANG_SELECTED_TARGET_NOT_HAVE_VICTIM);
-            // handler->SetSentErrorMessage(true);
-            // return false;
-        // }
+        if (!caster->GetVictim())
+        {
+            handler->SendSysMessage(LANG_SELECTED_TARGET_NOT_HAVE_VICTIM);
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
 
         // number or [name] Shift-click form |color|Hspell:spell_id|h[name]|h|r or Htalent form
         uint32 spellId = handler->extractSpellIdFromLink((char*)args);
@@ -256,9 +255,8 @@ public:
         }
 
         bool triggered = (triggeredStr != NULL);
-        Unit* target = caster->getVictim() ? caster->getVictim() : caster;
 
-        caster->CastSpell(target, spellId, triggered);
+        caster->CastSpell(caster->GetVictim(), spellId, triggered);
 
         return true;
     }
@@ -305,100 +303,6 @@ public:
 
         caster->CastSpell(x, y, z, spellId, triggered);
 
-        return true;
-    }
-
-    static bool HandleCastCustomCommand(ChatHandler* handler, char const* args)
-    {
-        Unit* caster = handler->getSelectedUnit();
-        if (!caster)
-        {
-            handler->SendSysMessage(LANG_SELECT_CHAR_OR_CREATURE);
-            handler->SetSentErrorMessage(true);
-            return false;
-        }
-
-        // number or [name] Shift-click form |color|Hspell:spell_id|h[name]|h|r or Htalent form
-        uint32 spellId = handler->extractSpellIdFromLink((char*)args);
-        if (!spellId || !sSpellMgr->GetSpellInfo(spellId))
-        {
-            handler->PSendSysMessage(LANG_COMMAND_NOSPELLFOUND);
-            handler->SetSentErrorMessage(true);
-            return false;
-        }
-
-        char* bp0Str = strtok(NULL, " ");
-        char* bp1Str = strtok(NULL, " ");
-        char* bp2Str = strtok(NULL, " ");
-
-        float bp0 = 0;
-        float bp1 = 0;
-        float bp2 = 0;
-        if(bp0Str)
-            bp0 = int32(atof(bp0Str));
-        if(bp1Str)
-            bp1 = int32(atof(bp1Str));
-        if(bp2Str)
-            bp2 = int32(atof(bp2Str));
-
-        caster->CastCustomSpell(caster, spellId, &bp0, &bp1, &bp2, true);
-
-        return true;
-    }
-    
-    static bool HandleCastVisualCommand(ChatHandler* handler, char const* args)
-    {
-        if (!*args)
-            return false;
-
-        Unit* target = handler->getSelectedUnit();
-        if (!target)
-        {
-            handler->SendSysMessage(LANG_SELECT_CHAR_OR_CREATURE);
-            handler->SetSentErrorMessage(true);
-            return false;
-        }
-
-        char* visualStr = strtok((char*)args, " ");
-        
-        if (!visualStr)
-            return false;
-        
-        Player* pl = handler->GetSession()->GetPlayer();
-        if (!pl)
-            return false;
-
-        int32 visual_id = atoi(visualStr);
-        pl->PlaySpellVisual(target->GetPosition(), visual_id, 0.75f, target->GetGUID(), true);
-
-        return true;
-    }
-    
-    static bool HandleCastOrphanVisualCommand(ChatHandler* handler, char const* args)
-    {
-        if (!*args)
-            return false;
-
-        Unit* target = handler->getSelectedUnit();
-        if (!target)
-        {
-            handler->SendSysMessage(LANG_SELECT_CHAR_OR_CREATURE);
-            handler->SetSentErrorMessage(true);
-            return false;
-        }
-
-        char* visual = strtok((char*)args, " ");
-        
-        if (!visual)
-            return false;
-        
-        int32 visual_id = atoi(visual);
-
-        Player* pl = handler->GetSession()->GetPlayer();
-        if (!pl)
-            return false;
-        
-        pl->PlayOrphanSpellVisual(pl->GetPosition(), {0, 0, 0, 0}, target->GetPosition(), visual_id, 17.0f, target->GetGUID(), false);
         return true;
     }
 };

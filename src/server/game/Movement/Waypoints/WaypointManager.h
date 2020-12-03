@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -16,33 +17,31 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TRINITY_WAYPOINTMANAGER_H
-#define TRINITY_WAYPOINTMANAGER_H
+#ifndef SKYFIRE_WAYPOINTMANAGER_H
+#define SKYFIRE_WAYPOINTMANAGER_H
+
+#include <ace/Singleton.h>
+#include <ace/Null_Mutex.h>
+#include <vector>
 
 struct WaypointData
 {
     uint32 id;
     float x, y, z, orientation;
-    bool run;
-    float speed;
     uint32 delay;
-    uint8 delay_chance;
     uint32 event_id;
+    bool run;
     uint8 event_chance;
 };
 
 typedef std::vector<WaypointData*> WaypointPath;
-typedef std::unordered_map<uint32, WaypointPath> WaypointPathContainer;
+typedef UNORDERED_MAP<uint32, WaypointPath> WaypointPathContainer;
 
 class WaypointMgr
 {
-    public:
-        static WaypointMgr* instance()
-        {
-            static WaypointMgr instance;
-            return &instance;
-        }
+        friend class ACE_Singleton<WaypointMgr, ACE_Null_Mutex>;
 
+    public:
         // Attempts to reload a single path from database
         void ReloadPath(uint32 id);
 
@@ -52,24 +51,21 @@ class WaypointMgr
         // Returns the path from a given id
         WaypointPath const* GetPath(uint32 id) const
         {
-            return Trinity::Containers::MapGetValuePtr(_waypointStore, id);
-        }
+            WaypointPathContainer::const_iterator itr = _waypointStore.find(id);
+            if (itr != _waypointStore.end())
+                return &itr->second;
 
-        // Returns the path from a given id
-        WaypointPath const* GetPathScript(uint32 id) const
-        {
-            return Trinity::Containers::MapGetValuePtr(_waypointScriptStore, id);
+            return NULL;
         }
 
     private:
+        // Only allow instantiation from ACE_Singleton
         WaypointMgr();
         ~WaypointMgr();
 
         WaypointPathContainer _waypointStore;
-        WaypointPathContainer _waypointScriptStore;
 };
 
-#define sWaypointMgr WaypointMgr::instance()
+#define sWaypointMgr ACE_Singleton<WaypointMgr, ACE_Null_Mutex>::instance()
 
 #endif
-

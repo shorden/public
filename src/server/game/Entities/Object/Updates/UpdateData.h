@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -16,11 +17,11 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __UPDATEDATA_H
-#define __UPDATEDATA_H
+#ifndef SF_UPDATEDATA_H
+#define SF_UPDATEDATA_H
 
 #include "ByteBuffer.h"
-#include "ObjectGuid.h"
+#include <set>
 
 class WorldPacket;
 
@@ -44,33 +45,26 @@ enum OBJECT_UPDATE_FLAGS
     UPDATEFLAG_GO_TRANSPORT_POSITION = 0x0040,
     UPDATEFLAG_ROTATION              = 0x0080,
     UPDATEFLAG_ANIMKITS              = 0x0100,
-    UPDATEFLAG_SCENE_OBJECT          = 0x0200,
-    UPDATEFLAG_AREA_TRIGGER          = 0x0400,
-    UPDATEFLAG_HAS_WORLDEFFECTID     = 0x0800,
-    UPDATEFLAG_PLAY_HOVER_ANIM       = 0x1000,
 };
-
-class Player;
 
 class UpdateData
 {
     public:
         UpdateData(uint16 map);
 
-        void AddOutOfRangeGUID(GuidSet& guids);
-        void AddOutOfRangeGUID(ObjectGuid guid);
+        void AddOutOfRangeGUID(std::set<uint64>& guids);
+        void AddOutOfRangeGUID(uint64 guid);
         void AddUpdateBlock(const ByteBuffer &block);
         bool BuildPacket(WorldPacket* packet);
-        bool HasData() const;
+        bool HasData() const { return m_blockCount > 0 || !m_outOfRangeGUIDs.empty(); }
         void Clear();
 
-        GuidSet const& GetOutOfRangeGUIDs() const;
+        std::set<uint64> const& GetOutOfRangeGUIDs() const { return m_outOfRangeGUIDs; }
 
     protected:
         uint16 m_map;
         uint32 m_blockCount;
-        GuidSet m_outOfRangeGUIDs;
+        std::set<uint64> m_outOfRangeGUIDs;
         ByteBuffer m_data;
 };
 #endif
-

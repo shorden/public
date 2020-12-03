@@ -1,9 +1,12 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -23,7 +26,7 @@
 class instance_drak_tharon_keep : public InstanceMapScript
 {
     public:
-        instance_drak_tharon_keep() : InstanceMapScript("instance_drak_tharon_keep", 600) { }
+        instance_drak_tharon_keep() : InstanceMapScript(DrakTharonKeepScriptName, 600) { }
 
         struct instance_drak_tharon_keep_InstanceScript : public InstanceScript
         {
@@ -31,17 +34,17 @@ class instance_drak_tharon_keep : public InstanceMapScript
             {
                 SetBossNumber(EncounterCount);
 
-                TrollgoreGUID.Clear();
-                NovosGUID.Clear();
-                KingDredGUID.Clear();
-                TharonJaGUID.Clear();
+                TrollgoreGUID       = 0;
+                NovosGUID           = 0;
+                KingDredGUID        = 0;
+                TharonJaGUID        = 0;
 
-                memset(TrollgoreInvaderSummonerGuids, 0, 3 * sizeof(ObjectGuid));
-                memset(NovosCrystalGUIDs, 0, 4 * sizeof(ObjectGuid));
-                memset(NovosSummonerGUIDs, 0, 4 * sizeof(ObjectGuid));
+                memset(TrollgoreInvaderSummonerGuids, 0, 3 * sizeof(uint64));
+                memset(NovosCrystalGUIDs, 0, 4 * sizeof(uint64));
+                memset(NovosSummonerGUIDs, 0, 4 * sizeof(uint64));
             }
 
-            void OnCreatureCreate(Creature* creature) override
+            void OnCreatureCreate(Creature* creature) OVERRIDE
             {
                 switch (creature->GetEntry())
                 {
@@ -68,7 +71,7 @@ class instance_drak_tharon_keep : public InstanceMapScript
                 }
             }
 
-            void OnGameObjectCreate(GameObject* go) override
+            void OnGameObjectCreate(GameObject* go) OVERRIDE
             {
                 switch (go->GetEntry())
                 {
@@ -121,7 +124,7 @@ class instance_drak_tharon_keep : public InstanceMapScript
                     NovosSummonerGUIDs[3] = creature->GetGUID();
             }
 
-            ObjectGuid GetGuidData(uint32 type) const override
+            uint64 GetData64(uint32 type) const OVERRIDE
             {
                 switch (type)
                 {
@@ -149,17 +152,17 @@ class instance_drak_tharon_keep : public InstanceMapScript
                         return NovosSummonerGUIDs[type - DATA_NOVOS_SUMMONER_1];
                 }
 
-                return ObjectGuid::Empty;
+                return 0;
             }
 
-            void OnUnitDeath(Unit* unit) override
+            void OnUnitDeath(Unit* unit) OVERRIDE
             {
                 if (unit->GetEntry() == NPC_CRYSTAL_HANDLER)
                     if (Creature* novos = instance->GetCreature(NovosGUID))
                         novos->AI()->DoAction(ACTION_CRYSTAL_HANDLER_DIED);
             }
 
-            std::string GetSaveData() override
+            std::string GetSaveData() OVERRIDE
             {
                 OUT_SAVE_INST_DATA;
 
@@ -170,7 +173,7 @@ class instance_drak_tharon_keep : public InstanceMapScript
                 return saveStream.str();
             }
 
-            void Load(char const* str) override
+            void Load(char const* str) OVERRIDE
             {
                 if (!str)
                 {
@@ -203,17 +206,17 @@ class instance_drak_tharon_keep : public InstanceMapScript
             }
 
         protected:
-            ObjectGuid TrollgoreGUID;
-            ObjectGuid NovosGUID;
-            ObjectGuid KingDredGUID;
-            ObjectGuid TharonJaGUID;
+            uint64 TrollgoreGUID;
+            uint64 NovosGUID;
+            uint64 KingDredGUID;
+            uint64 TharonJaGUID;
 
-            ObjectGuid TrollgoreInvaderSummonerGuids[3];
-            ObjectGuid NovosCrystalGUIDs[4];
-            ObjectGuid NovosSummonerGUIDs[4];
+            uint64 TrollgoreInvaderSummonerGuids[3];
+            uint64 NovosCrystalGUIDs[4];
+            uint64 NovosSummonerGUIDs[4];
         };
 
-        InstanceScript* GetInstanceScript(InstanceMap* map) const override
+        InstanceScript* GetInstanceScript(InstanceMap* map) const OVERRIDE
         {
             return new instance_drak_tharon_keep_InstanceScript(map);
         }

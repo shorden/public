@@ -1,10 +1,12 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -16,50 +18,21 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef DEF_SCARLET_M
-#define DEF_SCARLET_M
+#ifndef SCARLET_M_
+#define SCARLET_M_
 
-enum eEnums
+enum DataTypes
 {
-    DATA_THALNOS                = 1,
-    DATA_KORLOFF                = 2,
-    DATA_WHITEMANE              = 3,
-    DATA_DURAND                 = 4,
-    MAX_ENCOUNTER,
+    TYPE_MOGRAINE_AND_WHITE_EVENT   = 1,
 
-    DATA_HORSEMAN_EVENT         = 6,
-    GAMEOBJECT_PUMPKIN_SHRINE   = 7,
+    DATA_MOGRAINE                   = 2,
+    DATA_WHITEMANE                  = 3,
+    DATA_DOOR_WHITEMANE             = 4,
+
+    DATA_HORSEMAN_EVENT             = 5,
+    GAMEOBJECT_PUMPKIN_SHRINE       = 6,
+
+    DATA_VORREL                     = 7
 };
 
-enum eCreatures
-{
-    NPC_HORSEMAN            = 23682,
-    NPC_HEAD                = 23775,
-    NPC_PUMPKIN             = 23694,
-    NPC_THALNOS             = 59789,
-    NPC_BROTHER_KORLOFF     = 59223,
-    NPC_WHITEMANE           = 3977,
-    
-    //Summons Thalnos
-    NPC_EVICTED_SOUL        = 59974,
-    NPC_EMPOWERING_SPIRIT   = 59893,
-    NPC_FALLEN_CRUSADER     = 59884,
-    NPC_EMPOWERED_ZOMBIE    = 59930,
-
-    //Summons Korloff
-    NPC_TRAINING_DUMMY      = 64446,
-    NPC_SCORCHED_EARTH      = 59507,
-
-    //Summons Whitemane
-    NPC_DURAND              = 60040,
-    NPC_SCARLET_JUDICATOR   = 58605,
-};
-
-enum eGameObects
-{
-    GO_THALNOS_DOOR      = 211844,
-    GO_KORLOFF_DOOR      = 210564,
-    GO_WHITEMANE_DOOR    = 210563,
-    GO_PUMPKIN_SHRINE    = 186267,
-};
-#endif
+#endif // SCARLET_M_

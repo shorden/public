@@ -1,10 +1,12 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -31,7 +33,7 @@ class instance_trial_of_the_crusader : public InstanceMapScript
         {
             instance_trial_of_the_crusader_InstanceMapScript(Map* map) : InstanceScript(map) { }
 
-            void Initialize() override
+            void Initialize() OVERRIDE
             {
                 SetBossNumber(MAX_ENCOUNTERS);
                 TrialCounter = 50;
@@ -45,31 +47,31 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                 TributeToImmortalityEligible = true;
                 NeedSave = false;
 
-                TirionFordringGUID.Clear();
-                BarrentGUID.Clear();
-                TirionGUID.Clear();
-                FizzlebangGUID.Clear();
-                GarroshGUID.Clear();
-                VarianGUID.Clear();
-                GormokGUID.Clear();
-                AcidmawGUID.Clear();
-                DreadscaleGUID.Clear();
-                IcehowlGUID.Clear();
-                JaraxxusGUID.Clear();
-                ChampionsControllerGUID.Clear();
-                DarkbaneGUID.Clear();
-                LightbaneGUID.Clear();
-                AnubarakGUID.Clear();
+                TirionFordringGUID = 0;
+                BarrentGUID = 0;
+                TirionGUID = 0;
+                FizzlebangGUID = 0;
+                GarroshGUID = 0;
+                VarianGUID = 0;
+                GormokGUID = 0;
+                AcidmawGUID = 0;
+                DreadscaleGUID = 0;
+                IcehowlGUID = 0;
+                JaraxxusGUID = 0;
+                ChampionsControllerGUID = 0;
+                DarkbaneGUID = 0;
+                LightbaneGUID = 0;
+                AnubarakGUID = 0;
 
-                TributeChestGUID.Clear();
-                MainGateDoorGUID.Clear();
-                EastPortcullisGUID.Clear();
-                WebDoorGUID.Clear();
-                CrusadersCacheGUID.Clear();
-                FloorGUID.Clear();
+                TributeChestGUID = 0;
+                MainGateDoorGUID = 0;
+                EastPortcullisGUID = 0;
+                WebDoorGUID = 0;
+                CrusadersCacheGUID = 0;
+                FloorGUID = 0;
             }
 
-            bool IsEncounterInProgress() const override
+            bool IsEncounterInProgress() const OVERRIDE
             {
                 for (uint8 i = 0; i < MAX_ENCOUNTERS; ++i)
                     if (GetBossState(i) == IN_PROGRESS)
@@ -82,7 +84,7 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                 return false;
             }
 
-            void OnPlayerEnter(Player* player) override
+            void OnPlayerEnter(Player* player) OVERRIDE
             {
                 if (instance->IsHeroic())
                 {
@@ -95,33 +97,34 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                 // make sure Anub'arak isnt missing and floor is destroyed after a crash
                 if (GetBossState(BOSS_LICH_KING) == DONE && TrialCounter && GetBossState(BOSS_ANUBARAK) != DONE)
                 {
-                    if (Creature* anubArak = ObjectAccessor::GetCreature(*player, GetGuidData(NPC_ANUBARAK)))
-                        anubArak = player->SummonCreature(NPC_ANUBARAK, AnubarakLoc[0].GetPositionX(), AnubarakLoc[0].GetPositionY(), AnubarakLoc[0].GetPositionZ(), 3, TEMPSUMMON_CORPSE_TIMED_DESPAWN, DESPAWN_TIME);
+                    Creature* anubArak = Unit::GetCreature(*player, GetData64(NPC_ANUBARAK));
+                    if (!anubArak)
+                        anubArak = player->SummonCreature(NPC_ANUBARAK, AnubarakLoc[0].GetPositionX(), AnubarakLoc[0].GetPositionY(), AnubarakLoc[0].GetPositionZ(), 3, TempSummonType::TEMPSUMMON_CORPSE_TIMED_DESPAWN, DESPAWN_TIME);
 
-                    if (GameObject* floor = ObjectAccessor::GetGameObject(*player, GetGuidData(GO_ARGENT_COLISEUM_FLOOR)))
+                    if (GameObject* floor = GameObject::GetGameObject(*player, GetData64(GO_ARGENT_COLISEUM_FLOOR)))
                         floor->SetDestructibleState(GO_DESTRUCTIBLE_DAMAGED);
                 }
             }
 
-            void OpenDoor(ObjectGuid const& guid)
+            void OpenDoor(uint64 guid)
             {
                 if (!guid)
                     return;
 
                 if (GameObject* go = instance->GetGameObject(guid))
-                    go->SetGoState(GO_STATE_ACTIVE_ALTERNATIVE);
+                    go->SetGoState(GOState::GO_STATE_ACTIVE_ALTERNATIVE);
             }
 
-            void CloseDoor(ObjectGuid const& guid)
+            void CloseDoor(uint64 guid)
             {
                 if (!guid)
                     return;
 
                 if (GameObject* go = instance->GetGameObject(guid))
-                    go->SetGoState(GO_STATE_READY);
+                    go->SetGoState(GOState::GO_STATE_READY);
             }
 
-            void OnCreatureCreate(Creature* creature) override
+            void OnCreatureCreate(Creature* creature) OVERRIDE
             {
                 switch (creature->GetEntry())
                 {
@@ -178,24 +181,24 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                 }
             }
 
-            void OnGameObjectCreate(GameObject* go) override
+            void OnGameObjectCreate(GameObject* go) OVERRIDE
             {
                 switch (go->GetEntry())
                 {
                     case GO_CRUSADERS_CACHE_10:
-                        if (instance->GetSpawnMode() == DIFFICULTY_10_N)
+                        if (instance->GetSpawnMode() == DIFFICULTY_10MAN_NORMAL)
                             CrusadersCacheGUID = go->GetGUID();
                         break;
                     case GO_CRUSADERS_CACHE_25:
-                        if (instance->GetSpawnMode() == DIFFICULTY_25_N)
+                        if (instance->GetSpawnMode() == DIFFICULTY_25MAN_NORMAL)
                             CrusadersCacheGUID = go->GetGUID();
                         break;
                     case GO_CRUSADERS_CACHE_10_H:
-                        if (instance->GetSpawnMode() == DIFFICULTY_10_HC)
+                        if (instance->GetSpawnMode() == DIFFICULTY_10MAN_HEROIC)
                             CrusadersCacheGUID = go->GetGUID();
                         break;
                     case GO_CRUSADERS_CACHE_25_H:
-                        if (instance->GetSpawnMode() == DIFFICULTY_25_HC)
+                        if (instance->GetSpawnMode() == DIFFICULTY_25MAN_HEROIC)
                             CrusadersCacheGUID = go->GetGUID();
                         break;
                     case GO_ARGENT_COLISEUM_FLOOR:
@@ -226,7 +229,7 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                 }
             }
 
-            bool SetBossState(uint32 type, EncounterState state) override
+            bool SetBossState(uint32 type, EncounterState state) OVERRIDE
             {
                 if (!InstanceScript::SetBossState(type, state))
                     return false;
@@ -258,9 +261,9 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                                 state = IN_PROGRESS;
                                 break;
                             case DONE:
-                                DoUpdateAchievementCriteria(CRITERIA_TYPE_BE_SPELL_TARGET, SPELL_DEFEAT_FACTION_CHAMPIONS);
+                                DoUpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_BE_SPELL_TARGET, SPELL_DEFEAT_FACTION_CHAMPIONS);
                                 if (ResilienceWillFixItTimer > 0)
-                                    DoUpdateAchievementCriteria(CRITERIA_TYPE_BE_SPELL_TARGET, SPELL_CHAMPIONS_KILLED_IN_MINUTE);
+                                    DoUpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_BE_SPELL_TARGET, SPELL_CHAMPIONS_KILLED_IN_MINUTE);
                                 DoRespawnGameObject(CrusadersCacheGUID, 7*DAY);
                                 if (GameObject* cache = instance->GetGameObject(CrusadersCacheGUID))
                                     cache->RemoveFlag(GAMEOBJECT_FIELD_FLAGS, GO_FLAG_NOT_SELECTABLE);
@@ -285,7 +288,7 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                                     state = DONE;
                                 break;
                             case DONE:
-                                if (instance->GetPlayers().getFirst()->getSource()->GetTeam() == ALLIANCE)
+                                if (instance->GetPlayers().getFirst()->GetSource()->GetTeam() == ALLIANCE)
                                     EventStage = 4020;
                                 else
                                     EventStage = 4030;
@@ -303,7 +306,7 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                             {
                                 EventStage = 6000;
                                 uint32 tributeChest = 0;
-                                if (instance->GetSpawnMode() == DIFFICULTY_10_HC)
+                                if (instance->GetSpawnMode() == DIFFICULTY_10MAN_HEROIC)
                                 {
                                     if (TrialCounter >= 50)
                                         tributeChest = GO_TRIBUTE_CHEST_10H_99;
@@ -320,6 +323,7 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                                         }
                                     }
                                 }
+                                else if (instance->GetSpawnMode() == DIFFICULTY_25MAN_HEROIC)
                                 {
                                     if (TrialCounter >= 50)
                                         tributeChest = GO_TRIBUTE_CHEST_25H_99;
@@ -353,18 +357,18 @@ class instance_trial_of_the_crusader : public InstanceMapScript
 
                 if (IsEncounterInProgress())
                 {
-                    CloseDoor(GetGuidData(GO_EAST_PORTCULLIS));
-                    CloseDoor(GetGuidData(GO_WEB_DOOR));
+                    CloseDoor(GetData64(GO_EAST_PORTCULLIS));
+                    CloseDoor(GetData64(GO_WEB_DOOR));
                 }
                 else
                 {
-                    OpenDoor(GetGuidData(GO_EAST_PORTCULLIS));
-                    OpenDoor(GetGuidData(GO_WEB_DOOR));
+                    OpenDoor(GetData64(GO_EAST_PORTCULLIS));
+                    OpenDoor(GetData64(GO_WEB_DOOR));
                 }
 
                 if (type < MAX_ENCOUNTERS)
                 {
-                    TC_LOG_INFO(LOG_FILTER_GENERAL, "scripts", "[ToCr] BossState(type %u) %u = state %u;", type, GetBossState(type), state);
+                    SF_LOG_INFO("scripts", "[ToCr] BossState(type %u) %u = state %u;", type, GetBossState(type), state);
                     if (state == FAIL)
                     {
                         if (instance->IsHeroic())
@@ -373,16 +377,16 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                             // decrease attempt counter at wipe
                             Map::PlayerList const &PlayerList = instance->GetPlayers();
                             for (Map::PlayerList::const_iterator itr = PlayerList.begin(); itr != PlayerList.end(); ++itr)
-                                if (Player* player = itr->getSource())
+                                if (Player* player = itr->GetSource())
                                     player->SendUpdateWorldState(UPDATE_STATE_UI_COUNT, TrialCounter);
 
                             // if theres no more attemps allowed
                             if (!TrialCounter)
                             {
-                                if (Unit* announcer = instance->GetCreature(GetGuidData(NPC_BARRENT)))
+                                if (Unit* announcer = instance->GetCreature(GetData64(NPC_BARRENT)))
                                     announcer->ToCreature()->DespawnOrUnsummon();
 
-                                if (Creature* anubArak = instance->GetCreature(GetGuidData(NPC_ANUBARAK)))
+                                if (Creature* anubArak = instance->GetCreature(GetData64(NPC_ANUBARAK)))
                                     anubArak->DespawnOrUnsummon();
                             }
                         }
@@ -393,7 +397,7 @@ class instance_trial_of_the_crusader : public InstanceMapScript
 
                     if (state == DONE || NeedSave)
                     {
-                        if (Unit* announcer = instance->GetCreature(GetGuidData(NPC_BARRENT)))
+                        if (Unit* announcer = instance->GetCreature(GetData64(NPC_BARRENT)))
                             announcer->SetFlag(UNIT_FIELD_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
                         Save();
                     }
@@ -401,7 +405,7 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                 return true;
             }
 
-            void SetData(uint32 type, uint32 data) override
+            void SetData(uint32 type, uint32 data) OVERRIDE
             {
                 switch (type)
                 {
@@ -433,7 +437,7 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                                 break;
                             case SNAKES_DONE:
                                 if (NotOneButTwoJormungarsTimer > 0)
-                                    DoUpdateAchievementCriteria(CRITERIA_TYPE_BE_SPELL_TARGET, SPELL_WORMS_KILLED_IN_10_SECONDS);
+                                    DoUpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_BE_SPELL_TARGET, SPELL_WORMS_KILLED_IN_10_SECONDS);
                                 EventStage = 300;
                                 SetData(TYPE_NORTHREND_BEASTS, IN_PROGRESS);
                                 break;
@@ -470,7 +474,7 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                 }
             }
 
-            ObjectGuid GetGuidData(uint32 type) const override
+            uint64 GetData64(uint32 type) const OVERRIDE
             {
                 switch (type)
                 {
@@ -518,10 +522,10 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                         break;
                 }
 
-                return ObjectGuid::Empty;
+                return 0;
             }
 
-            uint32 GetData(uint32 type) const override
+            uint32 GetData(uint32 type) const OVERRIDE
             {
                 switch (type)
                 {
@@ -576,6 +580,7 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                             case 6005:
                             case 6010:
                                 return NPC_TIRION;
+                                break;
                             case 5010:
                             case 5030:
                             case 5040:
@@ -583,7 +588,8 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                             case 5060:
                             case 5070:
                             case 5080:
-                                return NPC_LICH_KING;
+                                return NPC_LICH_KING_1;
+                                break;
                             case 120:
                             case 122:
                             case 2020:
@@ -592,6 +598,7 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                             case 3071:
                             case 4020:
                                 return NPC_VARIAN;
+                                break;
                             case 130:
                             case 132:
                             case 2010:
@@ -600,6 +607,7 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                             case 3081:
                             case 4030:
                                 return NPC_GARROSH;
+                                break;
                             case 1110:
                             case 1120:
                             case 1130:
@@ -611,10 +619,11 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                             case 1144:
                             case 1150:
                                 return NPC_FIZZLEBANG;
+                                break;
                             default:
                                 return NPC_TIRION;
+                                break;
                         };
-                        return NPC_TIRION;
                     default:
                         break;
                 }
@@ -622,7 +631,7 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                 return 0;
             }
 
-            void Update(uint32 diff) override
+            void Update(uint32 diff) OVERRIDE
             {
                 if (GetData(TYPE_NORTHREND_BEASTS) == SNAKES_SPECIAL && NotOneButTwoJormungarsTimer)
                 {
@@ -658,12 +667,12 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                 NeedSave = false;
             }
 
-            std::string GetSaveData() override
+            std::string GetSaveData() OVERRIDE
             {
                 return SaveDataBuffer;
             }
 
-            void Load(const char* strIn) override
+            void Load(const char* strIn) OVERRIDE
             {
                 if (!strIn)
                 {
@@ -690,7 +699,7 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                 OUT_LOAD_INST_DATA_COMPLETE;
             }
 
-            bool CheckAchievementCriteriaMeet(uint32 criteria_id, Player const* /*source*/, Unit const* /*target*/, uint32 /*miscvalue1*/) override
+            bool CheckAchievementCriteriaMeet(uint32 criteria_id, Player const* /*source*/, Unit const* /*target*/, uint32 /*miscvalue1*/) OVERRIDE
             {
                 switch (criteria_id)
                 {
@@ -735,29 +744,29 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                 bool   NeedSave;
                 std::string SaveDataBuffer;
 
-                ObjectGuid BarrentGUID;
-                ObjectGuid TirionGUID;
-                ObjectGuid TirionFordringGUID;
-                ObjectGuid FizzlebangGUID;
-                ObjectGuid GarroshGUID;
-                ObjectGuid VarianGUID;
+                uint64 BarrentGUID;
+                uint64 TirionGUID;
+                uint64 TirionFordringGUID;
+                uint64 FizzlebangGUID;
+                uint64 GarroshGUID;
+                uint64 VarianGUID;
 
-                ObjectGuid GormokGUID;
-                ObjectGuid AcidmawGUID;
-                ObjectGuid DreadscaleGUID;
-                ObjectGuid IcehowlGUID;
-                ObjectGuid JaraxxusGUID;
-                ObjectGuid ChampionsControllerGUID;
-                ObjectGuid DarkbaneGUID;
-                ObjectGuid LightbaneGUID;
-                ObjectGuid AnubarakGUID;
+                uint64 GormokGUID;
+                uint64 AcidmawGUID;
+                uint64 DreadscaleGUID;
+                uint64 IcehowlGUID;
+                uint64 JaraxxusGUID;
+                uint64 ChampionsControllerGUID;
+                uint64 DarkbaneGUID;
+                uint64 LightbaneGUID;
+                uint64 AnubarakGUID;
 
-                ObjectGuid CrusadersCacheGUID;
-                ObjectGuid FloorGUID;
-                ObjectGuid TributeChestGUID;
-                ObjectGuid MainGateDoorGUID;
-                ObjectGuid EastPortcullisGUID;
-                ObjectGuid WebDoorGUID;
+                uint64 CrusadersCacheGUID;
+                uint64 FloorGUID;
+                uint64 TributeChestGUID;
+                uint64 MainGateDoorGUID;
+                uint64 EastPortcullisGUID;
+                uint64 WebDoorGUID;
 
                 // Achievement stuff
                 uint32 NotOneButTwoJormungarsTimer;
@@ -767,7 +776,7 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                 bool   TributeToImmortalityEligible;
         };
 
-        InstanceScript* GetInstanceScript(InstanceMap* map) const override
+        InstanceScript* GetInstanceScript(InstanceMap* map) const OVERRIDE
         {
             return new instance_trial_of_the_crusader_InstanceMapScript(map);
         }

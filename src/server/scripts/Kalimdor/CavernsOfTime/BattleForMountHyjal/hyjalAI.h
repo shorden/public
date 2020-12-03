@@ -1,10 +1,12 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -23,34 +25,6 @@
 #include "ScriptedEscortAI.h"
 
 #define HYJAL_AI_MAX_SPELLS 3
-
-enum CreaturesIds
-{
-    // Trash Mobs summoned in waves
-    NECROMANCER         = 17899,
-    ABOMINATION         = 17898,
-    GHOUL               = 17895,
-    BANSHEE             = 17905,
-    CRYPT_FIEND         = 17897,
-    GARGOYLE            = 17906,
-    FROST_WYRM          = 17907,
-    GIANT_INFERNAL      = 17908,
-    FEL_STALKER         = 17916,
-
-    JAINA               = 17772,
-    THRALL              = 17852,
-    TYRANDE             = 17948,
-
-    ANCIENT_VEIN        = 185557,
-    FLAMEOBJECT         = 182592,
-
-    // Bosses summoned after every 8 waves
-    RAGE_WINTERCHILL    = 17767,
-    ANETHERON           = 17808,
-    KAZROGAL            = 17888,
-    AZGALOR             = 17842,
-    ARCHIMONDE          = 17968
-};
 
 enum SpellIds
 {
@@ -129,13 +103,7 @@ enum TargetType                                             // Used in the spell
 {
     TARGETTYPE_SELF     = 0,
     TARGETTYPE_RANDOM   = 1,
-    TARGETTYPE_VICTIM   = 2
-};
-
-struct Yells
-{
-    uint32 id;                                              // Used to determine the type of yell (attack, rally, etc)
-    int32 textid;                                           // The text id to be yelled
+    TARGETTYPE_VICTIM   = 2,
 };
 
 enum YellId
@@ -146,33 +114,7 @@ enum YellId
     RALLY        = 3,                                       // Used to rally the raid and warn that the next wave has been summoned
     FAILURE      = 4,                                       // Used when raid has failed (unsure where to place)
     SUCCESS      = 5,                                       // Used when the raid has sucessfully defeated a wave phase
-    DEATH        = 6                                        // Used on death
-};
-
-const Yells JainaQuotes[]=
-{
-    {ATTACKED,  0},
-    {ATTACKED,  1},
-    {INCOMING,  2},
-    {BEGIN,     3},
-    {RALLY,     4},
-    {RALLY,     5},
-    {FAILURE,   6},
-    {SUCCESS,   7},
-    {DEATH,     8}
-};
-
-const Yells ThrallQuotes[]=
-{
-    {ATTACKED,  0},
-    {ATTACKED,  1},
-    {INCOMING,  2},
-    {BEGIN,     3},
-    {RALLY,     4},
-    {RALLY,     5},
-    {FAILURE,   6},
-    {SUCCESS,   7},
-    {DEATH,     8}
+    DEATH        = 6,                                       // Used on death
 };
 
 struct hyjalAI : public npc_escortAI
@@ -215,14 +157,12 @@ struct hyjalAI : public npc_escortAI
 
     uint32 GetInstanceData(uint32 Event);                   // Gets instance data for this instance, used to check if raid has gotten past a certain point and can access the next phase
 
-    void Talk(uint32 id);                                   // Searches for the appropriate yell and sound and uses it to inform the raid of various things
-
     public:
         InstanceScript* instance;
 
-        ObjectGuid PlayerGUID;
-        ObjectGuid BossGUID[2];
-        ObjectGuid VeinGUID[14];
+        uint64 PlayerGUID;
+        uint64 BossGUID[2];
+        uint64 VeinGUID[14];
 
         uint32 NextWaveTimer;
         uint32 WaveCount;
@@ -253,7 +193,7 @@ struct hyjalAI : public npc_escortAI
         bool IsDummy;
         uint32 MassTeleportTimer;
         bool DoMassTeleport;
-        ObjectGuid DummyGuid;
+        uint64 DummyGuid;
 
         struct Spell
         {
@@ -264,7 +204,7 @@ struct hyjalAI : public npc_escortAI
 
     private:
         uint32 SpellTimer[3];
-        //GuidList CreatureList;
+        //std::list<uint64> CreatureList;
 };
 #endif
 

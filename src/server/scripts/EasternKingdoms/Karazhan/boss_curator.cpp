@@ -1,10 +1,12 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -26,38 +28,41 @@ EndScriptData */
 #include "ScriptMgr.h"
 #include "ScriptedCreature.h"
 
-enum Says
+enum Curator
 {
-    SAY_AGGRO = 0,
-    SAY_SUMMON,
-    SAY_EVOCATE,
-    SAY_ENRAGE,
-    SAY_KILL,
-    SAY_DEATH
+    SAY_AGGRO                       = 0,
+    SAY_SUMMON                      = 1,
+    SAY_EVOCATE                     = 2,
+    SAY_ENRAGE                      = 3,
+    SAY_KILL                        = 4,
+    SAY_DEATH                       = 5,
+
+    //Flare spell info
+    SPELL_ASTRAL_FLARE_PASSIVE      = 30234,               //Visual effect + Flare damage
+
+    //Curator spell info
+    SPELL_HATEFUL_BOLT              = 30383,
+    SPELL_EVOCATION                 = 30254,
+    SPELL_ENRAGE                    = 30403,               //Arcane Infusion: Transforms Curator and adds damage.
+    SPELL_BERSERK                   = 26662,
 };
 
-//Flare spell info
-#define SPELL_ASTRAL_FLARE_PASSIVE      30234               //Visual effect + Flare damage
 
-//Curator spell info
-#define SPELL_HATEFUL_BOLT              30383
-#define SPELL_EVOCATION                 30254
-#define SPELL_ENRAGE                    30403               //Arcane Infusion: Transforms Curator and adds damage.
-#define SPELL_BERSERK                   26662
+
 
 class boss_curator : public CreatureScript
 {
 public:
-    boss_curator() : CreatureScript("boss_curator") {}
+    boss_curator() : CreatureScript("boss_curator") { }
 
-    CreatureAI* GetAI(Creature* creature) const
+    CreatureAI* GetAI(Creature* creature) const OVERRIDE
     {
-        return new boss_curatorAI (creature);
+        return new boss_curatorAI(creature);
     }
 
     struct boss_curatorAI : public ScriptedAI
     {
-        boss_curatorAI(Creature* creature) : ScriptedAI(creature) {}
+        boss_curatorAI(Creature* creature) : ScriptedAI(creature) { }
 
         uint32 AddTimer;
         uint32 HatefulBoltTimer;
@@ -66,7 +71,7 @@ public:
         bool Enraged;
         bool Evocating;
 
-        void Reset() override
+        void Reset() OVERRIDE
         {
             AddTimer = 10000;
             HatefulBoltTimer = 15000;                           //This time may be wrong
@@ -77,22 +82,22 @@ public:
             me->ApplySpellImmune(0, IMMUNITY_DAMAGE, SPELL_SCHOOL_MASK_ARCANE, true);
         }
 
-        void KilledUnit(Unit* /*victim*/) override
+        void KilledUnit(Unit* /*victim*/) OVERRIDE
         {
             Talk(SAY_KILL);
         }
 
-        void JustDied(Unit* /*killer*/) override
+        void JustDied(Unit* /*killer*/) OVERRIDE
         {
             Talk(SAY_DEATH);
         }
 
-        void EnterCombat(Unit* /*who*/) override
+        void EnterCombat(Unit* /*who*/) OVERRIDE
         {
             Talk(SAY_AGGRO);
         }
 
-        void UpdateAI(uint32 diff) override
+        void UpdateAI(uint32 diff) OVERRIDE
         {
             if (!UpdateVictim())
                 return;
@@ -113,7 +118,7 @@ public:
                 Talk(SAY_ENRAGE);
 
                 me->InterruptNonMeleeSpells(true);
-                DoCast(SPELL_BERSERK);
+                DoCast(me, SPELL_BERSERK);
 
                 //don't know if he's supposed to do summon/evocate after hard enrage (probably not)
                 Enraged = true;
@@ -133,7 +138,7 @@ public:
                 if (AddTimer <= diff)
                 {
                     //Summon Astral Flare
-                    Creature* AstralFlare = DoSpawnCreature(17096, float(rand()%37), float(rand()%37), 0, 0, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 5000);
+                    Creature* AstralFlare = DoSpawnCreature(17096, float(rand()%37), float(rand()%37), 0, 0, TempSummonType::TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 5000);
                     Unit* target = NULL;
                     target = SelectTarget(SELECT_TARGET_RANDOM, 0);
 
@@ -162,19 +167,19 @@ public:
                         else
                         {
                             if (urand(0, 1) == 0)
+                            {
                                 Talk(SAY_SUMMON);
+                            }
                         }
                     }
 
                     AddTimer = 10000;
-                }
-                else
-                    AddTimer -= diff;
+                } else AddTimer -= diff;
 
                 if (!HealthAbovePct(15))
                 {
                     Enraged = true;
-                    DoCast(me, SPELL_ENRAGE, false);
+                    DoCast(me, SPELL_ENRAGE);
                     Talk(SAY_ENRAGE);
                 }
             }
@@ -187,11 +192,8 @@ public:
                     HatefulBoltTimer = 15000;
 
                 if (Unit* target = SelectTarget(SELECT_TARGET_TOPAGGRO, 1))
-                    DoCast(target, SPELL_HATEFUL_BOLT, false);
-
-            }
-            else
-                HatefulBoltTimer -= diff;
+                    DoCast(target, SPELL_HATEFUL_BOLT);
+            } else HatefulBoltTimer -= diff;
 
             DoMeleeAttackIfReady();
         }

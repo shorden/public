@@ -1,9 +1,12 @@
 /*
- * Copyright (C) 2008-2011 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -15,6 +18,8 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "naxxramas.h"
 
 //Razuvious - NO TEXT sound only
@@ -37,10 +42,13 @@
 #define SOUND_DEATH     8860
 #define SOUND_AGGROMIX  8847
 
-#define SPELL_UNBALANCING_STRIKE    26613
-#define SPELL_DISRUPTING_SHOUT      RAID_MODE(29107, 55543)
-#define SPELL_JAGGED_KNIFE          55550
-#define SPELL_HOPELESS              29125
+enum Spells
+{
+    SPELL_UNBALANCING_STRIKE   = 26613,
+    SPELL_DISRUPTING_SHOUT     = 29107,
+    SPELL_JAGGED_KNIFE         = 55550,
+    SPELL_HOPELESS             = 29125
+};
 
 enum Events
 {
@@ -56,38 +64,38 @@ class boss_razuvious : public CreatureScript
 public:
     boss_razuvious() : CreatureScript("boss_razuvious") { }
 
-    CreatureAI* GetAI(Creature* creature) const override
+    CreatureAI* GetAI(Creature* creature) const OVERRIDE
     {
-        return new boss_razuviousAI (creature);
+        return new boss_razuviousAI(creature);
     }
 
     struct boss_razuviousAI : public BossAI
     {
-        boss_razuviousAI(Creature* c) : BossAI(c, BOSS_RAZUVIOUS) {}
+        boss_razuviousAI(Creature* creature) : BossAI(creature, BOSS_RAZUVIOUS) { }
 
-        void KilledUnit(Unit* /*victim*/) override
+        void KilledUnit(Unit* /*victim*/) OVERRIDE
         {
             if (!(rand()%3))
                 DoPlaySoundToSet(me, SOUND_SLAY);
         }
 
-        void DamageTaken(Unit* pDone_by, uint32& uiDamage, DamageEffectType dmgType) override
+        void DamageTaken(Unit* pDone_by, uint32& uiDamage) OVERRIDE
         {
             // Damage done by the controlled Death Knight understudies should also count toward damage done by players
-            if (pDone_by->GetTypeId() == TYPEID_UNIT && (pDone_by->GetEntry() == 16803 || pDone_by->GetEntry() == 29941))
+            if (pDone_by->GetTypeId() == TypeID::TYPEID_UNIT && (pDone_by->GetEntry() == 16803 || pDone_by->GetEntry() == 29941))
             {
                 me->LowerPlayerDamageReq(uiDamage);
             }
         }
 
-        void JustDied(Unit* /*killer*/) override
+        void JustDied(Unit* /*killer*/) OVERRIDE
         {
             _JustDied();
             DoPlaySoundToSet(me, SOUND_DEATH);
-            me->CastSpell(me, SPELL_HOPELESS, true); // TODO: this may affect other creatures
+            me->CastSpell(me, SPELL_HOPELESS, true); /// @todo this may affect other creatures
         }
 
-        void EnterCombat(Unit* /*who*/) override
+        void EnterCombat(Unit* /*who*/) OVERRIDE
         {
             _EnterCombat();
             DoPlaySoundToSet(me, SOUND_AGGRO);
@@ -97,7 +105,7 @@ public:
             events.ScheduleEvent(EVENT_KNIFE, 10000);
         }
 
-        void UpdateAI(uint32 diff) override
+        void UpdateAI(uint32 diff) OVERRIDE
         {
             if (!UpdateVictim())
                 return;
@@ -109,7 +117,7 @@ public:
                 switch (eventId)
                 {
                     case EVENT_STRIKE:
-                        DoCast(me->getVictim(), SPELL_UNBALANCING_STRIKE);
+                        DoCastVictim(SPELL_UNBALANCING_STRIKE);
                         events.ScheduleEvent(EVENT_STRIKE, 30000);
                         return;
                     case EVENT_SHOUT:

@@ -1,9 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -22,31 +24,33 @@ Comment: All guild related commands
 Category: commandscripts
 EndScriptData */
 
-#include "ScriptMgr.h"
+#include "AchievementMgr.h"
 #include "Chat.h"
+#include "Language.h"
 #include "Guild.h"
 #include "GuildMgr.h"
+#include "ObjectAccessor.h"
+#include "ScriptMgr.h"
 
 class guild_commandscript : public CommandScript
 {
 public:
     guild_commandscript() : CommandScript("guild_commandscript") { }
 
-    ChatCommand* GetCommands() const override
+    std::vector<ChatCommand> GetCommands() const
     {
-        static ChatCommand guildCommandTable[] =
+        static std::vector<ChatCommand> guildCommandTable =
         {
-            { "create",         SEC_GAMEMASTER,     true,  &HandleGuildCreateCommand,           "", NULL },
-            { "delete",         SEC_GAMEMASTER,     true,  &HandleGuildDeleteCommand,           "", NULL },
-            { "invite",         SEC_GAMEMASTER,     true,  &HandleGuildInviteCommand,           "", NULL },
-            { "uninvite",       SEC_GAMEMASTER,     true,  &HandleGuildUninviteCommand,         "", NULL },
-            { "rank",           SEC_GAMEMASTER,     true,  &HandleGuildRankCommand,             "", NULL },
-            { NULL,             0,                  false, NULL,                                "", NULL }
+            { "create",   rbac::RBAC_PERM_COMMAND_GUILD_CREATE,   true, &HandleGuildCreateCommand,           "", },
+            { "delete",   rbac::RBAC_PERM_COMMAND_GUILD_DELETE,   true, &HandleGuildDeleteCommand,           "", },
+            { "invite",   rbac::RBAC_PERM_COMMAND_GUILD_INVITE,   true, &HandleGuildInviteCommand,           "", },
+            { "uninvite", rbac::RBAC_PERM_COMMAND_GUILD_UNINVITE, true, &HandleGuildUninviteCommand,         "", },
+            { "rank",     rbac::RBAC_PERM_COMMAND_GUILD_RANK,     true, &HandleGuildRankCommand,             "", },
+            { "rename",   rbac::RBAC_PERM_COMMAND_GUILD_RENAME,   true, &HandleGuildRenameCommand,           "", },
         };
-        static ChatCommand commandTable[] =
+        static std::vector<ChatCommand> commandTable =
         {
-            { "guild",          SEC_ADMINISTRATOR,  true, NULL,                                 "", guildCommandTable },
-            { NULL,             0,                  false, NULL,                                "", NULL }
+            { "guild", rbac::RBAC_PERM_COMMAND_GUILD,  true, NULL, "", guildCommandTable },
         };
         return commandTable;
     }
@@ -115,6 +119,7 @@ public:
             return false;
 
         targetGuild->Disband();
+        delete targetGuild;
 
         return true;
     }
@@ -125,7 +130,7 @@ public:
             return false;
 
         // if not guild name only (in "") then player name
-        ObjectGuid targetGuid;
+        uint64 targetGuid;
         if (!handler->extractPlayerTarget(*args != '"' ? (char*)args : NULL, NULL, &targetGuid))
             return false;
 
@@ -149,11 +154,11 @@ public:
     static bool HandleGuildUninviteCommand(ChatHandler* handler, char const* args)
     {
         Player* target;
-        ObjectGuid targetGuid;
+        uint64 targetGuid;
         if (!handler->extractPlayerTarget((char*)args, &target, &targetGuid))
             return false;
 
-        ObjectGuid::LowType guildId = target ? target->GetGuildId() : Player::GetGuildIdFromDB(targetGuid);
+        uint32 guildId = target ? target->GetGuildId() : Player::GetGuildIdFromDB(targetGuid);
         if (!guildId)
             return false;
 
@@ -161,7 +166,7 @@ public:
         if (!targetGuild)
             return false;
 
-        targetGuild->DeleteMember(targetGuid, false, true);
+        targetGuild->DeleteMember(targetGuid, false, true, true);
         return true;
     }
 
@@ -174,12 +179,12 @@ public:
             return false;
 
         Player* target;
-        ObjectGuid targetGuid;
+        uint64 targetGuid;
         std::string target_name;
         if (!handler->extractPlayerTarget(nameStr, &target, &targetGuid, &target_name))
             return false;
 
-        ObjectGuid::LowType guildId = target ? target->GetGuildId() : Player::GetGuildIdFromDB(targetGuid);
+        uint32 guildId = target ? target->GetGuildId() : Player::GetGuildIdFromDB(targetGuid);
         if (!guildId)
             return false;
 
@@ -189,6 +194,55 @@ public:
 
         uint8 newRank = uint8(atoi(rankStr));
         return targetGuild->ChangeMemberRank(targetGuid, newRank);
+    }
+
+    static bool HandleGuildRenameCommand(ChatHandler* handler, char const* _args)
+    {
+        if (!*_args)
+            return false;
+
+        char *args = (char *)_args;
+
+        char const* oldGuildStr = handler->extractQuotedArg(args);
+        if (!oldGuildStr)
+        {
+            handler->SendSysMessage(LANG_BAD_VALUE);
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
+
+        char const* newGuildStr = handler->extractQuotedArg(strtok(NULL, ""));
+        if (!newGuildStr)
+        {
+            handler->SendSysMessage(LANG_INSERT_GUILD_NAME);
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
+
+        Guild* guild = sGuildMgr->GetGuildByName(oldGuildStr);
+        if (!guild)
+        {
+            handler->PSendSysMessage(LANG_COMMAND_COULDNOTFIND, oldGuildStr);
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
+
+        if (sGuildMgr->GetGuildByName(newGuildStr))
+        {
+            handler->PSendSysMessage(LANG_GUILD_RENAME_ALREADY_EXISTS, newGuildStr);
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
+
+        if (!guild->SetName(newGuildStr))
+        {
+            handler->SendSysMessage(LANG_BAD_VALUE);
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
+
+        handler->PSendSysMessage(LANG_GUILD_RENAME_DONE, oldGuildStr, newGuildStr);
+        return true;
     }
 };
 

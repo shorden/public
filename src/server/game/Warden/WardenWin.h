@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -16,14 +17,56 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _WARDEN_WIN_H
-#define _WARDEN_WIN_H
+#ifndef SF_WARDEN_WIN_H
+#define SF_WARDEN_WIN_H
 
 #include <map>
-#include "ARC4.h"
-#include "BigNumber.h"
+#include "Cryptography/ARC4.h"
+#include "Cryptography/BigNumber.h"
 #include "ByteBuffer.h"
 #include "Warden.h"
+
+#if defined(__GNUC__)
+#pragma pack(1)
+#else
+#pragma pack(push, 1)
+#endif
+
+struct WardenInitModuleRequest
+{
+    uint8 Command1;
+    uint16 Size1;
+    uint32 CheckSumm1;
+    uint8 Unk1;
+    uint8 Unk2;
+    uint8 Type;
+    uint8 String_library1;
+    uint32 Function1[4];
+
+    uint8 Command2;
+    uint16 Size2;
+    uint32 CheckSumm2;
+    uint8 Unk3;
+    uint8 Unk4;
+    uint8 String_library2;
+    uint32 Function2;
+    uint8 Function2_set;
+
+    uint8 Command3;
+    uint16 Size3;
+    uint32 CheckSumm3;
+    uint8 Unk5;
+    uint8 Unk6;
+    uint8 String_library3;
+    uint32 Function3;
+    uint8 Function3_set;
+};
+
+#if defined(__GNUC__)
+#pragma pack()
+#else
+#pragma pack(pop)
+#endif
 
 class WorldSession;
 class Warden;
@@ -31,42 +74,22 @@ class Warden;
 class WardenWin : public Warden
 {
     public:
-        WardenWin(WorldSession* session);
-        ~WardenWin() {}
+        WardenWin();
+        ~WardenWin();
 
+        void Init(WorldSession* session, BigNumber* K);
+        ClientWardenModule* GetModuleForClient();
         void InitializeModule();
-        void InitializeMPQCheckFunc(ByteBuffer& buff);
-        void InitializeLuaCheckFunc(ByteBuffer& buff);
-        void InitializeTimeCheckFunc(ByteBuffer& buff);
-
-        void HandleHashResult(ByteBuffer &buff) override;
-        void HandleHashResultSpecial(ByteBuffer &buff) override;
-        void HandleModuleFailed() override;
-        void RequestBaseData() override;
-        void SendExtendedData() override;
-
-        void HandleData(ByteBuffer &buff) override;
-        void HandleChecks(ByteBuffer &buff);
-
-        void HandleExtendedData(ByteBuffer &buff) override;
-        void HandleStringData(ByteBuffer &buff) override;
-        void HandleFailedSync(uint32 clientSeqIndex);
-
-        // temp
-        void ActivateModule() override;
-
-        void BuildBaseChecksRequest(ByteBuffer &buff);
-        void BuildSequenceHeader(ByteBuffer &buff);
-        void AddCheckData(uint16 id, ByteBuffer &buff, ByteBuffer &stringBuf, uint8 &index);
-
-        template<class T>
-        void WriteAddress(ByteBuffer & buff, T address);
+        void RequestHash();
+        void HandleHashResult(ByteBuffer &buff);
+        void RequestData();
+        void HandleData(ByteBuffer &buff);
 
     private:
-        std::map<std::string, std::vector<uint16>> _baseChecksList;
-        std::vector<uint16> _currentChecks;
-
-        uint32 _sequencePacketIndex;
+        uint32 _serverTicks;
+        std::list<uint16> _otherChecksTodo;
+        std::list<uint16> _memChecksTodo;
+        std::list<uint16> _currentChecks;
 };
 
 #endif

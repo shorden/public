@@ -65,7 +65,7 @@ namespace VMAP
         return pos;
     }
 
-    / move to MapTree too?
+    // move to MapTree too?
     std::string VMapManager2::getMapFileName(unsigned int mapId)
     {
         std::stringstream fname;
@@ -89,7 +89,7 @@ namespace VMAP
         return result;
     }
 
-    / load one tile (internal use only)
+    // load one tile (internal use only)
     bool VMapManager2::_loadMap(uint32 mapId, const std::string& basePath, uint32 tileX, uint32 tileY)
     {
         InstanceTreeMap::iterator instanceTree = iInstanceMapTrees.find(mapId);
@@ -155,10 +155,10 @@ namespace VMAP
         return true;
     }
 
-    /
+    /**
     get the hit position and return true if we hit something
     otherwise the result pos will be the dest pos
-    /
+    */
     bool VMapManager2::getObjectHitPos(unsigned int mapId, float x1, float y1, float z1, float x2, float y2, float z2, float& rx, float &ry, float& rz, float modifyDist)
     {
         if (isLineOfSightCalcEnabled() && !DisableMgr::IsDisabledFor(DISABLE_TYPE_VMAP, mapId, NULL, VMAP_DISABLE_LOS))
@@ -185,9 +185,9 @@ namespace VMAP
         return false;
     }
 
-    /
+    /**
     get height or INVALID_HEIGHT if no height available
-    /
+    */
 
     float VMapManager2::getHeight(unsigned int mapId, float x, float y, float z, float maxSearchDist)
     {
@@ -217,7 +217,7 @@ namespace VMAP
             {
                 Vector3 pos = convertPositionToInternalRep(x, y, z);
                 bool result = instanceTree->second->getAreaInfo(pos, flags, adtId, rootId, groupId);
-                / z is not touched by convertPositionToInternalRep(), so just copy
+                // z is not touched by convertPositionToInternalRep(), so just copy
                 z = pos.z;
                 return result;
             }
@@ -253,7 +253,7 @@ namespace VMAP
 
     WorldModel* VMapManager2::acquireModelInstance(const std::string& basepath, const std::string& filename)
     {
-        /! Critical section, thread safe access to iLoadedModelFiles
+        //! Critical section, thread safe access to iLoadedModelFiles
         std::lock_guard<std::mutex> guard(LoadedModelFilesLock);
 
         ModelFileMap::iterator model = iLoadedModelFiles.find(filename);
@@ -276,7 +276,7 @@ namespace VMAP
 
     void VMapManager2::releaseModelInstance(const std::string &filename)
     {
-        /! Critical section, thread safe access to iLoadedModelFiles
+        //! Critical section, thread safe access to iLoadedModelFiles
         std::lock_guard<std::mutex> guard(LoadedModelFilesLock);
 
         ModelFileMap::iterator model = iLoadedModelFiles.find(filename);
@@ -298,4 +298,4 @@ namespace VMAP
         return StaticMapTree::CanLoadMap(std::string(basePath), mapId, x, y);
     }
 
-} / namespace VMAP
+} // namespace VMAP

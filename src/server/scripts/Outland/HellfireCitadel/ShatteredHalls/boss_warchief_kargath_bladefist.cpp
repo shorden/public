@@ -1,69 +1,75 @@
+/*
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/* ScriptData
+SDName: Boss_Warchief_Kargath_Bladefist
+SD%Complete: 90
+SDComment:
+SDCategory: Hellfire Citadel, Shattered Halls
+EndScriptData */
+
+/* ContentData
+boss_warchief_kargath_bladefist
+EndContentData */
+
 #include "ScriptMgr.h"
 #include "ScriptedCreature.h"
-#include "LFGMgr.h"
-#include "Group.h"
+#include "shattered_halls.h"
 
-enum eSays
+enum Says
 {
-    SAY_AGGRO                       = 0,
-    SAY_SLAY                        = 1,
-    SAY_DEATH                       = 2,
+    SAY_AGGRO                      = 0,
+    SAY_SLAY                       = 1,
+    SAY_DEATH                      = 2
 };
 
-enum eSpells
+enum Spells
 {
-     SPELL_BLADE_DANCE              = 30739,
-     H_SPELL_CHARGE                 = 25821,
+     SPELL_BLADE_DANCE             = 30739,
+     H_SPELL_CHARGE                = 25821
 };
 
-enum eCreatures
+enum Creatures
 {
-    MOB_SHATTERED_ASSASSIN         = 17695,
-    MOB_HEARTHEN_GUARD             = 17621,
-    MOB_SHARPSHOOTER_GUARD         = 17622,
-    MOB_REAVER_GUARD               = 17623,
+    NPC_SHATTERED_ASSASSIN         = 17695,
+    NPC_HEARTHEN_GUARD             = 17621,
+    NPC_SHARPSHOOTER_GUARD         = 17622,
+    NPC_REAVER_GUARD               = 17623
 };
 
-#define TARGET_NUM                      5
+#define TARGET_NUM                   5
 
-float AssassEntrance[3] = {275.136f, -84.29f, 2.3f}; // y -8
-float AssassExit[3] = {184.233f, -84.29f, 2.3f}; // y -8
-float AddsEntrance[3] = {306.036f, -84.29f, 1.93f};
+float AssassEntrance[3] = { 275.136f, -84.29f, 2.3f  }; // y -8
+float AssassExit[3]     = { 184.233f, -84.29f, 2.3f  }; // y -8
+float AddsEntrance[3]   = { 306.036f, -84.29f, 1.93f };
 
 class boss_warchief_kargath_bladefist : public CreatureScript
 {
     public:
+        boss_warchief_kargath_bladefist() : CreatureScript("boss_warchief_kargath_bladefist") { }
 
-        boss_warchief_kargath_bladefist()
-            : CreatureScript("boss_warchief_kargath_bladefist")
+        struct boss_warchief_kargath_bladefistAI : public BossAI
         {
-        }
+            boss_warchief_kargath_bladefistAI(Creature* creature) : BossAI(creature, DATA_KARGATH) { }
 
-        struct boss_warchief_kargath_bladefistAI : public ScriptedAI
-        {
-            boss_warchief_kargath_bladefistAI(Creature* creature) : ScriptedAI(creature)
-            {
-                instance = me->GetInstanceScript();
-            }
-
-            InstanceScript* instance;
-            GuidVector adds;
-            GuidVector assassins;
-
-            uint32 Charge_timer;
-            uint32 Blade_Dance_Timer;
-            uint32 Summon_Assistant_Timer;
-            uint32 resetcheck_timer;
-            uint32 Wait_Timer;
-
-            uint32 Assassins_Timer;
-
-            uint32 summoned;
-            bool InBlade;
-
-            uint32 target_num;
-
-            void Reset()
+            void Reset() OVERRIDE
             {
                 removeAdds();
 
@@ -81,53 +87,45 @@ class boss_warchief_kargath_bladefist : public CreatureScript
                 resetcheck_timer = 5000;
             }
 
-            void EnterCombat(Unit* /*who*/)
+            void JustDied(Unit* /*killer*/) OVERRIDE
+            {
+                Talk(SAY_DEATH);
+                removeAdds();
+
+                if (instance)
+                    instance->SetBossState(DATA_KARGATH, DONE);
+            }
+
+            void EnterCombat(Unit* /*who*/) OVERRIDE
             {
                 Talk(SAY_AGGRO);
             }
 
-            void JustSummoned(Creature* summoned)
+            void JustSummoned(Creature* summoned) OVERRIDE
             {
                 switch (summoned->GetEntry())
                 {
-                    case MOB_HEARTHEN_GUARD:
-                    case MOB_SHARPSHOOTER_GUARD:
-                    case MOB_REAVER_GUARD:
+                    case NPC_HEARTHEN_GUARD:
+                    case NPC_SHARPSHOOTER_GUARD:
+                    case NPC_REAVER_GUARD:
                         summoned->AI()->AttackStart(SelectTarget(SELECT_TARGET_RANDOM, 0));
                         adds.push_back(summoned->GetGUID());
                         break;
-                    case MOB_SHATTERED_ASSASSIN:
+                    case NPC_SHATTERED_ASSASSIN:
                         assassins.push_back(summoned->GetGUID());
                         break;
                 }
             }
 
-            void KilledUnit(Unit* victim)
+            void KilledUnit(Unit* victim) OVERRIDE
             {
-                if (victim->GetTypeId() == TYPEID_PLAYER)
+                if (victim->GetTypeId() == TypeID::TYPEID_PLAYER)
                 {
                     Talk(SAY_SLAY);
                 }
             }
 
-            void JustDied(Unit* /*killer*/)
-            {
-                Talk(SAY_DEATH);
-                removeAdds();
-                if (instance)
-                {
-                    Map::PlayerList const& players = me->GetMap()->GetPlayers();
-                    if (!players.isEmpty())
-                    {
-                        Player* pPlayer = players.begin()->getSource();
-                        if (pPlayer && pPlayer->GetGroup())
-                            if (sLFGMgr->GetQueueId(744))
-                                sLFGMgr->FinishDungeon(pPlayer->GetGroup()->GetGUID(), 744);
-                    }
-                }
-            }
-
-            void MovementInform(uint32 type, uint32 id)
+            void MovementInform(uint32 type, uint32 id) OVERRIDE
             {
                 if (InBlade)
                 {
@@ -148,39 +146,39 @@ class boss_warchief_kargath_bladefist : public CreatureScript
 
             void removeAdds()
             {
-                for (GuidVector::const_iterator itr = adds.begin(); itr!= adds.end(); ++itr)
+                for (std::vector<uint64>::const_iterator itr = adds.begin(); itr!= adds.end(); ++itr)
                 {
-                    Unit* temp = Unit::GetUnit(*me, *itr);
-                    if (temp && temp->isAlive())
+                    Creature* creature = Unit::GetCreature(*me, *itr);
+                    if (creature && creature->IsAlive())
                     {
-                        (*temp).GetMotionMaster()->Clear(true);
-                        me->DealDamage(temp, temp->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
-                        CAST_CRE(temp)->RemoveCorpse();
+                        creature->GetMotionMaster()->Clear(true);
+                        me->DealDamage(creature, creature->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
+                        creature->RemoveCorpse();
                     }
                 }
                 adds.clear();
 
-                for (GuidVector::const_iterator itr = assassins.begin(); itr!= assassins.end(); ++itr)
+                for (std::vector<uint64>::const_iterator itr = assassins.begin(); itr!= assassins.end(); ++itr)
                 {
-                    Unit* temp = Unit::GetUnit(*me, *itr);
-                    if (temp && temp->isAlive())
+                    Creature* creature = Unit::GetCreature(*me, *itr);
+                    if (creature && creature->IsAlive())
                     {
-                        (*temp).GetMotionMaster()->Clear(true);
-                        me->DealDamage(temp, temp->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
-                        CAST_CRE(temp)->RemoveCorpse();
+                        creature->GetMotionMaster()->Clear(true);
+                        me->DealDamage(creature, creature->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
+                        creature->RemoveCorpse();
                     }
                 }
                 assassins.clear();
             }
             void SpawnAssassin()
             {
-                me->SummonCreature(MOB_SHATTERED_ASSASSIN, AssassEntrance[0], AssassEntrance[1]+8, AssassEntrance[2], 0, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
-                me->SummonCreature(MOB_SHATTERED_ASSASSIN, AssassEntrance[0], AssassEntrance[1]-8, AssassEntrance[2], 0, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
-                me->SummonCreature(MOB_SHATTERED_ASSASSIN, AssassExit[0], AssassExit[1]+8, AssassExit[2], 0, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
-                me->SummonCreature(MOB_SHATTERED_ASSASSIN, AssassExit[0], AssassExit[1]-8, AssassExit[2], 0, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
+                me->SummonCreature(NPC_SHATTERED_ASSASSIN, AssassEntrance[0], AssassEntrance[1]+8, AssassEntrance[2], 0, TempSummonType::TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
+                me->SummonCreature(NPC_SHATTERED_ASSASSIN, AssassEntrance[0], AssassEntrance[1]-8, AssassEntrance[2], 0, TempSummonType::TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
+                me->SummonCreature(NPC_SHATTERED_ASSASSIN, AssassExit[0], AssassExit[1]+8, AssassExit[2], 0, TempSummonType::TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
+                me->SummonCreature(NPC_SHATTERED_ASSASSIN, AssassExit[0], AssassExit[1]-8, AssassExit[2], 0, TempSummonType::TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
             }
 
-            void UpdateAI(uint32 diff)
+            void UpdateAI(uint32 diff) OVERRIDE
             {
                 //Return since we have no target
                 if (!UpdateVictim())
@@ -208,7 +206,7 @@ class boss_warchief_kargath_bladefist : public CreatureScript
                                 // stop bladedance
                                 InBlade = false;
                                 me->SetSpeed(MOVE_RUN, 2);
-                                me->GetMotionMaster()->MoveChase(me->getVictim());
+                                me->GetMotionMaster()->MoveChase(me->GetVictim());
                                 Blade_Dance_Timer = 30000;
                                 Wait_Timer = 0;
                                 if (IsHeroic())
@@ -265,13 +263,13 @@ class boss_warchief_kargath_bladefist : public CreatureScript
                             switch (urand(0, 2))
                             {
                                 case 0:
-                                    me->SummonCreature(MOB_HEARTHEN_GUARD, AddsEntrance[0], AddsEntrance[1], AddsEntrance[2], 0, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
+                                    me->SummonCreature(NPC_HEARTHEN_GUARD, AddsEntrance[0], AddsEntrance[1], AddsEntrance[2], 0, TempSummonType::TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
                                     break;
                                 case 1:
-                                    me->SummonCreature(MOB_SHARPSHOOTER_GUARD, AddsEntrance[0], AddsEntrance[1], AddsEntrance[2], 0, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
+                                    me->SummonCreature(NPC_SHARPSHOOTER_GUARD, AddsEntrance[0], AddsEntrance[1], AddsEntrance[2], 0, TempSummonType::TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
                                     break;
                                 case 2:
-                                    me->SummonCreature(MOB_REAVER_GUARD, AddsEntrance[0], AddsEntrance[1], AddsEntrance[2], 0, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
+                                    me->SummonCreature(NPC_REAVER_GUARD, AddsEntrance[0], AddsEntrance[1], AddsEntrance[2], 0, TempSummonType::TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000);
                                     break;
                             }
                         }
@@ -298,9 +296,22 @@ class boss_warchief_kargath_bladefist : public CreatureScript
                 else
                     resetcheck_timer -= diff;
             }
+
+            private:
+                std::vector<uint64> adds;
+                std::vector<uint64> assassins;
+                uint32 Charge_timer;
+                uint32 Blade_Dance_Timer;
+                uint32 Summon_Assistant_Timer;
+                uint32 resetcheck_timer;
+                uint32 Wait_Timer;
+                uint32 Assassins_Timer;
+                uint32 summoned;
+                uint32 target_num;
+                bool InBlade;
         };
 
-        CreatureAI* GetAI(Creature* creature) const
+        CreatureAI* GetAI(Creature* creature) const OVERRIDE
         {
             return new boss_warchief_kargath_bladefistAI(creature);
         }
@@ -310,4 +321,3 @@ void AddSC_boss_warchief_kargath_bladefist()
 {
     new boss_warchief_kargath_bladefist();
 }
-

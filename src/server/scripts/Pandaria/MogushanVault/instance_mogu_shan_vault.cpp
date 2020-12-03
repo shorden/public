@@ -1,442 +1,721 @@
-//UWoWCore
-//Mogushan Vault
+//////////////////////////////////////////////////////////////////////////////
+///
+///  MILLENIUM-STUDIO
+///  Copyright 2015 Millenium-studio SARL
+///  All Rights Reserved.
+///
+////////////////////////////////////////////////////////////////////////////////
 
-#include "mogu_shan_vault.h"
+#include "mogu_shan_vault.hpp"
 
-const DoorData doorData[] =
+DoorData const doorData[] =
 {
-    {GOB_STONE_GUARD_DOOR_EXIT,    DATA_STONE_GUARD,   DOOR_TYPE_PASSAGE, 0},
-    {GOB_FENG_DOOR_EXIT,           DATA_FENG,          DOOR_TYPE_PASSAGE, 0},
-    {GOB_GARAJAL_EXIT,             DATA_GARAJAL,       DOOR_TYPE_PASSAGE, 0},
-    {GOB_SPIRIT_KINGS_EXIT,        DATA_SPIRIT_KINGS,  DOOR_TYPE_PASSAGE, 0},
-    {GOB_ELEGON_DOOR_ENTRANCE,     DATA_SPIRIT_KINGS,  DOOR_TYPE_PASSAGE, 0},
-    {GOB_WILL_OF_EMPEROR_ENTRANCE, DATA_ELEGON,        DOOR_TYPE_PASSAGE, 0},
-    {0,                            0,                  DOOR_TYPE_PASSAGE, 0}
+    {GOB_STONE_GUARD_DOOR_ENTRANCE,          DATA_STONE_GUARD,          DOOR_TYPE_ROOM,       BOUNDARY_E   },
+    {GOB_STONE_GUARD_DOOR_EXIT,              DATA_STONE_GUARD,          DOOR_TYPE_PASSAGE,    BOUNDARY_W   },
+    {GOB_FENG_DOOR_FENCE,                    DATA_FENG,                 DOOR_TYPE_ROOM,       BOUNDARY_NONE},
+    {GOB_FENG_DOOR_EXIT,                     DATA_FENG,                 DOOR_TYPE_PASSAGE,    BOUNDARY_N   },
+    {GOB_GARAJAL_FENCE,                      DATA_GARAJAL,              DOOR_TYPE_ROOM,       BOUNDARY_NONE},
+    {GOB_GARAJAL_EXIT,                       DATA_GARAJAL,              DOOR_TYPE_PASSAGE,    BOUNDARY_W   },
+    {GOB_SPIRIT_KINGS_WIND_WALL,             DATA_SPIRIT_KINGS,         DOOR_TYPE_ROOM,       BOUNDARY_NONE},
+    {GOB_SPIRIT_KINGS_EXIT,                  DATA_SPIRIT_KINGS,         DOOR_TYPE_PASSAGE,    BOUNDARY_NONE},
+    {GOB_CELESTIAL_DOOR,                     DATA_ELEGON,               DOOR_TYPE_ROOM,       BOUNDARY_E   },
+    {GOB_ELEGON_DOOR_ENTRANCE,               DATA_SPIRIT_KINGS,         DOOR_TYPE_PASSAGE,    BOUNDARY_NONE},
+    {GOB_ELEGON_CELESTIAL_DOOR,              DATA_ELEGON,               DOOR_TYPE_ROOM,       BOUNDARY_E   },
+    {GOB_WILL_OF_EMPEROR_ENTRANCE,           DATA_ELEGON,               DOOR_TYPE_PASSAGE,    BOUNDARY_NONE},
+    {0,                                      0,                         DOOR_TYPE_ROOM,       BOUNDARY_NONE},// END
+};
+
+#define DIST_BETWEEN_TWO_Z      32.39f
+#define ACHIEVEMENT_SHOWMOVES   6455
+
+Position woeSpawnPos[8] =
+{
+    // West
+    {3895.44f, 1615.72f, 368.22f, 4.70f},
+    {3874.47f, 1615.81f, 368.22f, 4.68f},
+    {3851.89f, 1612.51f, 368.22f, 5.03f},
+    {3833.06f, 1601.53f, 368.22f, 5.37f},
+
+    // East
+    {3833.46f, 1500.18f, 368.22f, 0.87f},
+    {3852.07f, 1488.89f, 368.22f, 1.23f},
+    {3874.45f, 1485.18f, 368.22f, 1.58f},
+    {3895.44f, 1485.12f, 368.22f, 1.60f}
+};
+
+Position woeBossSpawnPos[2] =
+{
+    {3817.58f, 1583.18f, 368.22f, 5.73f},
+    {3817.66f, 1517.56f, 368.22f, 0.56f}
+};
+
+Position woeRageSpawnPos[3] =
+{
+    {3812.60f, 1536.72f, 367.64f, 0.16f},
+    {3810.98f, 1550.45f, 367.64f, 0.27f},
+    {3812.32f, 1563.90f, 367.64f, 6.11f}
+};
+
+Position woeMiddleSpawnPos[1] =
+{
+    {3812.60f, 1536.72f, 367.64f, 0.16f}
 };
 
 class instance_mogu_shan_vault : public InstanceMapScript
 {
-public:
-    instance_mogu_shan_vault() : InstanceMapScript("instance_mogu_shan_vault", 1008) { }
+    public:
+        instance_mogu_shan_vault() : InstanceMapScript("instance_mogu_shan_vault", 1008) { }
 
-
-    InstanceScript* GetInstanceScript(InstanceMap* map) const override
-    {
-        return new instance_mogu_shan_vault_InstanceMapScript(map);
-    }
-
-    struct instance_mogu_shan_vault_InstanceMapScript : public InstanceScript
-    {
-        instance_mogu_shan_vault_InstanceMapScript(Map* map) : InstanceScript(map) {}
-
-        //GameObject
-        ObjectGuid stoneexitdoorGuid;
-        ObjectGuid stoneentrdoorGuid;
-        ObjectGuid fengexitdoorGuid;
-        ObjectGuid garajalexitdoorGuid;
-        ObjectGuid spiritexitdoorGuid;
-        ObjectGuid elegonentdoorGuid;
-        ObjectGuid elegonceldoorGuid;
-        ObjectGuid elegonplatformGuid;
-        ObjectGuid imperatorentdoorGuid;
-
-        //Creature
-        ObjectGuid stoneGuardControlerGuid;
-        ObjectGuid fengGuid;
-        ObjectGuid inversionGobGuid;
-        ObjectGuid cancelGobGuid;
-        ObjectGuid spiritKingsControlerGuid;
-        ObjectGuid qiangGuid;
-        ObjectGuid subetaiGuid;
-        ObjectGuid zianGuid;
-        ObjectGuid mengGuid;
-        ObjectGuid elegonGUID;
-        ObjectGuid janxiGuid;
-        ObjectGuid qinxiGuid;
-        ObjectGuid woicontrollerGuid;
-
-        //Arrays
-        GuidVector stoneGuardGUIDs;
-        GuidVector fengdoorGUIDs;
-        GuidVector garajaldoorGUIDs;
-        GuidVector fengStatuesGUIDs;
-        GuidVector kingsdoorGUIDs;
-
-        void Initialize() override
+        InstanceScript* GetInstanceScript(InstanceMap* map) const
         {
-            SetBossNumber(DATA_MAX_BOSS_DATA);
-            LoadDoorData(doorData);
-
-            //GameObject
-            stoneexitdoorGuid.Clear();
-            stoneentrdoorGuid.Clear();
-            fengexitdoorGuid.Clear();
-            garajalexitdoorGuid.Clear();
-            spiritexitdoorGuid.Clear();
-            elegonentdoorGuid.Clear();
-            elegonceldoorGuid.Clear();
-            elegonplatformGuid.Clear();
-            imperatorentdoorGuid.Clear();
-
-            //Creature
-            stoneGuardControlerGuid.Clear();
-            fengGuid.Clear();
-            inversionGobGuid.Clear();
-            cancelGobGuid.Clear();
-            spiritKingsControlerGuid.Clear();
-            qiangGuid.Clear();
-            subetaiGuid.Clear();
-            zianGuid.Clear();
-            mengGuid.Clear();
-            elegonGUID.Clear();
-            woicontrollerGuid.Clear();
-
-            //Arrays
-            stoneGuardGUIDs.clear();
-            fengStatuesGUIDs.clear();
-            garajaldoorGUIDs.clear();
-            fengdoorGUIDs.clear();
-            kingsdoorGUIDs.clear();
+            return new instance_mogu_shan_vault_InstanceMapScript(map);
         }
-        
-        void OnCreatureCreate(Creature* creature) override
+
+        struct instance_mogu_shan_vault_InstanceMapScript : public InstanceScript
         {
-            switch (creature->GetEntry())
+            instance_mogu_shan_vault_InstanceMapScript(Map* map) : InstanceScript(map) {}
+
+            uint32 actualPetrifierEntry;
+            uint8  guardianCount;
+            uint8  guardianAliveCount;
+            bool   woeIsGasPhaseActive;
+
+            int8   randomDespawnStoneGuardian;
+            uint8  nextWillOfEmperorPhase;
+            uint8  willOfEmperirLastBigAddSpawned;
+
+            uint32 StoneGuardPetrificationTimer;
+            uint32 willOfEmperorTimer;
+            uint32 willOfEmperorBossSpawnTimer;
+            uint32 willOfEmperorGasPhaseTimer;
+
+            uint64 cursedMogu1Guid;
+            uint64 cursedMogu2Guid;
+            uint64 ghostEssenceGuid;
+
+            uint64 stoneGuardControlerGuid;
+            uint64 fengGuid;
+            uint64 siphonShieldGuid;
+            uint64 spiritKingsControlerGuid;
+            uint64 elegonGuid;
+            uint64 infiniteEnergyGuid;
+
+            uint64 inversionGobGuid;
+            uint64 stoneGuardExit;
+            uint64 cancelGobGuid;
+            uint64 ancientMoguDoorGuid;
+            uint64 emperorsDoorGuid;
+            uint64 celestialCommandGuid;
+            uint64 ancientConsoleGuid;
+
+            uint64 energyPlatformGuid;
+            uint64 titanDiskGuid;
+            uint64 janxiGuid;
+            uint64 qinxiGuid;
+
+            std::list<uint32>   m_AuraToClear;
+
+            std::vector<uint64> stoneGuardGUIDs;
+            std::vector<uint64> fengStatuesGUIDs;
+            std::vector<uint64> spiritKingsGUIDs;
+            std::vector<uint64> titanCirclesGuids;
+            std::list<uint32>   achievementGuids;
+
+            void Initialize()
             {
-                case NPC_STONE_GUARD_CONTROLER:
-                    stoneGuardControlerGuid = creature->GetGUID();
-                    break;
-                case NPC_JASPER:
-                case NPC_JADE:
-                case NPC_AMETHYST:
-                case NPC_COBALT:
-                    stoneGuardGUIDs.push_back(creature->GetGUID());
-                    break;
-                case NPC_FENG:
-                    fengGuid = creature->GetGUID();
-                    break;
-                case NPC_SPIRIT_GUID_CONTROLER:
-                    spiritKingsControlerGuid = creature->GetGUID();
-                    break;
-                case NPC_QIANG:
-                    qiangGuid = creature->GetGUID();
-                    break;
-                case NPC_ZIAN:
-                    zianGuid = creature->GetGUID();
-                    break;
-                case NPC_MENG:
-                    mengGuid = creature->GetGUID();
-                    break;
-                case NPC_SUBETAI:
-                    subetaiGuid = creature->GetGUID();
-                    break;
-                case NPC_ELEGON:
-                    elegonGUID = creature->GetGUID();
-                    break;
-                case NPC_QIN_XI:
-                    qinxiGuid = creature->GetGUID();
-                    break;
-                case NPC_JAN_XI:
-                    janxiGuid = creature->GetGUID();
-                    break;
-                case NPC_WOI_CONTROLLER:
-                    woicontrollerGuid = creature->GetGUID();
-                    break;
-                default:
-                    break;
+                SetBossNumber(DATA_MAX_BOSS_DATA);
+                LoadDoorData(doorData);
+
+                guardianCount                   = 0;
+                guardianAliveCount              = 0;
+
+                stoneGuardControlerGuid         = 0;
+                fengGuid                        = 0;
+                siphonShieldGuid                = 0;
+
+                inversionGobGuid                = 0;
+                cancelGobGuid                   = 0;
+                ancientMoguDoorGuid             = 0;
+                emperorsDoorGuid                = 0;
+                celestialCommandGuid            = 0;
+                energyPlatformGuid              = 0;
+                titanDiskGuid                   = 0;
+                ancientConsoleGuid              = 0;
+                woeIsGasPhaseActive             = false;
+
+                randomDespawnStoneGuardian      = urand(1,4);
+                nextWillOfEmperorPhase          = 0;
+                willOfEmperirLastBigAddSpawned  = 0;
+
+                actualPetrifierEntry            = 0;
+                StoneGuardPetrificationTimer    = 10000;
+                willOfEmperorTimer              = 0;
+                willOfEmperorBossSpawnTimer     = 0;
+                willOfEmperorGasPhaseTimer      = 0;
+
+                cursedMogu1Guid                 = 0;
+                cursedMogu2Guid                 = 0;
+                ghostEssenceGuid                = 0;
+
+                stoneGuardControlerGuid         = 0;
+                inversionGobGuid                = 0;
+                cancelGobGuid                   = 0;
+                spiritKingsControlerGuid        = 0;
+
+                qinxiGuid                       = 0;
+                janxiGuid                       = 0;
+
+                stoneGuardGUIDs.clear();
+                fengStatuesGUIDs.clear();
+                spiritKingsGUIDs.clear();
+                achievementGuids.clear();
+
+                m_AuraToClear.clear();
+                m_AuraToClear.push_back(116541); ///< SPELL_TILES_AURA_EFFECT from stone guard
             }
-        }
 
-        void OnGameObjectCreate(GameObject* go) override
-        {
-            switch (go->GetEntry())
+            void OnCreatureCreate(Creature* creature)
             {
-                case GOB_STONE_GUARD_DOOR_ENTRANCE:
-                    stoneentrdoorGuid = go->GetGUID();
-                    break;
-                case GOB_STONE_GUARD_DOOR_EXIT:
-                    AddDoor(go, true);
-                    stoneexitdoorGuid = go->GetGUID();
-                    break;
-                case GOB_FENG_DOOR_FENCE:
-                    fengdoorGUIDs.push_back(go->GetGUID());
-                    break;
-                case GOB_SPEAR_STATUE:
-                case GOB_FIST_STATUE:
-                case GOB_SHIELD_STATUE:
-                case GOB_STAFF_STATUE:
-                    fengStatuesGUIDs.push_back(go->GetGUID());
-                    break;
-                case GOB_INVERSION:
-                    inversionGobGuid = go->GetGUID();
-                    break;
-                case GOB_CANCEL:
-                    cancelGobGuid = go->GetGUID();
-                    break;
-                case GOB_FENG_DOOR_EXIT:
-                    AddDoor(go, true);
-                    fengexitdoorGuid = go->GetGUID();
-                    break;
-                case GOB_GARAJAL_FENCE:
-                    garajaldoorGUIDs.push_back(go->GetGUID());
-                    break;
-                case GOB_GARAJAL_EXIT:
-                    AddDoor(go, true);
-                    garajalexitdoorGuid = go->GetGUID();
-                    break;
-                case GOB_SPIRIT_KINGS_WIND_WALL:
-                    kingsdoorGUIDs.push_back(go->GetGUID());
-                    break;
-                case GOB_SPIRIT_KINGS_EXIT:
-                    AddDoor(go, true);
-                    spiritexitdoorGuid = go->GetGUID();
-                    break;
-                case GOB_ELEGON_DOOR_ENTRANCE:
-                    AddDoor(go, true);
-                    elegonentdoorGuid = go->GetGUID();
-                    break;
-                case GOB_ELEGON_CELESTIAL_DOOR:
-                    elegonceldoorGuid = go->GetGUID();
-                    break;
-                case GOB_ENERGY_PLATFORM:
-                    elegonplatformGuid = go->GetGUID();
-                    break;
-                case GOB_WILL_OF_EMPEROR_ENTRANCE:
-                    AddDoor(go, true);
-                    imperatorentdoorGuid = go->GetGUID();
-                    break;
-            }
-        }
-        
-        bool SetBossState(uint32 id, EncounterState state) override
-        {
-            if (!InstanceScript::SetBossState(id, state))
-                return false;
-
-            switch (id)
-            {
-                case DATA_STONE_GUARD:
+                switch (creature->GetEntry())
                 {
-                    switch (state)
+                    case NPC_STONE_GUARD_CONTROLER:
+                        stoneGuardControlerGuid = creature->GetGUID();
+                        break;
+                    case NPC_JASPER:
+                    case NPC_JADE:
+                    case NPC_AMETHYST:
+                    case NPC_COBALT:
                     {
-                        case FAIL:
+                        if (creature->isAlive())
                         {
-                            for (GuidVector::const_iterator guid = stoneGuardGUIDs.begin(); guid != stoneGuardGUIDs.end(); ++guid)
-                                if (Creature* stoneGuard = instance->GetCreature(*guid))
-                                    stoneGuard->AI()->DoAction(ACTION_FAIL);
+                            stoneGuardGUIDs.push_back(creature->GetGUID());
+                            guardianAliveCount++;
+                        }
 
-                            HandleGameObject(stoneentrdoorGuid, true);
+                        uint32 difficulty = instance->GetSpawnMode();
+                        bool turnOver = (difficulty == MAN10_DIFFICULTY || difficulty == MAN10_HEROIC_DIFFICULTY || difficulty == RAID_TOOL_DIFFICULTY);
+
+                        // In 10N, 10H or LFR, there are only 3 guardians
+                        if (guardianAliveCount >= 4 && GetBossState(DATA_STONE_GUARD) != DONE && turnOver)
+                        {
+                            uint8 choice;
+                            Creature* guardian = 0;
+                            bool loop = true;
+                            do
+                            {
+                                choice = urand(0, 3);
+                                guardian = instance->GetCreature(stoneGuardGUIDs[choice]);
+                                // Jasper will always remain for loot purpose
+                                if (guardian && guardian->GetEntry() != NPC_JASPER)
+                                    loop = false;
+
+                            } while (loop);
+
+                            uint8 i = 0;
+                            for (auto itr : stoneGuardGUIDs)
+                            {
+                                if (i == choice)
+                                {
+                                    if (Creature* stoneGuard = instance->GetCreature(itr))
+                                    {
+                                        stoneGuard->DespawnOrUnsummon();
+                                        --guardianAliveCount;
+                                    }
+                                }
+                                ++i;
+                            }
                         }
                         break;
-                        case IN_PROGRESS:
-                            HandleGameObject(stoneentrdoorGuid, false);
-                            break;
-                        case DONE:
-                            HandleGameObject(stoneexitdoorGuid, true);
-                            HandleGameObject(stoneentrdoorGuid, true);
-                            break;
                     }
-                    break;
+                    case NPC_CURSED_MOGU_SCULPTURE_2:
+                        if (!cursedMogu1Guid)
+                            cursedMogu1Guid = creature->GetGUID();
+                        else
+                            cursedMogu2Guid = creature->GetGUID();
+                        break;
+                    case NPC_GHOST_ESSENCE:
+                        ghostEssenceGuid = creature->GetGUID();
+                        break;
+                    case NPC_FENG:
+                        fengGuid = creature->GetGUID();
+                        break;
+                    case NPC_SIPHONING_SHIELD:
+                        siphonShieldGuid = creature->GetGUID();
+                        break;
+                    case NPC_SPIRIT_GUID_CONTROLER:
+                        spiritKingsControlerGuid = creature->GetGUID();
+                        break;
+                    case NPC_ZIAN:
+                        // Will be false only if BossState = DONE or NOT_STARTED, as NOT_STARTED = 0, DONE = 0, and max value for BossState = 5
+                        if (GetBossState(DATA_SPIRIT_KINGS) % DONE != NOT_STARTED)
+                            SetBossState(DATA_SPIRIT_KINGS, NOT_STARTED);
+                        // No break here!!!
+                    case NPC_MENG:
+                    case NPC_QIANG:
+                    case NPC_SUBETAI:
+                        spiritKingsGUIDs.push_back(creature->GetGUID());
+                        break;
+                    case NPC_ELEGON:
+                        elegonGuid = creature->GetGUID();
+                        break;
+                    case NPC_INFINITE_ENERGY:
+                        infiniteEnergyGuid = creature->GetGUID();
+                        break;
+                    case NPC_QIN_XI:
+                        qinxiGuid = creature->GetGUID();
+                        break;
+                    case NPC_JAN_XI:
+                        janxiGuid = creature->GetGUID();
+                        break;
+                    default:
+                        break;
                 }
-                case DATA_FENG:
-                    {
-                        switch (state)
-                        {
-                        case NOT_STARTED:
-                            for (GuidVector::const_iterator guid = fengdoorGUIDs.begin(); guid != fengdoorGUIDs.end(); guid++)
-                                HandleGameObject(*guid, true);
-                            break;
-                        case DONE:
-                            for (GuidVector::const_iterator guid = fengdoorGUIDs.begin(); guid != fengdoorGUIDs.end(); guid++)
-                                HandleGameObject(*guid, true);
-                            HandleGameObject(fengexitdoorGuid, true);
-                            break;
-                        case IN_PROGRESS:
-                            for (GuidVector::const_iterator guid = fengdoorGUIDs.begin(); guid != fengdoorGUIDs.end(); guid++)
-                                HandleGameObject(*guid, false);
-                            break;
-                        }
-                        break;
-                    }
-                case DATA_GARAJAL:
-                    {
-                        switch (state)
-                        {
-                        case NOT_STARTED:
-                            for (GuidVector::const_iterator guid = garajaldoorGUIDs.begin(); guid != garajaldoorGUIDs.end(); guid++)
-                                HandleGameObject(*guid, true);
-                            break;
-                        case IN_PROGRESS:
-                            for (GuidVector::const_iterator guid = garajaldoorGUIDs.begin(); guid != garajaldoorGUIDs.end(); guid++)
-                                HandleGameObject(*guid, false);
-                            break;
-                        case DONE:
-                            for (GuidVector::const_iterator guid = garajaldoorGUIDs.begin(); guid != garajaldoorGUIDs.end(); guid++)
-                                HandleGameObject(*guid, true);
-                            HandleGameObject(garajalexitdoorGuid, true);
-                            break;
-                        }
-                        break;
-                    }
-                case DATA_SPIRIT_KINGS:
-                    {
-                        switch (state)
-                        {
-                        case NOT_STARTED:
-                            for (GuidVector::const_iterator guid = kingsdoorGUIDs.begin(); guid != kingsdoorGUIDs.end(); guid++)
-                                HandleGameObject(*guid, true);
-                            break;
-                        case IN_PROGRESS:
-                            for (GuidVector::const_iterator guid = kingsdoorGUIDs.begin(); guid != kingsdoorGUIDs.end(); guid++)
-                                HandleGameObject(*guid, false);
-                            break;
-                        case DONE:
-                            for (GuidVector::const_iterator guid = kingsdoorGUIDs.begin(); guid != kingsdoorGUIDs.end(); guid++)
-                                HandleGameObject(*guid, true);
-                            HandleGameObject(spiritexitdoorGuid, true);
-                            HandleGameObject(elegonentdoorGuid, true);
-                            break;
-                        }
-                    break;
-                    }
-                case DATA_ELEGON:
-                    {
-                        switch (state)
-                        {
-                        case NOT_STARTED:
-                            HandleGameObject(elegonceldoorGuid, true);
-                            break;
-                        case IN_PROGRESS:
-                            HandleGameObject(elegonceldoorGuid, false);
-                            break;
-                        case DONE:
-                            HandleGameObject(elegonceldoorGuid, true);
-                            HandleGameObject(imperatorentdoorGuid, true);
-                            break;
-                        }
-                        break;
-                    }
-                case DATA_WILL_OF_EMPEROR:
-                    {
-                        switch (state)
-                        {
-                        case NOT_STARTED:
-                            HandleGameObject(imperatorentdoorGuid, true);
-                            break;
-                        case IN_PROGRESS:
-                            HandleGameObject(imperatorentdoorGuid, false);
-                            break;
-                        case DONE:
-                            HandleGameObject(imperatorentdoorGuid, true);
-                            break;
-                        }
-                        break;
-                    }
             }
-            return true;
-        }
 
-        void SetData(uint32 type, uint32 data) override {}
-
-        uint32 GetData(uint32 type) const override
-        {
-            return 0;
-        }
-
-        ObjectGuid GetGuidData(uint32 type) const override
-        {
-            switch (type)
+            void OnGameObjectCreate(GameObject* go)
             {
-                case NPC_STONE_GUARD_CONTROLER:
-                    return stoneGuardControlerGuid;
-                case NPC_JASPER:
-                case NPC_JADE:
-                case NPC_AMETHYST:
-                case NPC_COBALT:
+                switch (go->GetEntry())
                 {
-                    for (GuidVector::const_iterator guid = stoneGuardGUIDs.begin(); guid != stoneGuardGUIDs.end(); ++guid)
-                        if (Creature* stoneGuard = instance->GetCreature(*guid))
-                            if (stoneGuard->GetEntry() == type)
-                                return *guid;
-                    break;
+                    case GOB_STONE_GUARD_DOOR_ENTRANCE:
+                    case GOB_FENG_DOOR_FENCE:
+                    case GOB_FENG_DOOR_EXIT:
+                    case GOB_GARAJAL_FENCE:
+                    case GOB_GARAJAL_EXIT:
+                    case GOB_SPIRIT_KINGS_WIND_WALL:
+                    case GOB_SPIRIT_KINGS_EXIT:
+                    case GOB_CELESTIAL_DOOR:
+                        /// Don't allow players to reach second part if it's in LFR mode
+                        if (go->GetEntry() == GOB_GARAJAL_EXIT && instance->IsLFR())
+                            break;
+                        AddDoor(go, true);
+                        break;
+                    // Feng
+                    case GOB_SPEAR_STATUE:
+                    case GOB_FIST_STATUE:
+                    case GOB_STAFF_STATUE:
+                        fengStatuesGUIDs.push_back(go->GetGUID());
+                        break;
+                    case GOB_SHIELD_STATUE:
+                    {
+                        if (!instance->IsHeroic())
+                            go->SetObjectScale(0.001f);
+                        else
+                            fengStatuesGUIDs.push_back(go->GetGUID());
+                        break;
+                    }
+                    case GOB_STONE_GUARD_DOOR_EXIT:
+                        AddDoor(go, true);
+                        stoneGuardExit = go->GetGUID();
+                        break;
+                    case GOB_INVERSION:
+                        inversionGobGuid = go->GetGUID();
+                        break;
+                    case GOB_CANCEL:
+                        cancelGobGuid = go->GetGUID();
+                        break;
+                    case GOB_ENERGY_PLATFORM:
+                        energyPlatformGuid = go->GetGUID();
+                        go->SetGoState(GO_STATE_ACTIVE);
+                        break;
+                    case GOB_ELEGON_DOOR_ENTRANCE:
+                        AddDoor(go, true);
+                        ancientMoguDoorGuid = go->GetGUID();
+                        break;
+                    case GOB_WILL_OF_EMPEROR_ENTRANCE:
+                        AddDoor(go, true);
+                        emperorsDoorGuid = go->GetGUID();
+                        break;
+                    case GOB_ENERGY_TITAN_DISK:
+                        titanDiskGuid = go->GetGUID();
+                        break;
+                    case GOB_ENERGY_TITAN_CIRCLE_1:
+                    case GOB_ENERGY_TITAN_CIRCLE_2:
+                    case GOB_ENERGY_TITAN_CIRCLE_3:
+                        go->SetGoState(GO_STATE_ACTIVE);
+                        titanCirclesGuids.push_back(go->GetGUID());
+                        break;
+                    case GOB_CELESTIAL_COMMAND:
+                        celestialCommandGuid = go->GetGUID();
+                        break;
+                    case GOB_ANCIENT_CONTROL_CONSOLE:
+                        ancientConsoleGuid = go->GetGUID();
+                        break;
                 }
-                case NPC_FENG:
-                    return fengGuid;
-                case GOB_SPEAR_STATUE:
-                case GOB_FIST_STATUE:
-                case GOB_SHIELD_STATUE:
-                case GOB_STAFF_STATUE:
-                {
-                    for (GuidVector::const_iterator guid = fengStatuesGUIDs.begin(); guid != fengStatuesGUIDs.end(); ++guid)
-                        if (GameObject* fengStatue = instance->GetGameObject(*guid))
-                            if (fengStatue->GetEntry() == type)
-                                return *guid;
-                    break;
-                }
-                case GOB_INVERSION: 
-                    return inversionGobGuid;
-                case GOB_CANCEL: 
-                    return cancelGobGuid;
-                case NPC_SPIRIT_GUID_CONTROLER:
-                    return spiritKingsControlerGuid;
-                case NPC_QIANG:
-                    return qiangGuid;
-                case NPC_ZIAN:
-                    return zianGuid;
-                case NPC_MENG:
-                    return mengGuid;
-                case NPC_SUBETAI:
-                    return subetaiGuid;
-                case NPC_ELEGON:
-                    return elegonGUID;
-                case GOB_ENERGY_PLATFORM:
-                    return elegonplatformGuid;
-                case NPC_QIN_XI:
-                    return qinxiGuid;
-                case NPC_JAN_XI:
-                    return janxiGuid;
-                case NPC_WOI_CONTROLLER:
-                    return woicontrollerGuid;
             }
-            return ObjectGuid::Empty;
-        }
 
-        bool IsWipe() const override
-        {
-            Map::PlayerList const& PlayerList = instance->GetPlayers();
-
-            if (PlayerList.isEmpty())
-                return true;
-
-            for (Map::PlayerList::const_iterator Itr = PlayerList.begin(); Itr != PlayerList.end(); ++Itr)
+            void OnGameObjectRemove(GameObject* go)
             {
-                Player* player = Itr->getSource();
+                switch (go->GetEntry())
+                {
+                    case GOB_STONE_GUARD_DOOR_ENTRANCE:
+                    case GOB_FENG_DOOR_FENCE:
+                    case GOB_FENG_DOOR_EXIT:
+                    case GOB_GARAJAL_FENCE:
+                    case GOB_GARAJAL_EXIT:
+                    case GOB_SPIRIT_KINGS_WIND_WALL:
+                    case GOB_SPIRIT_KINGS_EXIT:
+                    case GOB_CELESTIAL_DOOR:
+                    case GOB_STONE_GUARD_DOOR_EXIT:
+                    case GOB_ELEGON_DOOR_ENTRANCE:
+                    case GOB_WILL_OF_EMPEROR_ENTRANCE:
+                        AddDoor(go, false);
+                        break;
+                    default:
+                        break;
+                }
+            }
 
-                if (!player)
-                    continue;
+            void OnPlayerExit(Player* p_Player)
+            {
+                for (const uint32& l_AuraID : m_AuraToClear)
+                {
+                    if (p_Player->HasAura(l_AuraID))
+                        p_Player->RemoveAurasDueToSpell(l_AuraID);
+                }
+            }
 
-                if (player->isAlive() && !player->isGameMaster() && !player->HasAura(115877)) // Aura 115877 = Totaly Petrified
+            bool SetBossState(uint32 id, EncounterState state)
+            {
+                if (!InstanceScript::SetBossState(id, state))
                     return false;
+
+                switch (id)
+                {
+                    case DATA_STONE_GUARD:
+                    {
+                        switch (state)
+                        {
+                            case IN_PROGRESS:
+                                if (Creature* stoneGuardControler = instance->GetCreature(stoneGuardControlerGuid))
+                                    stoneGuardControler->AI()->DoAction(ACTION_ENTER_COMBAT);
+
+                                for (auto stoneGuardGuid: stoneGuardGUIDs)
+                                    if (Creature* stoneGuard = instance->GetCreature(stoneGuardGuid))
+                                        stoneGuard->AI()->DoAction(ACTION_ENTER_COMBAT);
+                                break;
+                            case FAIL:
+                                for (auto stoneGuardGuid: stoneGuardGUIDs)
+                                    if (Creature* stoneGuard = instance->GetCreature(stoneGuardGuid))
+                                        stoneGuard->AI()->DoAction(ACTION_FAIL);
+                                break;
+                            case DONE:
+                                if (Creature* stoneGuardControler = instance->GetCreature(stoneGuardControlerGuid))
+                                    stoneGuardControler->CastSpell(stoneGuardControler, ACHIEVEMENT_STONE_GUARD_KILL, true);
+                                break;
+                            default:
+                                break;
+                        }
+                        break;
+                    }
+                    case DATA_SPIRIT_KINGS:
+                    {
+                        switch (state)
+                        {
+                            case IN_PROGRESS:
+                            {
+                                if (Creature* spiritKingsControler = instance->GetCreature(spiritKingsControlerGuid))
+                                    spiritKingsControler->AI()->DoAction(ACTION_ENTER_COMBAT);
+                                break;
+                            }
+                            default:
+                                break;
+                        }
+                        break;
+                    }
+                    case DATA_WILL_OF_EMPEROR:
+                    {
+                        switch (state)
+                        {
+                            case NOT_STARTED:
+                            case FAIL:
+                                willOfEmperorTimer              = 0;
+                                nextWillOfEmperorPhase          = 0;
+                                willOfEmperirLastBigAddSpawned  = 0;
+                                willOfEmperorBossSpawnTimer     = 0;
+                                willOfEmperorGasPhaseTimer      = 0;
+                                woeIsGasPhaseActive             = false;
+                                break;
+                            case IN_PROGRESS:
+                                willOfEmperorTimer              = 10000;
+                                nextWillOfEmperorPhase          = 0;
+                                willOfEmperirLastBigAddSpawned  = 0;
+                                willOfEmperorBossSpawnTimer     = 90000;
+                                willOfEmperorGasPhaseTimer      = 210000; // 120 + 90
+                                woeIsGasPhaseActive             = false;
+                                break;
+                        }
+                    }
+                    default:
+                        break;
+                }
+
+                return true;
             }
 
-            return true;
-        }
+            void SetData(uint32 type, uint32 data)
+            {
+                if (type == ACHIEVEMENT_SHOWMOVES)
+                    SetAchievementValid(ACHIEVEMENT_SHOWMOVES);
 
-        std::string GetSaveData() override
-        {
-            std::ostringstream saveStream;
-            saveStream << GetBossSaveData() << " ";
-            return saveStream.str();
-        }
+                return;
+            }
 
-        void Load(const char* data) override
-        {
-            std::istringstream loadStream(LoadBossState(data));
-            uint32 buff;
-            for (uint32 i=0; i < DATA_MAX_BOSS_DATA; ++i)
-                loadStream >> buff;
-        }
-    };
+            uint32 GetData(uint32 type)
+            {
+                if (type == ACHIEVEMENT_SHOWMOVES)
+                    return IsAchievementValid(ACHIEVEMENT_SHOWMOVES);
+
+                return 0;
+            }
+
+            uint64 GetData64(uint32 type)
+            {
+                switch (type)
+                {
+                    // Creature
+                    // Stone Guard
+                    case NPC_STONE_GUARD_CONTROLER:
+                        return stoneGuardControlerGuid;
+                    case NPC_CURSED_MOGU_SCULPTURE_1:
+                        return cursedMogu1Guid;
+                    case NPC_CURSED_MOGU_SCULPTURE_2:
+                        return cursedMogu2Guid;
+                    case NPC_GHOST_ESSENCE:
+                        return ghostEssenceGuid;
+                    case NPC_JASPER:
+                    case NPC_JADE:
+                    case NPC_AMETHYST:
+                    case NPC_COBALT:
+                    {
+                        for (auto guid: stoneGuardGUIDs)
+                            if (Creature* stoneGuard = instance->GetCreature(guid))
+                                if (stoneGuard->GetEntry() == type)
+                                    return guid;
+                        break;
+                    }
+                    // Feng
+                    case NPC_FENG:
+                        return fengGuid;
+                    // SiphonShield
+                    case NPC_SIPHONING_SHIELD:
+                        return siphonShieldGuid;
+                    // Spirit Kings
+                    case NPC_SPIRIT_GUID_CONTROLER:
+                        return spiritKingsControlerGuid;
+                    case NPC_ZIAN:
+                    case NPC_MENG:
+                    case NPC_QIANG:
+                    case NPC_SUBETAI:
+                    {
+                        for (auto guid: spiritKingsGUIDs)
+                            if (Creature* spiritKing = instance->GetCreature(guid))
+                                if (spiritKing->GetEntry() == type)
+                                    return guid;
+                        break;
+                    }
+                    // Elegon
+                    case NPC_ELEGON:
+                        return elegonGuid;
+                    case NPC_INFINITE_ENERGY:
+                        return infiniteEnergyGuid;
+                    // Will of Emperor
+                    case NPC_QIN_XI:
+                        return qinxiGuid;
+                    case NPC_JAN_XI:
+                        return janxiGuid;
+                    // Gameobject
+                    case GOB_SPEAR_STATUE:
+                    case GOB_FIST_STATUE:
+                    case GOB_SHIELD_STATUE:
+                    case GOB_STAFF_STATUE:
+                    {
+                        for (auto guid: fengStatuesGUIDs)
+                            if (GameObject* fengStatue = instance->GetGameObject(guid))
+                                if (fengStatue->GetEntry() == type)
+                                    return guid;
+                        break;
+                    }
+                    case GOB_STONE_GUARD_DOOR_EXIT:
+                        return stoneGuardExit;
+                    case GOB_INVERSION:
+                        return inversionGobGuid;
+                    case GOB_CANCEL:
+                        return cancelGobGuid;
+                    case GOB_ENERGY_PLATFORM:
+                        return energyPlatformGuid;
+                    case GOB_ENERGY_TITAN_DISK:
+                        return titanDiskGuid;
+                    case GOB_ELEGON_DOOR_ENTRANCE:
+                        return ancientMoguDoorGuid;
+                    case GOB_WILL_OF_EMPEROR_ENTRANCE:
+                        return emperorsDoorGuid;
+                    case GOB_CELESTIAL_COMMAND:
+                        return celestialCommandGuid;
+                    case GOB_ANCIENT_CONTROL_CONSOLE:
+                        return ancientConsoleGuid;
+                    default:
+                        break;
+                }
+
+                return 0;
+            }
+
+            bool IsWipe()
+            {
+                Map::PlayerList const& PlayerList = instance->GetPlayers();
+
+                if (PlayerList.isEmpty())
+                    return true;
+
+                for (Map::PlayerList::const_iterator Itr = PlayerList.begin(); Itr != PlayerList.end(); ++Itr)
+                {
+                    Player* player = Itr->getSource();
+
+                    if (!player)
+                        continue;
+
+                    if (player->isAlive() && !player->isGameMaster() && !player->HasAura(115877)) // Aura 115877 = Totaly Petrified
+                        return false;
+                }
+
+                return true;
+            }
+
+            void Update(uint32 diff)
+            {
+                if (GetBossState(DATA_WILL_OF_EMPEROR) != IN_PROGRESS)
+                    return;
+
+                if (willOfEmperorTimer && !woeIsGasPhaseActive)
+                {
+                    if (willOfEmperorTimer <= diff)
+                    {
+                        switch (nextWillOfEmperorPhase)
+                        {
+                            case PHASE_WOE_RAGE:
+                            {
+                                uint8 randomPos = urand(0, 2);
+                                uint8 randomPos2 = urand(0, 2);
+
+                                while (randomPos2 == randomPos)
+                                    randomPos2 = urand(0, 2);
+                            
+                                instance->SummonCreature(NPC_EMPEROR_RAGE, woeRageSpawnPos[randomPos]);
+                                instance->SummonCreature(NPC_EMPEROR_RAGE, woeRageSpawnPos[randomPos2]);
+
+                                if (willOfEmperirLastBigAddSpawned == PHASE_WOE_STRENGHT)
+                                {
+                                    nextWillOfEmperorPhase = PHASE_WOE_COURAGE;
+                                    willOfEmperorTimer = 20000;
+                                }
+                                else
+                                {
+                                    nextWillOfEmperorPhase = PHASE_WOE_STRENGHT;
+                                    willOfEmperorTimer = 15000;
+                                }
+                                break;
+                            }
+                            case PHASE_WOE_STRENGHT:
+                            {
+                                instance->SummonCreature(NPC_EMPEROR_STRENGHT, woeSpawnPos[urand(0, 7)]);
+
+                                nextWillOfEmperorPhase = PHASE_WOE_RAGE;
+                                willOfEmperirLastBigAddSpawned = PHASE_WOE_STRENGHT;
+                                willOfEmperorTimer = 15000;
+                                break;
+                            }
+                            case PHASE_WOE_COURAGE:
+                            {
+                                instance->SummonCreature(NPC_EMPEROR_COURAGE, woeSpawnPos[urand(0, 7)]);
+                            
+                                nextWillOfEmperorPhase = PHASE_WOE_RAGE;
+                                willOfEmperirLastBigAddSpawned = PHASE_WOE_COURAGE;
+                                willOfEmperorTimer = 10000;
+                                break;
+                            }
+                        }
+                    }
+                    else
+                        willOfEmperorTimer -= diff;
+                }
+
+                if (willOfEmperorBossSpawnTimer)
+                {
+                    if (willOfEmperorBossSpawnTimer <= diff)
+                    {
+                        instance->SummonCreature(NPC_JAN_XI, woeBossSpawnPos[0]);
+                        instance->SummonCreature(NPC_QIN_XI, woeBossSpawnPos[1]);
+                        willOfEmperorBossSpawnTimer = 0;
+                    }
+                    else
+                        willOfEmperorBossSpawnTimer -= diff;
+                }
+
+                if (willOfEmperorGasPhaseTimer)
+                {
+                    if (willOfEmperorGasPhaseTimer <= diff)
+                    {
+                        if (!woeIsGasPhaseActive)
+                        {
+                            if (Creature* trigger = instance->SummonCreature(59481, woeMiddleSpawnPos[0], NULL, 30000))
+                                trigger->CastSpell(trigger, 118320, false);
+                            willOfEmperorGasPhaseTimer = 30000;
+                            woeIsGasPhaseActive = true;
+                        }
+                        else
+                        {
+                            willOfEmperorGasPhaseTimer = 120000;
+                            woeIsGasPhaseActive = false;
+                        }
+                    }
+                    else
+                        willOfEmperorGasPhaseTimer -= diff;
+                }
+            }
+
+            bool CheckRequiredBosses(uint32 bossId, Player const* player = NULL) const
+            {
+                if (!InstanceScript::CheckRequiredBosses(bossId, player))
+                    return false;
+
+                switch (bossId)
+                {
+                    case DATA_WILL_OF_EMPEROR:
+                    case DATA_ELEGON:
+                    case DATA_SPIRIT_KINGS:
+                    case DATA_GARAJAL:
+                    case DATA_FENG:
+                        if (GetBossState(bossId - 1) != DONE)
+                            return false;
+                    default:
+                        break;
+                }
+
+                return true;
+            }
+
+            bool IsAchievementValid(uint32 id) const
+            {
+                if (achievementGuids.empty())
+                    return false;
+
+                for (std::list<uint32>::const_iterator iter = achievementGuids.begin(); iter != achievementGuids.end(); ++iter)
+                    if ((*iter) == id)
+                        return true;
+
+                return false;
+            }
+
+            void SetAchievementValid(uint32 id)
+            {
+                for (std::list<uint32>::const_iterator iter = achievementGuids.begin(); iter != achievementGuids.end(); ++iter)
+                    if ((*iter) == id)
+                        return;
+
+                achievementGuids.push_back(id);
+                return;
+            }
+        };
 };
 
 void AddSC_instance_mogu_shan_vault()

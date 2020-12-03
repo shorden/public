@@ -1,10 +1,12 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -27,29 +29,34 @@ EndScriptData */
 #include "ScriptedCreature.h"
 #include "old_hillsbrad.h"
 
-enum Says
-{
-    SAY_ENTER   = 0,
-    SAY_TAUNT,
-    SAY_SLAY,
-    SAY_DEATH
-};
+/*######################
+# boss_captain_skarloc #
+#######################*/
 
-#define SPELL_HOLY_LIGHT            29427
-#define SPELL_CLEANSE               29380
-#define SPELL_HAMMER_OF_JUSTICE     13005
-#define SPELL_HOLY_SHIELD           31904
-#define SPELL_DEVOTION_AURA         8258
-#define SPELL_CONSECRATION          38385
+enum CaptainSkarloc
+{
+    SAY_ENTER                   = 0,
+    SAY_TAUNT1                  = 1,
+    SAY_TAUNT2                  = 2,
+    SAY_SLAY                    = 3,
+    SAY_DEATH                   = 4,
+
+    SPELL_HOLY_LIGHT            = 29427,
+    SPELL_CLEANSE               = 29380,
+    SPELL_HAMMER_OF_JUSTICE     = 13005,
+    SPELL_HOLY_SHIELD           = 31904,
+    SPELL_DEVOTION_AURA         = 8258,
+    SPELL_CONSECRATION          = 38385
+};
 
 class boss_captain_skarloc : public CreatureScript
 {
 public:
-    boss_captain_skarloc() : CreatureScript("boss_captain_skarloc") {}
+    boss_captain_skarloc() : CreatureScript("boss_captain_skarloc") { }
 
-    CreatureAI* GetAI(Creature* creature) const
+    CreatureAI* GetAI(Creature* creature) const OVERRIDE
     {
-        return new boss_captain_skarlocAI (creature);
+        return new boss_captain_skarlocAI(creature);
     }
 
     struct boss_captain_skarlocAI : public ScriptedAI
@@ -68,7 +75,7 @@ public:
         uint32 DevotionAura_Timer;
         uint32 Consecration_Timer;
 
-        void Reset()
+        void Reset() OVERRIDE
         {
             Holy_Light_Timer = urand(20000, 30000);
             Cleanse_Timer = 10000;
@@ -78,18 +85,19 @@ public:
             Consecration_Timer = 8000;
         }
 
-        void EnterCombat(Unit* /*who*/)
+        void EnterCombat(Unit* /*who*/) OVERRIDE
         {
             //This is not correct. Should taunt Thrall before engage in combat
-            Talk(SAY_TAUNT);
+            Talk(SAY_TAUNT1);
+            Talk(SAY_TAUNT2);
         }
 
-        void KilledUnit(Unit* /*victim*/)
+        void KilledUnit(Unit* /*victim*/) OVERRIDE
         {
             Talk(SAY_SLAY);
         }
 
-        void JustDied(Unit* /*killer*/)
+        void JustDied(Unit* /*killer*/) OVERRIDE
         {
             Talk(SAY_DEATH);
 
@@ -97,7 +105,7 @@ public:
                 instance->SetData(TYPE_THRALL_PART1, DONE);
         }
 
-        void UpdateAI(uint32 diff)
+        void UpdateAI(uint32 diff) OVERRIDE
         {
             //Return since we have no target
             if (!UpdateVictim())
@@ -120,7 +128,7 @@ public:
             //Hammer of Justice
             if (HammerOfJustice_Timer <= diff)
             {
-                DoCast(me->getVictim(), SPELL_HAMMER_OF_JUSTICE);
+                DoCastVictim(SPELL_HAMMER_OF_JUSTICE);
                 HammerOfJustice_Timer = 60000;
             } else HammerOfJustice_Timer -= diff;
 
@@ -141,13 +149,14 @@ public:
             //Consecration
             if (Consecration_Timer <= diff)
             {
-                //DoCast(me->getVictim(), SPELL_CONSECRATION);
+                //DoCastVictim(SPELL_CONSECRATION);
                 Consecration_Timer = urand(5000, 10000);
             } else Consecration_Timer -= diff;
 
             DoMeleeAttackIfReady();
         }
     };
+
 };
 
 void AddSC_boss_captain_skarloc()

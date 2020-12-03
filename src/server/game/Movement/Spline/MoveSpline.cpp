@@ -1,136 +1,80 @@
 /*
- * Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 3 of the License, or (at your
+ * option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "MoveSpline.h"
+#include <sstream>
 #include "Log.h"
-#include "DB2Stores.h"
+#include "Creature.h"
 
-namespace Movement
-{
-
-uint32 SelectSpeedType(uint32 moveFlags)
-{
-    /*! Not sure about MOVEMENTFLAG_CAN_FLY here - do creatures that can fly
-        but are on ground right now also have it? If yes, this needs a more
-        dynamic check, such as is flying now
-    */
-    if (moveFlags & (MOVEMENTFLAG_FLYING | MOVEMENTFLAG_CAN_FLY | MOVEMENTFLAG_DISABLE_GRAVITY))
-    {
-        if (moveFlags & MOVEMENTFLAG_BACKWARD /*&& speed_obj.flight >= speed_obj.flight_back*/)
-            return MOVE_FLIGHT_BACK;
-        return MOVE_FLIGHT;
-    }
-    if (moveFlags & MOVEMENTFLAG_SWIMMING)
-    {
-        if (moveFlags & MOVEMENTFLAG_BACKWARD /*&& speed_obj.swim >= speed_obj.swim_back*/)
-            return MOVE_SWIM_BACK;
-        return MOVE_SWIM;
-    }
-    if (moveFlags & MOVEMENTFLAG_WALKING)
-    {
-        //if (speed_obj.run > speed_obj.walk)
-        return MOVE_WALK;
-    }
-    if (moveFlags & MOVEMENTFLAG_BACKWARD /*&& speed_obj.run >= speed_obj.run_back*/)
-        return MOVE_RUN_BACK;
-
-    return MOVE_RUN;
-}
+namespace Movement{
 
 Location MoveSpline::ComputePosition() const
 {
     ASSERT(Initialized());
 
-    float u = 1.0f;
-    float u2 = 1.0f;
-
-    int32 seg_time = spline.length(point_Idx,point_Idx+1);
+    float u = 1.f;
+    int32 seg_time = spline.length(point_Idx, point_Idx+1);
     if (seg_time > 0)
-    {
-        u = (time_passed - spline.length(point_Idx)) / static_cast<float>(seg_time);
-        u2 = u;
-        if (spell_effect_extra && spell_effect_extra->ProgressCurveId)
-            u = sDB2Manager.GetCurveValueAt(spell_effect_extra->ProgressCurveId, u);
-    }
-
+        u = (time_passed - spline.length(point_Idx)) / (float)seg_time;
     Location c;
     c.orientation = initialOrientation;
     spline.evaluate_percent(point_Idx, u, c);
 
-    if (splineflags.animation)
-        ;// MoveSplineFlag::Animation disables falling or parabolic movement
+    if (splineflags.animation); // MoveSplineFlag::Animation disables falling or parabolic movement
     else if (splineflags.parabolic)
-        computeParabolicElevation(c.z, u2 /*progress without curve modifer is expected here*/);
+        computeParabolicElevation(c.z);
     else if (splineflags.falling)
         computeFallElevation(c.z);
 
-    if (splineflags.done && facing.type != MONSTER_MOVE_NORMAL)
+    if (splineflags.done && splineflags.isFacing())
     {
-        if (facing.type == MONSTER_MOVE_FACING_ANGLE)
+        if (splineflags.final_angle)
             c.orientation = facing.angle;
-        else if (facing.type == MONSTER_MOVE_FACING_SPOT)
+        else if (splineflags.final_point)
             c.orientation = atan2(facing.f.y - c.y, facing.f.x - c.x);
+        //nothing to do for MoveSplineFlag::Final_Target flag
     }
     else
     {
         if (!splineflags.hasFlag(MoveSplineFlag::OrientationFixed | MoveSplineFlag::Falling | MoveSplineFlag::Unknown0))
         {
-            G3D::Vector3 hermite;
+            Vector3 hermite;
             spline.evaluate_derivative(point_Idx, u, hermite);
-            c.orientation = std::atan2(hermite.y, hermite.x);
+            c.orientation = atan2(hermite.y, hermite.x);
         }
 
-        if (splineflags.backward)
-            c.orientation = c.orientation - float(M_PI);
+        if (splineflags.orientationInversed)
+            c.orientation = -c.orientation;
     }
     return c;
 }
 
-float MoveSpline::ComputeProgress() const
+void MoveSpline::computeParabolicElevation(float& el) const
 {
-    float progress = 1.0f;
-
-    if (!Initialized())
-        return progress;
-
-    int32 seg_time = spline.length(point_Idx,point_Idx+1);
-    if (seg_time > 0)
+    if (time_passed > effect_start_time)
     {
-        progress = (time_passed - spline.length(point_Idx)) / static_cast<float>(seg_time);
-        if (spell_effect_extra && spell_effect_extra->ProgressCurveId)
-            progress = sDB2Manager.GetCurveValueAt(spell_effect_extra->ProgressCurveId, progress);
-    }
-
-    return progress;
-}
-
-void MoveSpline::computeParabolicElevation(float& el, float u) const
-{
-    if (time_passed > SpecialTime)
-    {
-        float t_passedf = MSToSec(time_passed - SpecialTime);
-        float t_durationf = MSToSec(Duration() - SpecialTime); //client use not modified duration here
-        if (spell_effect_extra && spell_effect_extra->ParabolicCurveId)
-            t_passedf *= sDB2Manager.GetCurveValueAt(spell_effect_extra->ParabolicCurveId, u);
+        float t_passedf = MSToSec(time_passed - effect_start_time);
+        float t_durationf = MSToSec(Duration() - effect_start_time); //client use not modified duration here
 
         // -a*x*x + bx + c:
         //(dur * v3->z_acceleration * dt)/2 - (v3->z_acceleration * dt * dt)/2 + Z;
-        el += (t_durationf - t_passedf) * 0.5f * JumpGravity * t_passedf;
+        el += (t_durationf - t_passedf) * 0.5f * vertical_acceleration * t_passedf;
     }
 }
 
@@ -138,10 +82,7 @@ void MoveSpline::computeFallElevation(float& el) const
 {
     float z_now = spline.getPoint(spline.first()).z - Movement::computeFallElevation(MSToSec(time_passed), false);
     float final_z = FinalDestination().z;
-    if (z_now < final_z)
-        el = final_z;
-    else
-        el = z_now;
+    el = std::max(z_now, final_z);
 }
 
 inline uint32 computeDuration(float length, float velocity)
@@ -151,26 +92,24 @@ inline uint32 computeDuration(float length, float velocity)
 
 struct FallInitializer
 {
-    FallInitializer(float _start_elevation) : start_elevation(_start_elevation) {}
+    FallInitializer(float _start_elevation) : start_elevation(_start_elevation) { }
     float start_elevation;
-
-    int32 operator()(Spline<int32>& s, int32 i)
+    inline int32 operator()(Spline<int32>& s, int32 i)
     {
-        return Movement::computeFallTime(start_elevation - s.getPoint(i+1).z,false) * 1000.f;
+        return Movement::computeFallTime(start_elevation - s.getPoint(i+1).z, false) * 1000.f;
     }
 };
 
 enum{
-    minimal_duration = 1,
+    minimal_duration = 1
 };
 
 struct CommonInitializer
 {
-    CommonInitializer(float _velocity) : velocityInv(1000.f/_velocity), time(minimal_duration) {}
+    CommonInitializer(float _velocity) : velocityInv(1000.f/_velocity), time(minimal_duration) { }
     float velocityInv;
     int32 time;
-
-    int32 operator()(Spline<int32>& s, int32 i)
+    inline int32 operator()(Spline<int32>& s, int32 i)
     {
         time += (s.SegLength(i) * velocityInv);
         return time;
@@ -179,7 +118,7 @@ struct CommonInitializer
 
 void MoveSpline::init_spline(const MoveSplineInitArgs& args)
 {
-    const SplineBase::EvaluationMode modes[2] = {SplineBase::ModeLinear,SplineBase::ModeCatmullrom};
+    const SplineBase::EvaluationMode modes[2] = {SplineBase::ModeLinear, SplineBase::ModeCatmullrom};
     if (args.flags.cyclic)
     {
         uint32 cyclic_point = 0;
@@ -193,8 +132,6 @@ void MoveSpline::init_spline(const MoveSplineInitArgs& args)
         spline.init_spline(&args.path[0], args.path.size(), modes[args.flags.isSmooth()]);
     }
 
-    _velocity = args.velocity;
-
     // init spline timestamps
     if (splineflags.falling)
     {
@@ -207,56 +144,26 @@ void MoveSpline::init_spline(const MoveSplineInitArgs& args)
         spline.initLengths(init);
     }
 
-    // TODO: what to do in such cases? problem is in input data (all points are at same coords)
+    /// @todo what to do in such cases? problem is in input data (all points are at same coords)
     if (spline.length() < minimal_duration)
     {
-        TC_LOG_DEBUG(LOG_FILTER_GENERAL, "MoveSpline::init_spline: zero length spline, wrong input data?");
+        SF_LOG_ERROR("misc", "MoveSpline::init_spline: zero length spline, wrong input data?");
         spline.set_length(spline.last(), spline.isCyclic() ? 1000 : 1);
     }
     point_Idx = spline.first();
-    walk = args.walk;
 }
 
-void MoveSpline::UpdateVelocity(Unit* owner)
-{
-    if (splineflags.falling)
-        return;
-
-    uint32 moveFlags = owner->m_movementInfo.GetMovementFlags();
-    if (walk)
-        moveFlags |= MOVEMENTFLAG_WALKING;
-    else
-        moveFlags &= ~MOVEMENTFLAG_WALKING;
-
-    if (!splineflags.backward)
-        moveFlags = (moveFlags & ~MOVEMENTFLAG_BACKWARD) | MOVEMENTFLAG_FORWARD;
-    else
-        moveFlags = (moveFlags & ~MOVEMENTFLAG_FORWARD) | MOVEMENTFLAG_BACKWARD;
-
-    float velocity = owner->GetSpeed(UnitMoveType(SelectSpeedType(moveFlags)));
-    time_passed *= (_velocity / velocity);
-    _velocity = velocity;
-    CommonInitializer init(velocity);
-    spline.initLengths(init);
-    // spline.updateLengths(velocity, point_Idx, time_passed);
-}
-
-void MoveSpline::Initialize(const MoveSplineInitArgs& args)
+void MoveSpline::Initialize(MoveSplineInitArgs const& args)
 {
     splineflags = args.flags;
     facing = args.facing;
     m_Id = args.splineId;
     point_Idx_offset = args.path_Idx_offset;
     initialOrientation = args.initialOrientation;
-    spell_effect_extra = args.spellEffectExtra;
-    splineIsFacingOnly = args.path.size() == 2 && args.facing.type != MONSTER_MOVE_NORMAL && ((args.path[1] - args.path[0]).length() < 0.1f);
 
-    onTransport = false;
     time_passed = 0;
-    JumpGravity = 0.f;
-    SpecialTime = 0;
-    durationModifier = 1.0f;
-    nextDurationModifier = 1.0f;
+    vertical_acceleration = 0.f;
+    effect_start_time = 0;
 
     // Check if its a stop spline
     if (args.flags.done)
@@ -269,72 +176,63 @@ void MoveSpline::Initialize(const MoveSplineInitArgs& args)
 
     // init parabolic / animation
     // spline initialized, duration known and i able to compute parabolic acceleration
-    if (args.flags & (MoveSplineFlag::Parabolic | MoveSplineFlag::Animation | MoveSplineFlag::FadeObject))
+    if (args.flags & (MoveSplineFlag::Parabolic | MoveSplineFlag::Animation))
     {
-        SpecialTime = Duration() * args.time_perc;
-        if (args.flags.parabolic && SpecialTime < Duration())
+        effect_start_time = Duration() * args.time_perc;
+        if (args.flags.parabolic && effect_start_time < Duration())
         {
-            float f_duration = MSToSec(Duration() - SpecialTime);
-            JumpGravity = args.parabolic_amplitude * 8.f / (f_duration * f_duration);
+            float f_duration = MSToSec(Duration() - effect_start_time);
+            vertical_acceleration = args.parabolic_amplitude * 8.f / (f_duration * f_duration);
         }
     }
 }
 
-MoveSpline::MoveSpline() : durationModifier(1.0f), nextDurationModifier(1.0f), onTransport(false), splineIsFacingOnly(false)
+MoveSpline::MoveSpline() : m_Id(0), time_passed(0),
+    vertical_acceleration(0.f), initialOrientation(0.f), effect_start_time(0), point_Idx(0), point_Idx_offset(0),
+    onTransport(false)
 {
     splineflags.done = true;
-    m_Id = 0;
-    time_passed = 0;
-    JumpGravity = 0.0f;
-    initialOrientation = 0.0f;
-    SpecialTime = 0;
-    point_Idx = 0;
-    point_Idx_offset = 0;
-    walk = false;
-    _velocity = 0.0f;
 }
 
-    /// ============================================================================================
+/// ============================================================================================
 
-MoveSplineInitArgs::MoveSplineInitArgs(size_t path_capacity): path_Idx_offset(0), velocity(0.f), parabolic_amplitude(0.f), time_perc(0.f), splineId(0), initialOrientation(0.f), walk(false), HasVelocity(false), TransformForTransport(true)
-{
-    path.reserve(path_capacity);
-}
-
-bool MoveSplineInitArgs::Validate() const
+bool MoveSplineInitArgs::Validate(Unit* unit) const
 {
 #define CHECK(exp) \
     if (!(exp))\
     {\
-        /* TC_LOG_DEBUG(LOG_FILTER_GENERAL, "MoveSplineInitArgs::Validate: expression '%s' failed", #exp); */\
+        SF_LOG_ERROR("misc", "MoveSplineInitArgs::Validate: expression '%s' failed for GUID: %u Entry: %u", #exp, unit->GetTypeId() == TypeID::TYPEID_PLAYER ? unit->GetGUIDLow() : unit->ToCreature()->GetDBTableGUIDLow(), unit->GetEntry());\
         return false;\
     }
-#define CHECK_V(exp) \
-    if (!(exp))\
-    {\
-        return false;\
-    }
-    //CHECK(path.size() > 1); @TODO how crash happens here ? =/
-    CHECK_V(velocity > 0.1f);
+    CHECK(path.size() > 1);
+    CHECK(velocity > 0.1f);
     CHECK(time_perc >= 0.f && time_perc <= 1.f);
-    CHECK(_checkPathLengths());
-    if (spellEffectExtra)
-    {
-        CHECK(!spellEffectExtra->ProgressCurveId || sCurveStore.LookupEntry(spellEffectExtra->ProgressCurveId));
-        CHECK(!spellEffectExtra->ParabolicCurveId || sCurveStore.LookupEntry(spellEffectExtra->ParabolicCurveId));
-    }
-
+    //CHECK(_checkPathBounds());
     return true;
 #undef CHECK
 }
 
-bool MoveSplineInitArgs::_checkPathLengths() const
+// MONSTER_MOVE packet format limitation for not CatmullRom movement:
+// each vertex offset packed into 11 bytes
+bool MoveSplineInitArgs::_checkPathBounds() const
 {
-    if (path.size() > 2 || facing.type == MONSTER_MOVE_NORMAL)
-        for (uint32 i = 0; i < path.size() - 1; ++i)
-            if ((path[i + 1] - path[i]).length() < 0.1f)
+    if (!(flags & MoveSplineFlag::Catmullrom) && path.size() > 2)
+    {
+        enum{
+            MAX_OFFSET = (1 << 11) / 2
+        };
+        Vector3 middle = (path.front()+path.back()) / 2;
+        Vector3 offset;
+        for (uint32 i = 1; i < path.size()-1; ++i)
+        {
+            offset = path[i] - middle;
+            if (fabs(offset.x) >= float(MAX_OFFSET) || fabs(offset.y) >= float(MAX_OFFSET) || fabs(offset.z) >= float(MAX_OFFSET))
+            {
+                SF_LOG_ERROR("misc", "MoveSplineInitArgs::_checkPathBounds check failed");
                 return false;
-
+            }
+        }
+    }
     return true;
 }
 
@@ -351,10 +249,7 @@ MoveSpline::UpdateResult MoveSpline::_updateState(int32& ms_time_diff)
     UpdateResult result = Result_None;
 
     int32 minimal_diff = std::min(ms_time_diff, segment_time_elapsed());
-    //ASSERT(minimal_diff >= 0);
-    if(minimal_diff < 0)
-        return Result_Arrived;
-
+    ASSERT(minimal_diff >= 0);
     time_passed += minimal_diff;
     ms_time_diff -= minimal_diff;
 
@@ -391,11 +286,11 @@ std::string MoveSpline::ToString() const
     str << "MoveSpline" << std::endl;
     str << "spline Id: " << GetId() << std::endl;
     str << "flags: " << splineflags.ToString() << std::endl;
-    if (facing.type == MONSTER_MOVE_FACING_ANGLE)
+    if (splineflags.final_angle)
         str << "facing  angle: " << facing.angle;
-    else if (facing.type == MONSTER_MOVE_FACING_TARGET)
-        str << "facing target: " << facing.target.ToString();
-    else if (facing.type == MONSTER_MOVE_FACING_SPOT)
+    else if (splineflags.final_target)
+        str << "facing target: " << facing.target;
+    else if (splineflags.final_point)
         str << "facing  point: " << facing.f.x << " " << facing.f.y << " " << facing.f.z;
     str << std::endl;
     str << "time passed: " << time_passed << std::endl;
@@ -415,7 +310,7 @@ void MoveSpline::_Finalize()
 
 int32 MoveSpline::currentPathIdx() const
 {
-    int32 point = point_Idx_offset + point_Idx - spline.first() + static_cast<int>(Finalized());
+    int32 point = point_Idx_offset + point_Idx - spline.first() + (int)Finalized();
     if (isCyclic())
         point = point % (spline.last()-spline.first());
     return point;

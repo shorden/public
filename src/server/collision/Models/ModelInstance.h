@@ -43,8 +43,8 @@ namespace VMAP
     class ModelSpawn
     {
         public:
-            mapID, tileX, tileY, Flags, ID, Pos, Rot, Scale, Bound_lo, Bound_hi, name
-            uint32 flags
+            //mapID, tileX, tileY, Flags, ID, Pos, Rot, Scale, Bound_lo, Bound_hi, name
+            uint32 flags;
             uint16 adtId;
             uint32 ID;
             G3D::Vector3 iPos;
@@ -53,9 +53,9 @@ namespace VMAP
             G3D::AABox iBound;
             std::string name;
             bool operator==(const ModelSpawn &other) const { return ID == other.ID; }
-            uint32 hashCode() const  return ID; 
-             temp?
-            const G3D::AABox& getBounds() const  return iBound; 
+            //uint32 hashCode() const { return ID; }
+            // temp?
+            const G3D::AABox& getBounds() const { return iBound; }
 
             static bool readFromFile(FILE* rf, ModelSpawn &spawn);
             static bool writeToFile(FILE* rw, const ModelSpawn &spawn);
@@ -72,12 +72,12 @@ namespace VMAP
             bool GetLocationInfo(const G3D::Vector3& p, LocationInfo &info) const;
             bool GetLiquidLevel(const G3D::Vector3& p, LocationInfo &info, float &liqHeight) const;
         protected:
-           // G3D::Matrix3 iInvRot;
+            G3D::Matrix3 iInvRot;
             float iInvScale;
             WorldModel* iModel;
         public:
             WorldModel* getWorldModel();
     };
-}  namespace VMAP
+} // namespace VMAP
 
-#endif / _MODELINSTANCE
+#endif // _MODELINSTANCE

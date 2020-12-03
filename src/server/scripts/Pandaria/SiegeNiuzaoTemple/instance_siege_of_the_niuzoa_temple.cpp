@@ -1,78 +1,172 @@
-/*==============
-    uwow.biz
-==============*/
+//////////////////////////////////////////////////////////////////////////////
+///
+///  MILLENIUM-STUDIO
+///  Copyright 2015 Millenium-studio SARL
+///  All Rights Reserved.
+///
+////////////////////////////////////////////////////////////////////////////////
 
-#include "siege_of_the_niuzoa_temple.h"
+#include "siege_of_the_niuzoa_temple.hpp"
 
-class instance_siege_of_the_niuzoa_temple : public InstanceMapScript
+DoorData const g_DoorData[] =
 {
-public:
-    instance_siege_of_the_niuzoa_temple() : InstanceMapScript("instance_siege_of_the_niuzoa_temple", 1011) {}
+    { GO_HARDENED_RESIN,        DATA_JINBAK,    DOOR_TYPE_PASSAGE,  BOUNDARY_NONE },
+    { GO_DOOR,                  DATA_VOJAK,     DOOR_TYPE_PASSAGE,  BOUNDARY_NONE },
+    { GO_INVISIBLE_FIRE_WALL,   DATA_VOJAK,     DOOR_TYPE_PASSAGE,  BOUNDARY_NONE },
+    { 0,                        0,              DOOR_TYPE_ROOM,     BOUNDARY_NONE }  // END
+};
 
-    InstanceScript* GetInstanceScript(InstanceMap* map) const override
-    {
-        return new instance_siege_of_the_niuzoa_temple_InstanceMapScript(map);
-    }
+#define MAX_ENCOUNTER 4
 
-    struct instance_siege_of_the_niuzoa_temple_InstanceMapScript : public InstanceScript
-    {
-        ObjectGuid jinbakGuid;
-        ObjectGuid vojakGuid;
-        ObjectGuid pavalakGuid;
-        ObjectGuid neronokGuid;
+static BossScenarios const g_BossScenarios[] =
+{
+    { DataTypes::DATA_JINBAK,   eScenarioDatas::Jinbak  },
+    { DataTypes::DATA_VOJAK,    eScenarioDatas::Vojak   },
+    { DataTypes::DATA_PAVALAK,  eScenarioDatas::Pavalak },
+    { DataTypes::DATA_NERONOK,  eScenarioDatas::Neronok },
+    { 0,                        0                       }
+};
 
-        instance_siege_of_the_niuzoa_temple_InstanceMapScript(Map* map) : InstanceScript(map) {}
+class instance_siege_of_the_niuzao_temple : public InstanceMapScript
+{
+    public:
+        instance_siege_of_the_niuzao_temple() : InstanceMapScript("instance_siege_of_the_niuzao_temple", 1011) { }
 
-        void Initialize() override
+        InstanceScript* GetInstanceScript(InstanceMap* map) const
         {
-            jinbakGuid.Clear();
-            vojakGuid.Clear();
-            pavalakGuid.Clear();
-            neronokGuid.Clear();
+            return new instance_siege_of_the_niuzao_temple_InstanceMapScript(map);
         }
-        
-        void OnCreatureCreate(Creature* creature) override
+
+        struct instance_siege_of_the_niuzao_temple_InstanceMapScript : public InstanceScript
         {
-            switch (creature->GetEntry())
+            uint64 jinbakGuid;
+            uint64 vojakGuid;
+            uint64 pavalakGuid;
+            uint64 neronokGuid;
+
+            uint32 m_CreatureKilled;
+
+            instance_siege_of_the_niuzao_temple_InstanceMapScript(Map* map) : InstanceScript(map) { }
+
+            void Initialize()
             {
-                case NPC_JINBAK:
-                    jinbakGuid = creature->GetGUID();
-                    break;
-                case NPC_VOJAK:
-                    vojakGuid = creature->GetGUID();
-                    break;
-                case NPC_PAVALAK:
-                    pavalakGuid = creature->GetGUID();
-                    break;
-                case NPC_NERONOK:
-                    neronokGuid = creature->GetGUID();
-                    break;
-            }
-        }
+                jinbakGuid = 0;
+                vojakGuid = 0;
+                pavalakGuid = 0;
+                neronokGuid = 0;
 
-        ObjectGuid GetGuidData(uint32 type) const override
-        {
-            switch (type)
+                SetBossNumber(MAX_ENCOUNTER);
+
+                m_CreatureKilled = 0;
+
+                if (instance->GetDifficulty() == CHALLENGE_MODE_DIFFICULTY)
+                    LoadScenariosInfos(g_BossScenarios, eScenarioDatas::ScenarioID);
+
+                LoadDoorData(g_DoorData);
+            }
+
+            void OnCreatureCreate(Creature* creature)
             {
-                case NPC_JINBAK:    return jinbakGuid;
-                case NPC_VOJAK:     return vojakGuid;
-                case NPC_PAVALAK:   return pavalakGuid;
-                case NPC_NERONOK:   return neronokGuid;
+                switch (creature->GetEntry())
+                {
+                    case NPC_JINBAK:
+                        jinbakGuid = creature->GetGUID();
+                        break;
+                    case NPC_VOJAK:
+                        vojakGuid = creature->GetGUID();
+                        break;
+                    case NPC_PAVALAK:
+                        pavalakGuid = creature->GetGUID();
+                        break;
+                    case NPC_NERONOK:
+                        neronokGuid = creature->GetGUID();
+                        break;
+                }
             }
 
-            return ObjectGuid::Empty;
-        }
+            void OnGameObjectCreate(GameObject* p_GameObject) override
+            {
+                switch (p_GameObject->GetEntry())
+                {
+                    case GO_HARDENED_RESIN:
+                    case GO_DOOR:
+                    case GO_INVISIBLE_FIRE_WALL:
+                        AddDoor(p_GameObject, true);
+                        break;
+                    case GameobjectIds::ChallengeModeDoor:
+                        m_ChallengeDoorGuid = p_GameObject->GetGUID();
+                        break;
+                    default:
+                        break;
+                }
+            }
 
-        void Update(uint32 diff) override
-        {
-            // Challenge
-            InstanceScript::Update(diff);
-        }
-    };
+            void OnGameObjectRemove(GameObject* p_GameObject) override
+            {
+                switch (p_GameObject->GetEntry())
+                {
+                    case GO_HARDENED_RESIN:
+                    case GO_DOOR:
+                    case GO_INVISIBLE_FIRE_WALL:
+                        AddDoor(p_GameObject, false);
+                        break;
+                    default:
+                        break;
+                }
+            }
 
+            void OnCreatureKilled(Creature* p_Creature, Player* p_Player) override
+            {
+                if (!instance->IsChallengeMode() || !IsChallengeModeStarted() || m_CreatureKilled >= eScenarioDatas::KillCount)
+                    return;
+
+                if (p_Creature == nullptr)
+                    return;
+
+                /// Ennemies already killed
+                if (m_ConditionCompleted)
+                    return;
+
+                if (!p_Creature->isElite() || p_Creature->IsDungeonBoss())
+                    return;
+
+                if (m_CreatureKilled >= eScenarioDatas::KillCount)
+                    return;
+
+                ++m_CreatureKilled;
+                SendScenarioProgressUpdate(CriteriaProgressData(eScenarioDatas::Ennemies, m_CreatureKilled, m_InstanceGuid, time(NULL), m_BeginningTime, 0));
+
+                if (m_CreatureKilled >= eScenarioDatas::KillCount)
+                    m_ConditionCompleted = true;
+            }
+
+            uint64 GetData64(uint32 id) const
+            {
+                switch (id)
+                {
+                    case DATA_JINBAK:
+                        return jinbakGuid;
+                    case DATA_VOJAK:
+                        return vojakGuid;
+                    case DATA_PAVALAK:
+                        return pavalakGuid;
+                    case DATA_NERONOK:
+                        return neronokGuid;
+                }
+
+                return 0;
+            }
+
+            void Update(uint32 p_Diff) override
+            {
+                ScheduleBeginningTimeUpdate(p_Diff);
+                ScheduleChallengeStartup(p_Diff);
+                ScheduleChallengeTimeUpdate(p_Diff);
+            }
+        };
 };
 
 void AddSC_instance_siege_of_the_niuzoa_temple()
 {
-    new instance_siege_of_the_niuzoa_temple();
+    new instance_siege_of_the_niuzao_temple();
 }

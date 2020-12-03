@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -15,86 +16,76 @@
  * You should have received a copy of the GNU General Public License along
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
- 
-#include <cwctype>
 
-#include "AccountMgr.h"
 #include "Channel.h"
-#include "ChannelPackets.h"
-#include "ChannelAppenders.h"
 #include "Chat.h"
-#include "ChatPackets.h"
-#include "DatabaseEnv.h"
 #include "ObjectMgr.h"
 #include "SocialMgr.h"
-#include "WordFilterMgr.h"
 #include "World.h"
-#include "GridNotifiersImpl.h"
+#include "DatabaseEnv.h"
+#include "AccountMgr.h"
+#include "Player.h"
 
-Channel::Channel(std::string const& name, uint32 channel_id, uint32 Team) : _channelFlags(0), _channelId(channel_id), _channelName(name), _channelPassword(""), _announceEnabled(false), _special(false), _ownershipEnabled(true), m_Team(Team)
+Channel::Channel(std::string const& name, uint32 channelId, uint32 team):
+    _announce(true),
+    _ownership(true),
+    _IsSaved(false),
+    _flags(0),
+    _channelId(channelId),
+    _Team(team),
+    _ownerGUID(0),
+    _name(name),
+    _password("")
 {
-    _isSaved = false;
-
-    if (IsWorld())
-        _announceEnabled = false;
-
     // set special flags if built-in channel
-    if (ChatChannelsEntry const* ch = sChatChannelsStore.LookupEntry(channel_id)) // check whether it's a built-in channel
+    if (ChatChannelsEntry const* ch = sChatChannelsStore.LookupEntry(channelId)) // check whether it's a built-in channel
     {
-        _announceEnabled = false;                                 // no join/leave announces
-        _ownershipEnabled = false;                                // no ownership handout
+        _announce = false;                                 // no join/leave announces
+        _ownership = false;                                // no ownership handout
 
-        _channelFlags |= CHANNEL_FLAG_GENERAL;                    // for all built-in channels
+        _flags |= CHANNEL_FLAG_GENERAL;                    // for all built-in channels
 
-        if (ch->Flags & CHANNEL_DBC_FLAG_TRADE)
-            _channelFlags |= CHANNEL_FLAG_TRADE;
+        if (ch->flags & CHANNEL_DBC_FLAG_TRADE)             // for trade channel
+            _flags |= CHANNEL_FLAG_TRADE;
 
-        if (ch->Flags & CHANNEL_DBC_FLAG_CITY_ONLY2)        // for city only channels
-            _channelFlags |= CHANNEL_FLAG_CITY;
+        if (ch->flags & CHANNEL_DBC_FLAG_CITY_ONLY2)        // for city only channels
+            _flags |= CHANNEL_FLAG_CITY;
 
-        if (ch->Flags & CHANNEL_DBC_FLAG_LFG)               // for LFG channel
-            _channelFlags |= CHANNEL_FLAG_LFG;
+        if (ch->flags & CHANNEL_DBC_FLAG_LFG)               // for LFG channel
+            _flags |= CHANNEL_FLAG_LFG;
         else                                                // for all other channels
-            _channelFlags |= CHANNEL_FLAG_NOT_LFG | CHANNEL_FLAG_UNK2;
-    }
-    else if (!stricmp(_channelName.c_str(), "world") || !stricmp(_channelName.c_str(), "all"))
-    {
-        _announceEnabled = false;
-        _special = true;
+            _flags |= CHANNEL_FLAG_NOT_LFG;
     }
     else                                                    // it's custom channel
     {
-        _channelFlags |= CHANNEL_FLAG_CUSTOM;
+        _flags |= CHANNEL_FLAG_CUSTOM;
 
         // If storing custom channels in the db is enabled either load or save the channel
-        if (sWorld->getBoolConfig(CONFIG_PRESERVE_CUSTOM_CHANNELS))
+        if (sWorld->GetBoolConfig(WorldBoolConfigs::CONFIG_PRESERVE_CUSTOM_CHANNELS))
         {
             PreparedStatement *stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHANNEL);
             stmt->setString(0, name);
-            stmt->setUInt32(1, m_Team);
+            stmt->setUInt32(1, _Team);
             PreparedQueryResult result = CharacterDatabase.Query(stmt);
 
             if (result) //load
             {
                 Field* fields = result->Fetch();
-                _announceEnabled = fields[0].GetBool();
-                _ownershipEnabled = fields[1].GetBool();
-                _channelPassword  = fields[2].GetString();
+                _announce = fields[0].GetBool();
+                _ownership = fields[1].GetBool();
+                _password  = fields[2].GetString();
                 const char* db_BannedList = fields[3].GetCString();
 
                 if (db_BannedList)
                 {
                     Tokenizer tokens(db_BannedList, ' ');
-                    for (auto token : tokens)
+                    for (Tokenizer::const_iterator i = tokens.begin(); i != tokens.end(); ++i)
                     {
-                        std::string bannedGuidStr(token);
-                        ObjectGuid banned_guid;
-                        banned_guid.SetRawValue(uint64(strtoull(bannedGuidStr.substr(0, 16).c_str(), nullptr, 16)), uint64(strtoull(bannedGuidStr.substr(16).c_str(), nullptr, 16)));
-
-                        if (!banned_guid.IsEmpty())
+                        uint64 banned_guid = atol(*i);
+                        if (banned_guid)
                         {
-                            TC_LOG_DEBUG(LOG_FILTER_CHATSYS, "Channel(%s) loaded _bannedStore guid: %s", name.c_str(), banned_guid.ToString().c_str());
-                            _bannedStore.insert(banned_guid);
+                            SF_LOG_DEBUG("chat.system", "Channel(%s) loaded bannedStore guid:" UI64FMTD "", name.c_str(), banned_guid);
+                            bannedStore.insert(banned_guid);
                         }
                     }
                 }
@@ -103,280 +94,184 @@ Channel::Channel(std::string const& name, uint32 channel_id, uint32 Team) : _cha
             {
                 stmt = CharacterDatabase.GetPreparedStatement(CHAR_INS_CHANNEL);
                 stmt->setString(0, name);
-                stmt->setUInt32(1, m_Team);
+                stmt->setUInt32(1, _Team);
                 CharacterDatabase.Execute(stmt);
-                TC_LOG_DEBUG(LOG_FILTER_CHATSYS, "Channel(%s) saved in database", name.c_str());
+                SF_LOG_DEBUG("chat.system", "Channel(%s) saved in database", name.c_str());
             }
 
-            _isSaved = true;
+            _IsSaved = true;
         }
     }
 }
 
-bool Channel::PlayerInfo::HasFlag(uint8 flag) const
-{
-    return (flags & flag) != 0;
-}
-
-void Channel::PlayerInfo::SetFlag(uint8 flag)
-{
-    flags |= flag;
-}
-
-bool Channel::PlayerInfo::IsOwner() const
-{
-    return (flags & MEMBER_FLAG_OWNER) != 0;
-}
-
-void Channel::PlayerInfo::SetOwner(bool state)
-{
-    if (state)
-        flags |= MEMBER_FLAG_OWNER;
-    else
-        flags &= ~MEMBER_FLAG_OWNER;
-}
-
-bool Channel::PlayerInfo::IsModerator() const
-{
-    return (flags & MEMBER_FLAG_MODERATOR) != 0;
-}
-
-void Channel::PlayerInfo::SetModerator(bool state)
-{
-    if (state)
-        flags |= MEMBER_FLAG_MODERATOR;
-    else
-        flags &= ~MEMBER_FLAG_MODERATOR;
-}
-
-bool Channel::PlayerInfo::IsMuted() const
-{
-    return (flags & MEMBER_FLAG_MUTED) != 0;
-}
-
-void Channel::PlayerInfo::SetMuted(bool state)
-{
-    if (state)
-        flags |= MEMBER_FLAG_MUTED;
-    else
-        flags &= ~MEMBER_FLAG_MUTED;
-}
-
-bool Channel::IsOn(ObjectGuid who) const
-{
-    return _playersStore.find(who) != _playersStore.end();
-}
-
-bool Channel::IsBanned(ObjectGuid guid) const
-{
-    return _bannedStore.find(guid) != _bannedStore.end();
-}
-
-bool Channel::IsWorld() const
-{
-    std::string lowername;
-    uint32 nameLength = _channelName.length();
-    for (uint32 i = 0; i < nameLength; ++i)
-        lowername.push_back(std::towlower(_channelName[i]));
-
-    return lowername == "world" || lowername == "all";
-}
-
 void Channel::UpdateChannelInDB() const
 {
-    if (_isSaved)
+    if (_IsSaved)
     {
         std::ostringstream banlist;
-        for (auto iter : _bannedStore)
-            banlist << iter << ' ';
+        BannedContainer::const_iterator iter;
+        for (iter = bannedStore.begin(); iter != bannedStore.end(); ++iter)
+            banlist << (*iter) << ' ';
 
         std::string banListStr = banlist.str();
 
         PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_CHANNEL);
-        stmt->setBool(0, _announceEnabled);
-        stmt->setBool(1, _ownershipEnabled);
-        stmt->setString(2, _channelPassword);
+        stmt->setBool(0, _announce);
+        stmt->setBool(1, _ownership);
+        stmt->setString(2, _password);
         stmt->setString(3, banListStr);
-        stmt->setString(4, _channelName);
-        stmt->setUInt32(5, m_Team);
+        stmt->setString(4, _name);
+        stmt->setUInt32(5, _Team);
         CharacterDatabase.Execute(stmt);
 
-        TC_LOG_DEBUG(LOG_FILTER_CHATSYS, "Channel(%s) updated in database", _channelName.c_str());
+        SF_LOG_DEBUG("chat.system", "Channel(%s) updated in database", _name.c_str());
     }
 }
 
 void Channel::UpdateChannelUseageInDB() const
 {
     PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_CHANNEL_USAGE);
-    stmt->setString(0, _channelName);
-    stmt->setUInt32(1, m_Team);
+    stmt->setString(0, _name);
+    stmt->setUInt32(1, _Team);
     CharacterDatabase.Execute(stmt);
-}
-
-uint8 Channel::GetPlayerFlags(ObjectGuid p) const
-{
-    auto p_itr = _playersStore.find(p);
-    if (p_itr == _playersStore.end())
-        return 0;
-
-    return p_itr->second.flags;
 }
 
 void Channel::CleanOldChannelsInDB()
 {
-    if (sWorld->getIntConfig(CONFIG_PRESERVE_CUSTOM_CHANNEL_DURATION) > 0)
+    if (sWorld->getIntConfig(WorldIntConfigs::CONFIG_PRESERVE_CUSTOM_CHANNEL_DURATION) > 0)
     {
         PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_OLD_CHANNELS);
-        stmt->setUInt32(0, sWorld->getIntConfig(CONFIG_PRESERVE_CUSTOM_CHANNEL_DURATION) * DAY);
+        stmt->setUInt32(0, sWorld->getIntConfig(WorldIntConfigs::CONFIG_PRESERVE_CUSTOM_CHANNEL_DURATION) * DAY);
         CharacterDatabase.Execute(stmt);
 
-        TC_LOG_DEBUG(LOG_FILTER_CHATSYS, "Cleaned out unused custom chat channels.");
+        SF_LOG_DEBUG("chat.system", "Cleaned out unused custom chat channels.");
     }
 }
 
-void Channel::JoinChannel(Player* player, std::string const& pass, bool /*clientRequest*/)
+void Channel::JoinChannel(Player* player, std::string const& pass)
 {
-    ObjectGuid const& guid = player->GetGUID();
+    uint64 guid = player->GetGUID();
     if (IsOn(guid))
     {
+        // Do not send error message for built-in channels
         if (!IsConstant())
         {
-            PlayerAlreadyMemberAppend appender(guid);
-            ChannelNameBuilder<PlayerAlreadyMemberAppend> builder(this, appender);
-            SendToOne(builder, guid);
+            WorldPacket data;
+            MakePlayerAlreadyMember(&data, guid);
+            SendToOne(&data, guid);
         }
         return;
     }
 
     if (IsBanned(guid))
     {
-        BannedAppend appender;
-        ChannelNameBuilder<BannedAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeBanned(&data);
+        SendToOne(&data, guid);
         return;
     }
 
-    if (!_channelPassword.empty() && pass != _channelPassword)
+    if (!_password.empty() && pass != _password)
     {
-        WrongPasswordAppend appender;
-        ChannelNameBuilder<WrongPasswordAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeWrongPassword(&data);
+        SendToOne(&data, guid);
         return;
     }
 
-    if (HasFlag(CHANNEL_FLAG_LFG) && sWorld->getBoolConfig(CONFIG_RESTRICTED_LFG_CHANNEL) && AccountMgr::IsPlayerAccount(player->GetSession()->GetSecurity()) && player->GetGroup())
+    if (HasFlag(CHANNEL_FLAG_LFG) &&
+        sWorld->GetBoolConfig(WorldBoolConfigs::CONFIG_RESTRICTED_LFG_CHANNEL) &&
+        AccountMgr::IsPlayerAccount(player->GetSession()->GetSecurity()) && //FIXME: Move to RBAC
+        player->GetGroup())
     {
-        NotInLFGAppend appender;
-        ChannelNameBuilder<NotInLFGAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeNotInLfg(&data);
+        SendToOne(&data, guid);
         return;
     }
 
     player->JoinedChannel(this);
 
-    if (_announceEnabled && (!AccountMgr::IsModeratorAccount(player->GetSession()->GetSecurity()) || !sWorld->getBoolConfig(CONFIG_SILENTLY_GM_JOIN_TO_CHANNEL)))
+    if (_announce && !player->GetSession()->HasPermission(rbac::RBAC_PERM_SILENTLY_JOIN_CHANNEL))
     {
-        JoinedAppend appender(guid);
-        ChannelNameBuilder<JoinedAppend> builder(this, appender);
-        SendToAll(builder);
+        WorldPacket data;
+        MakeJoined(&data, guid);
+        SendToAll(&data);
     }
 
     PlayerInfo pinfo;
     pinfo.player = guid;
     pinfo.flags = MEMBER_FLAG_NONE;
-    _playersStore[guid] = pinfo;
-    PlayerInfo& playerInfo = _playersStore[guid];
+    playersStore[guid] = pinfo;
 
-    auto builder = [&](LocaleConstant /*locale*/)
+    WorldPacket data;
+    MakeYouJoined(&data);
+    SendToOne(&data, guid);
+
+    JoinNotify(guid, GetChannelId(), GetFlags(), GetPlayerFlags(guid), GetName());
+
+    // Custom channel handling
+    if (!IsConstant())
     {
-        auto notify = new WorldPackets::Channel::ChannelNotifyJoined();
-        notify->ChannelWelcomeMsg = "";
-        notify->ChatChannelID = _channelId;
-        notify->InstanceID = 0;
-        notify->_ChannelFlags = _channelFlags;
-        notify->_Channel = _channelName;
-        return notify;
-    };
-
-    SendToOne(builder, guid);
-
-    //JoinNotify(guid);
-	if (sWorld->getBoolConfig(CONFIG_AUTO_SAY_HELLO))
-	{
-		if (IsConstant() && !IsWorld())
-		{
-			std::string text("Hello everyone!");
-			WorldPackets::Chat::Chat packet;
-			packet.Initialize(CHAT_MSG_CHANNEL, LANG_UNIVERSAL, player, player, text, 0, _channelName);
-			player->SendDirectMessage(packet.Write());
-		}
-	}
-    
-    if (!IsConstant()) // Custom channel handling
-    {
-        if (!_playersStore.empty())
+        // Update last_used timestamp in db
+        if (!playersStore.empty())
             UpdateChannelUseageInDB();
 
-        if (!_ownerGuid && _ownershipEnabled) // If the channel has no owner yet and ownership is allowed, set the new owner.
+        // If the channel has no owner yet and ownership is allowed, set the new owner.
+        if (!_ownerGUID && _ownership)
         {
-            SetOwner(guid, (_playersStore.size() > 1));
-            playerInfo.SetModerator(true);
+            SetOwner(guid, playersStore.size() > 1);
+            playersStore[guid].SetModerator(true);
         }
     }
 }
 
-void Channel::LeaveChannel(Player* player, bool send, bool clientRequest)
+void Channel::LeaveChannel(Player* player, bool send)
 {
-    ObjectGuid const& guid = player->GetGUID();
+    uint64 guid = player->GetGUID();
     if (!IsOn(guid))
     {
         if (send)
         {
-            NotMemberAppend appender;
-            ChannelNameBuilder<NotMemberAppend> builder(this, appender);
-            SendToOne(builder, guid);
+            WorldPacket data;
+            MakeNotMember(&data);
+            SendToOne(&data, guid);
         }
         return;
     }
 
-    player->LeftChannel(this);
-
     if (send)
     {
-        auto builder = [&](LocaleConstant locale)
-        {
-            auto* notify = new WorldPackets::Channel::ChannelNotifyLeft();
-            notify->Channel = GetName();
-            notify->ChatChannelID = 0;
-            notify->Suspended = _channelId == 2 && !clientRequest;
-            return notify;
-        };
-
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeYouLeft(&data);
+        SendToOne(&data, guid);
+        player->LeftChannel(this);
+        data.clear();
     }
 
-    PlayerInfo& info = _playersStore[guid];
-    bool changeowner = info.IsOwner();
-    _playersStore.erase(guid);
+    bool changeowner = playersStore[guid].IsOwner();
 
-    if (_announceEnabled && (!player || !AccountMgr::IsModeratorAccount(player->GetSession()->GetSecurity()) || !sWorld->getBoolConfig(CONFIG_SILENTLY_GM_JOIN_TO_CHANNEL)))
+    playersStore.erase(guid);
+
+    if (_announce && !player->GetSession()->HasPermission(rbac::RBAC_PERM_SILENTLY_JOIN_CHANNEL))
     {
-        LeftAppend appender(guid);
-        ChannelNameBuilder<LeftAppend> builder(this, appender);
-        SendToAll(builder);
+        WorldPacket data;
+        MakeLeft(&data, guid);
+        SendToAll(&data);
     }
 
-    LeaveNotify(guid);
+    LeaveNotify(guid, GetChannelId(), GetFlags(), GetName());
 
     if (!IsConstant())
     {
+        // Update last_used timestamp in db
         UpdateChannelUseageInDB();
 
-        // If the channel owner left and there are still playersStore inside, pick a new owner do not pick invisible gm owner unless there are only invisible gms in that channel (rare)
-        if (changeowner && _ownershipEnabled && !_playersStore.empty())
+        // If the channel owner left and there are still playersStore inside, pick a new owner
+        if (changeowner && _ownership && !playersStore.empty())
         {
-            ObjectGuid newowner = _playersStore.begin()->second.player;
-            _playersStore[newowner].SetModerator(true);
+            uint64 newowner = playersStore.begin()->second.player;
+            playersStore[newowner].SetModerator(true);
             SetOwner(newowner);
         }
     }
@@ -384,644 +279,740 @@ void Channel::LeaveChannel(Player* player, bool send, bool clientRequest)
 
 void Channel::KickOrBan(Player const* player, std::string const& badname, bool ban)
 {
-    ObjectGuid const& good = player->GetGUID();
+    uint64 good = player->GetGUID();
 
     if (!IsOn(good))
     {
-        NotMemberAppend appender;
-        ChannelNameBuilder<NotMemberAppend> builder(this, appender);
-        SendToOne(builder, good);
+        WorldPacket data;
+        MakeNotMember(&data);
+        SendToOne(&data, good);
         return;
     }
 
-    AccountTypes sec = player->GetSession()->GetSecurity();
-
-    PlayerInfo& info = _playersStore[good];
-    if (!info.IsModerator() && !AccountMgr::IsModeratorAccount(sec))
+    if (!playersStore[good].IsModerator() && !player->GetSession()->HasPermission(rbac::RBAC_PERM_CHANGE_CHANNEL_NOT_MODERATOR))
     {
-        NotModeratorAppend appender;
-        ChannelNameBuilder<NotModeratorAppend> builder(this, appender);
-        SendToOne(builder, good);
+        WorldPacket data;
+        MakeNotModerator(&data);
+        SendToOne(&data, good);
         return;
     }
 
-    Player* bad = ObjectAccessor::FindPlayerByName(badname);
-    ObjectGuid const& victim = bad ? bad->GetGUID() : ObjectGuid::Empty;
+    Player* bad = sObjectAccessor->FindPlayerByName(badname);
+    uint64 victim = bad ? bad->GetGUID() : 0;
     if (!victim || !IsOn(victim))
     {
-        PlayerNotFoundAppend appender(badname);
-        ChannelNameBuilder<PlayerNotFoundAppend> builder(this, appender);
-        SendToOne(builder, good);
+        WorldPacket data;
+        MakePlayerNotFound(&data, badname);
+        SendToOne(&data, good);
         return;
     }
 
-    bool changeowner = _ownerGuid == victim;
+    bool changeowner = _ownerGUID == victim;
 
-    if (!AccountMgr::IsModeratorAccount(sec) && changeowner && good != _ownerGuid)
+    if (!player->GetSession()->HasPermission(rbac::RBAC_PERM_CHANGE_CHANNEL_NOT_MODERATOR) && changeowner && good != _ownerGUID)
     {
-        NotOwnerAppend appender;
-        ChannelNameBuilder<NotOwnerAppend> builder(this, appender);
-        SendToOne(builder, good);
+        WorldPacket data;
+        MakeNotOwner(&data);
+        SendToOne(&data, good);
         return;
     }
 
     if (ban && !IsBanned(victim))
     {
-        _bannedStore.insert(victim);
+        bannedStore.insert(victim);
         UpdateChannelInDB();
 
-        if (!(AccountMgr::IsModeratorAccount(sec) && sWorld->getBoolConfig(CONFIG_SILENTLY_GM_JOIN_TO_CHANNEL)))
+        if (!player->GetSession()->HasPermission(rbac::RBAC_PERM_SILENTLY_JOIN_CHANNEL))
         {
-            PlayerBannedAppend appender(good, victim);
-            ChannelNameBuilder<PlayerBannedAppend> builder(this, appender);
-            SendToAll(builder);
+            WorldPacket data;
+            MakePlayerBanned(&data, victim, good);
+            SendToAll(&data);
         }
     }
-    else if (!(AccountMgr::IsModeratorAccount(sec) && sWorld->getBoolConfig(CONFIG_SILENTLY_GM_JOIN_TO_CHANNEL)))
+    else if (!player->GetSession()->HasPermission(rbac::RBAC_PERM_SILENTLY_JOIN_CHANNEL))
     {
-        PlayerKickedAppend appender(good, victim);
-        ChannelNameBuilder<PlayerKickedAppend> builder(this, appender);
-        SendToAll(builder);
+        WorldPacket data;
+        MakePlayerKicked(&data, victim, good);
+        SendToAll(&data);
     }
 
-    _playersStore.erase(victim);
+    playersStore.erase(victim);
     bad->LeftChannel(this);
 
-    if (changeowner && _ownershipEnabled && !_playersStore.empty())
+    if (changeowner && _ownership && !playersStore.empty())
     {
-        info.SetModerator(true);
-        SetOwner(good);
+        uint64 newowner = good;
+        playersStore[newowner].SetModerator(true);
+        SetOwner(newowner);
     }
 }
 
 void Channel::UnBan(Player const* player, std::string const& badname)
 {
-    ObjectGuid const& good = player->GetGUID();
+    uint64 good = player->GetGUID();
 
     if (!IsOn(good))
     {
-        NotMemberAppend appender;
-        ChannelNameBuilder<NotMemberAppend> builder(this, appender);
-        SendToOne(builder, good);
+        WorldPacket data;
+        MakeNotMember(&data);
+        SendToOne(&data, good);
         return;
     }
 
-    PlayerInfo& info = _playersStore[good];
-    if (!info.IsModerator() && !AccountMgr::IsModeratorAccount(player->GetSession()->GetSecurity()))
+    if (!playersStore[good].IsModerator() && !player->GetSession()->HasPermission(rbac::RBAC_PERM_CHANGE_CHANNEL_NOT_MODERATOR))
     {
-        NotModeratorAppend appender;
-        ChannelNameBuilder<NotModeratorAppend> builder(this, appender);
-        SendToOne(builder, good);
+        WorldPacket data;
+        MakeNotModerator(&data);
+        SendToOne(&data, good);
         return;
     }
 
-    Player* bad = ObjectAccessor::FindPlayerByName(badname);
-    ObjectGuid victim = bad ? bad->GetGUID() : ObjectGuid::Empty;
+    Player* bad = sObjectAccessor->FindPlayerByName(badname);
+    uint64 victim = bad ? bad->GetGUID(): 0;
 
-    if (victim.IsEmpty() || !IsBanned(victim))
+    if (!victim || !IsBanned(victim))
     {
-        PlayerNotFoundAppend appender(badname);
-        ChannelNameBuilder<PlayerNotFoundAppend> builder(this, appender);
-        SendToOne(builder, good);
+        WorldPacket data;
+        MakePlayerNotFound(&data, badname);
+        SendToOne(&data, good);
         return;
     }
 
-    _bannedStore.erase(victim);
+    bannedStore.erase(victim);
 
-    PlayerUnbannedAppend appender(good, victim);
-    ChannelNameBuilder<PlayerUnbannedAppend> builder(this, appender);
-    SendToAll(builder);
+    WorldPacket data;
+    MakePlayerUnbanned(&data, victim, good);
+    SendToAll(&data);
 
     UpdateChannelInDB();
 }
 
 void Channel::Password(Player const* player, std::string const& pass)
 {
-    ObjectGuid const& guid = player->GetGUID();
+    uint64 guid = player->GetGUID();
+
+    ChatHandler chat(player->GetSession());
     if (!IsOn(guid))
     {
-        NotMemberAppend appender;
-        ChannelNameBuilder<NotMemberAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeNotMember(&data);
+        SendToOne(&data, guid);
         return;
     }
 
-    PlayerInfo& info = _playersStore[guid];
-    if (!info.IsModerator() && !AccountMgr::IsModeratorAccount(player->GetSession()->GetSecurity()))
+    if (!playersStore[guid].IsModerator() && !player->GetSession()->HasPermission(rbac::RBAC_PERM_CHANGE_CHANNEL_NOT_MODERATOR))
     {
-        NotModeratorAppend appender;
-        ChannelNameBuilder<NotModeratorAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeNotModerator(&data);
+        SendToOne(&data, guid);
         return;
     }
 
-    _channelPassword = pass;
+    _password = pass;
 
-    PasswordChangedAppend appender(guid);
-    ChannelNameBuilder<PasswordChangedAppend> builder(this, appender);
-    SendToAll(builder);
+    WorldPacket data;
+    MakePasswordChanged(&data, guid);
+    SendToAll(&data);
 
     UpdateChannelInDB();
 }
 
 void Channel::SetMode(Player const* player, std::string const& p2n, bool mod, bool set)
 {
-    ObjectGuid const& guid = player->GetGUID();
+    uint64 guid = player->GetGUID();
+
     if (!IsOn(guid))
     {
-        NotMemberAppend appender;
-        ChannelNameBuilder<NotMemberAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeNotMember(&data);
+        SendToOne(&data, guid);
         return;
     }
 
-    PlayerInfo& info = _playersStore[guid];
-    if (!info.IsModerator() && !AccountMgr::IsModeratorAccount(player->GetSession()->GetSecurity()))
+    if (!playersStore[guid].IsModerator() && !player->GetSession()->HasPermission(rbac::RBAC_PERM_CHANGE_CHANNEL_NOT_MODERATOR))
     {
-        NotModeratorAppend appender;
-        ChannelNameBuilder<NotModeratorAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeNotModerator(&data);
+        SendToOne(&data, guid);
         return;
     }
 
-    if (guid == _ownerGuid && p2n == player->GetName() && mod)
+    if (guid == _ownerGUID && std::string(p2n) == player->GetName() && mod)
         return;
 
-    Player* newp = ObjectAccessor::FindPlayerByName(p2n);
-    ObjectGuid victim = newp ? newp->GetGUID() : ObjectGuid::Empty;
+    Player* newp = sObjectAccessor->FindPlayerByName(p2n);
+    uint64 victim = newp ? newp->GetGUID() : 0;
 
-    // allow make moderator from another team only if both is GMs at this moment this only way to show channel post for GM from another team
-    if (newp && (!AccountMgr::IsModeratorAccount(player->GetSession()->GetSecurity()) || !AccountMgr::IsModeratorAccount(newp->GetSession()->GetSecurity())) &&
-        player->GetTeam() != newp->GetTeam() && !sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_CHANNEL))
+    if (!victim || !IsOn(victim) ||
+        (player->GetTeam() != newp->GetTeam() &&
+        (!player->GetSession()->HasPermission(rbac::RBAC_PERM_TWO_SIDE_INTERACTION_CHANNEL) ||
+        !newp->GetSession()->HasPermission(rbac::RBAC_PERM_TWO_SIDE_INTERACTION_CHANNEL))))
     {
-        PlayerNotFoundAppend appender(p2n);
-        ChannelNameBuilder<PlayerNotFoundAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakePlayerNotFound(&data, p2n);
+        SendToOne(&data, guid);
         return;
     }
 
-    if (_ownerGuid == victim && _ownerGuid != guid)
+    if (_ownerGUID == victim && _ownerGUID != guid)
     {
-        NotOwnerAppend appender;
-        ChannelNameBuilder<NotOwnerAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeNotOwner(&data);
+        SendToOne(&data, guid);
         return;
     }
 
-    if (newp)
-    {
-        if (mod)
-            SetModerator(newp->GetGUID(), set);
-        else
-            SetMute(newp->GetGUID(), set);
-    }
+    if (mod)
+        SetModerator(newp->GetGUID(), set);
+    else
+        SetMute(newp->GetGUID(), set);
 }
 
-void Channel::_SetOwner(Player const* player, std::string const& newname)
+void Channel::SetOwner(Player const* player, std::string const& newname)
 {
-    ObjectGuid const& guid = player->GetGUID();
+    uint64 guid = player->GetGUID();
 
     if (!IsOn(guid))
     {
-        NotMemberAppend appender;
-        ChannelNameBuilder<NotMemberAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeNotMember(&data);
+        SendToOne(&data, guid);
         return;
     }
 
-    if (!AccountMgr::IsModeratorAccount(player->GetSession()->GetSecurity()) && guid != _ownerGuid)
+    if (!player->GetSession()->HasPermission(rbac::RBAC_PERM_CHANGE_CHANNEL_NOT_MODERATOR) && guid != _ownerGUID)
     {
-        NotOwnerAppend appender;
-        ChannelNameBuilder<NotOwnerAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeNotOwner(&data);
+        SendToOne(&data, guid);
         return;
     }
 
-    Player* newp = ObjectAccessor::FindPlayerByName(newname);
-    ObjectGuid victim = newp ? newp->GetGUID() : ObjectGuid::Empty;
+    Player* newp = sObjectAccessor->FindPlayerByName(newname);
+    uint64 victim = newp ? newp->GetGUID() : 0;
 
-    if (newp && newp->GetTeam() != player->GetTeam() && !sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_CHANNEL))
+    if (!victim || !IsOn(victim) ||
+        (player->GetTeam() != newp->GetTeam() &&
+        (!player->GetSession()->HasPermission(rbac::RBAC_PERM_TWO_SIDE_INTERACTION_CHANNEL) ||
+        !newp->GetSession()->HasPermission(rbac::RBAC_PERM_TWO_SIDE_INTERACTION_CHANNEL))))
     {
-        PlayerNotFoundAppend appender(newname);
-        ChannelNameBuilder<PlayerNotFoundAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakePlayerNotFound(&data, newname);
+        SendToOne(&data, guid);
         return;
     }
 
-    PlayerInfo& info = _playersStore[victim];
-    info.SetModerator(true);
+    playersStore[victim].SetModerator(true);
     SetOwner(victim);
 }
 
-void Channel::SendWhoOwner(Player const* player)
+void Channel::SendWhoOwner(uint64 guid)
 {
-    ObjectGuid const& guid = player->GetGUID();
+    WorldPacket data;
     if (IsOn(guid))
-    {
-        ChannelOwnerAppend appender(this, _ownerGuid);
-        ChannelNameBuilder<ChannelOwnerAppend> builder(this, appender);
-        SendToOne(builder, guid);
-    }
+        MakeChannelOwner(&data);
     else
-    {
-        NotMemberAppend appender;
-        ChannelNameBuilder<NotMemberAppend> builder(this, appender);
-        SendToOne(builder, guid);
-    }
+        MakeNotMember(&data);
+    SendToOne(&data, guid);
 }
 
 void Channel::List(Player const* player)
 {
-    ObjectGuid const& guid = player->GetGUID();
+    uint64 guid = player->GetGUID();
+
     if (!IsOn(guid))
     {
-        NotMemberAppend appender;
-        ChannelNameBuilder<NotMemberAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeNotMember(&data);
+        SendToOne(&data, guid);
         return;
     }
 
-    WorldPackets::Channel::ChannelListResponse list;
-    list._Display = true; /// always true?
-    list._Channel = GetName();
-    list._ChannelFlags = GetFlags();
+    SF_LOG_DEBUG("chat.system", "SMSG_CHANNEL_LIST %s Channel: %s",
+        player->GetSession()->GetPlayerInfo().c_str(), GetName().c_str());
 
-    uint32 gmLevelInWhoList = sWorld->getIntConfig(CONFIG_GM_LEVEL_IN_WHO_LIST);
+    WorldPacket data(SMSG_CHANNEL_LIST, 1+(GetName().size()+1)+1+4+playersStore.size()*(8+1));
+    data << uint8(1);                                   // channel type?
+    data << GetName();                                  // channel name
+    data << uint8(GetFlags());                          // channel flags?
 
-    list._Members.reserve(_playersStore.size());
-    for (auto const& i : _playersStore)
+    size_t pos = data.wpos();
+    data << uint32(0);                                  // size of list, placeholder
+
+    uint32 gmLevelInWhoList = sWorld->getIntConfig(WorldIntConfigs::CONFIG_GM_LEVEL_IN_WHO_LIST);
+
+    uint32 count  = 0;
+    for (PlayerContainer::const_iterator i = playersStore.begin(); i != playersStore.end(); ++i)
     {
-        Player* member = ObjectAccessor::FindPlayer(i.first);
+        Player* member = ObjectAccessor::FindPlayer(i->first);
 
-        // PLAYER can't see MODERATOR, GAME MASTER, ADMINISTRATOR characters: MODERATOR, GAME MASTER, ADMINISTRATOR can see all
-        if (member && (!AccountMgr::IsPlayerAccount(player->GetSession()->GetSecurity()) || member->GetSession()->GetSecurity() <= AccountTypes(gmLevelInWhoList)) && member->IsVisibleGloballyFor(player))
-            list._Members.emplace_back(i.second.player, GetVirtualRealmAddress(), i.second.flags);
+        // PLAYER can't see MODERATOR, GAME MASTER, ADMINISTRATOR characters
+        // MODERATOR, GAME MASTER, ADMINISTRATOR can see all
+        if (member &&
+            (player->GetSession()->HasPermission(rbac::RBAC_PERM_WHO_SEE_ALL_SEC_LEVELS) ||
+             member->GetSession()->GetSecurity() <= AccountTypes(gmLevelInWhoList)) &&
+            member->IsVisibleGloballyFor(player))
+        {
+            data << uint64(i->first);
+            data << uint8(i->second.flags);             // flags seems to be changed...
+            ++count;
+        }
     }
 
-    player->SendDirectMessage(list.Write());
+    data.put<uint32>(pos, count);
+
+    SendToOne(&data, guid);
 }
 
 void Channel::Announce(Player const* player)
 {
-    ObjectGuid const& guid = player->GetGUID();
+    uint64 guid = player->GetGUID();
 
     if (!IsOn(guid))
     {
-        NotMemberAppend appender;
-        ChannelNameBuilder<NotMemberAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeNotMember(&data);
+        SendToOne(&data, guid);
         return;
     }
 
-    PlayerInfo const& playerInfo = _playersStore[guid];
-    if (!playerInfo.IsModerator() && !AccountMgr::IsModeratorAccount(player->GetSession()->GetSecurity()))
+    if (!playersStore[guid].IsModerator() && !player->GetSession()->HasPermission(rbac::RBAC_PERM_CHANGE_CHANNEL_NOT_MODERATOR))
     {
-        NotModeratorAppend appender;
-        ChannelNameBuilder<NotModeratorAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeNotModerator(&data);
+        SendToOne(&data, guid);
         return;
     }
 
-    _announceEnabled = !_announceEnabled;
+    _announce = !_announce;
 
-    WorldPackets::Channel::ChannelNotify notify;
-    if (_announceEnabled)
-    {
-        AnnouncementsOnAppend appender(guid);
-        ChannelNameBuilder<AnnouncementsOnAppend> builder(this, appender);
-        SendToAll(builder);
-    }
+    WorldPacket data;
+    if (_announce)
+        MakeAnnouncementsOn(&data, guid);
     else
-    {
-        AnnouncementsOffAppend appender(guid);
-        ChannelNameBuilder<AnnouncementsOffAppend> builder(this, appender);
-        SendToAll(builder);
-    }
+        MakeAnnouncementsOff(&data, guid);
+    SendToAll(&data);
 
     UpdateChannelInDB();
 }
 
-void Channel::Say(ObjectGuid const& guid, std::string const& what, uint32 lang, bool isSpamm)
+void Channel::Say(uint64 guid, std::string const& what, Language lang)
 {
     if (what.empty())
         return;
 
-    Player* player = ObjectAccessor::FindPlayer(guid);
-    if (player)
-        lang = player->GetTeam() == HORDE ? LANG_ORCISH : LANG_COMMON;
+    uint8 chatTag = 0;
+    bool isGM = false;
 
-    if (sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_CHANNEL))
-        lang = LANG_UNIVERSAL;
+    if (Player* player = ObjectAccessor::FindPlayer(guid))
+    {
+        chatTag = player->GetChatTag();
+        isGM = player->GetSession()->HasPermission(rbac::RBAC_PERM_COMMAND_GM_CHAT);
+    }
+
+    // TODO: Add proper RBAC check
+    if (sWorld->GetBoolConfig(WorldBoolConfigs::CONFIG_ALLOW_TWO_SIDE_INTERACTION_CHANNEL))
+        lang = Language::LANG_UNIVERSAL;
 
     if (!IsOn(guid))
     {
-        NotMemberAppend appender;
-        ChannelNameBuilder<NotMemberAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeNotMember(&data);
+        SendToOne(&data, guid);
         return;
     }
 
-    PlayerInfo const& playerInfo = _playersStore[guid];
-    if (playerInfo.IsMuted())
+    if (playersStore[guid].IsMuted())
     {
-        MutedAppend appender;
-        ChannelNameBuilder<MutedAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeMuted(&data);
+        SendToOne(&data, guid);
         return;
     }
 
-    auto builder = [&](LocaleConstant locale)
-    {
-        auto packet = new WorldPackets::Chat::Chat();
-        if (player)
-            packet->Initialize(CHAT_MSG_CHANNEL, Language(lang), player, player, what, 0, GetName());
-        else
-        {
-            packet->Initialize(CHAT_MSG_CHANNEL, Language(lang), nullptr, nullptr, what, 0, GetName());
-            packet->SenderGUID = guid;
-            packet->TargetGUID = guid;
-        }
+    WorldPacket data;
+    ChatHandler::BuildChatPacket(data, ChatMsg::CHAT_MSG_CHANNEL, lang, guid, guid, what, chatTag, "", "", 0, isGM, _name);
 
-        return packet;
-    };
-
-    if (isSpamm)
-        SendToOne(builder, guid);
-    else
-        SendToAll(builder, !playerInfo.IsModerator() ? guid : ObjectGuid::Empty);
+    SendToAll(&data, !playersStore[guid].IsModerator() ? guid : false);
 }
 
 void Channel::Invite(Player const* player, std::string const& newname)
 {
-    if (sWorld->getBoolConfig(CONFIG_WORD_FILTER_ENABLE))
-        if (!sWordFilterMgr->FindBadWord(newname, true).empty())
-            return;
+    uint64 guid = player->GetGUID();
 
-    ObjectGuid const& guid = player->GetGUID();
     if (!IsOn(guid))
     {
-        NotMemberAppend appender;
-        ChannelNameBuilder<NotMemberAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeNotMember(&data);
+        SendToOne(&data, guid);
         return;
     }
 
-    Player* newp = ObjectAccessor::FindPlayerByName(newname);
+    Player* newp = sObjectAccessor->FindPlayerByName(newname);
     if (!newp || !newp->isGMVisible())
     {
-        PlayerNotFoundAppend appender(newname);
-        ChannelNameBuilder<PlayerNotFoundAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakePlayerNotFound(&data, newname);
+        SendToOne(&data, guid);
         return;
     }
 
     if (IsBanned(newp->GetGUID()))
     {
-        PlayerInviteBannedAppend appender(newname);
-        ChannelNameBuilder<PlayerInviteBannedAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakePlayerInviteBanned(&data, newname);
+        SendToOne(&data, guid);
         return;
     }
 
-    if (newp->GetTeam() != player->GetTeam() && !sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_CHANNEL))
+    if (newp->GetTeam() != player->GetTeam() &&
+        (!player->GetSession()->HasPermission(rbac::RBAC_PERM_TWO_SIDE_INTERACTION_CHANNEL) ||
+        !newp->GetSession()->HasPermission(rbac::RBAC_PERM_TWO_SIDE_INTERACTION_CHANNEL)))
     {
-        InviteWrongFactionAppend appender;
-        ChannelNameBuilder<InviteWrongFactionAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakeInviteWrongFaction(&data);
+        SendToOne(&data, guid);
         return;
     }
 
     if (IsOn(newp->GetGUID()))
     {
-        PlayerAlreadyMemberAppend appender(newp->GetGUID());
-        ChannelNameBuilder<PlayerAlreadyMemberAppend> builder(this, appender);
-        SendToOne(builder, guid);
+        WorldPacket data;
+        MakePlayerAlreadyMember(&data, newp->GetGUID());
+        SendToOne(&data, guid);
         return;
     }
 
-    if (!newp->GetSocial()->HasIgnore(guid))
+    if (!newp->GetSocial()->HasIgnore(GUID_LOPART(guid)))
     {
-        InviteAppend appender(guid);
-        ChannelNameBuilder<InviteAppend> builder(this, appender);
-        SendToOne(builder, newp->GetGUID());
+        WorldPacket data;
+        MakeInvite(&data, guid);
+        SendToOne(&data, newp->GetGUID());
+        data.clear();
     }
 
-    PlayerInvitedAppend appender(newp->GetName());
-    ChannelNameBuilder<PlayerInvitedAppend> builder(this, appender);
-    SendToOne(builder, guid);
+    WorldPacket data;
+    MakePlayerInvited(&data, newp->GetName());
+    SendToOne(&data, guid);
 }
 
-void Channel::SetOwner(ObjectGuid const& guid, bool exclaim)
+void Channel::SetOwner(uint64 guid, bool exclaim)
 {
-    if (!_ownerGuid.IsEmpty())
+    if (_ownerGUID)
     {
-        auto itr = _playersStore.find(_ownerGuid);
-        if (itr != _playersStore.end())
-            itr->second.SetOwner(false);
+        // [] will re-add player after it possible removed
+        PlayerContainer::iterator p_itr = playersStore.find(_ownerGUID);
+        if (p_itr != playersStore.end())
+            p_itr->second.SetOwner(false);
     }
 
-    _ownerGuid = guid;
-    if (!_ownerGuid.IsEmpty())
+    _ownerGUID = guid;
+    if (_ownerGUID)
     {
-        uint8 oldFlag = GetPlayerFlags(_ownerGuid);
-        auto itr = _playersStore.find(_ownerGuid);
-        if (itr == _playersStore.end())
-            return;
-
-        itr->second.SetModerator(true);
-        itr->second.SetOwner(true);
-
-        ModeChangeAppend appender(_ownerGuid, oldFlag, GetPlayerFlags(_ownerGuid));
-        ChannelNameBuilder<ModeChangeAppend> builder(this, appender);
-        SendToAll(builder);
-
+        uint8 oldFlag = GetPlayerFlags(_ownerGUID);
+        playersStore[_ownerGUID].SetModerator(true);
+        playersStore[_ownerGUID].SetOwner(true);
         if (exclaim)
         {
-            OwnerChangedAppend ownerChangedAppender(_ownerGuid);
-            ChannelNameBuilder<OwnerChangedAppend> ownerChangedBuilder(this, ownerChangedAppender);
-            SendToAll(ownerChangedBuilder);
+            WorldPacket data;
+            MakeModeChange(&data, _ownerGUID, oldFlag);
+            SendToAll(&data);
+
+            MakeOwnerChanged(&data, _ownerGUID);
+            SendToAll(&data);
         }
 
         UpdateChannelInDB();
     }
 }
 
-void Channel::DeclineInvite(Player const* /*player*/)
+void Channel::SendToAll(WorldPacket* data, uint64 guid)
 {
+    for (PlayerContainer::const_iterator i = playersStore.begin(); i != playersStore.end(); ++i)
+        if (Player* player = ObjectAccessor::FindPlayer(i->first))
+            if (!guid || !player->GetSocial()->HasIgnore(GUID_LOPART(guid)))
+                player->GetSession()->SendPacket(data);
 }
 
-void Channel::SilenceAll(Player const* /*player*/, std::string const& /*name*/)
+void Channel::SendToAllButOne(WorldPacket* data, uint64 who)
 {
+    for (PlayerContainer::const_iterator i = playersStore.begin(); i != playersStore.end(); ++i)
+        if (i->first != who)
+            if (Player* player = ObjectAccessor::FindPlayer(i->first))
+                player->GetSession()->SendPacket(data);
 }
 
-void Channel::UnsilenceAll(Player const* /*player*/, std::string const& /*name*/)
+void Channel::SendToOne(WorldPacket* data, uint64 who)
 {
+    if (Player* player = ObjectAccessor::FindPlayer(who))
+        player->GetSession()->SendPacket(data);
 }
 
-void Channel::JoinNotify(ObjectGuid const& guid)
+void Channel::Voice(uint64 /*guid1*/, uint64 /*guid2*/) { }
+
+void Channel::DeVoice(uint64 /*guid1*/, uint64 /*guid2*/) { }
+
+void Channel::MakeNotifyPacket(WorldPacket* data, uint8 notify_type)
 {
+    data->Initialize(SMSG_CHANNEL_NOTIFY, 1 + _name.size());
+    *data << uint8(notify_type);
+    *data << _name;
+}
+
+void Channel::MakeJoined(WorldPacket* data, uint64 guid)
+{
+    MakeNotifyPacket(data, CHAT_JOINED_NOTICE);
+    *data << uint64(guid);
+}
+
+void Channel::MakeLeft(WorldPacket* data, uint64 guid)
+{
+    MakeNotifyPacket(data, CHAT_LEFT_NOTICE);
+    *data << uint64(guid);
+}
+
+void Channel::MakeYouJoined(WorldPacket* data)
+{
+    MakeNotifyPacket(data, CHAT_YOU_JOINED_NOTICE);
+    *data << uint8(GetFlags());
+    *data << uint32(GetChannelId());
+    *data << uint32(0);
+}
+
+void Channel::MakeYouLeft(WorldPacket* data)
+{
+    MakeNotifyPacket(data, CHAT_YOU_LEFT_NOTICE);
+    *data << uint32(GetChannelId());
+    *data << uint8(IsConstant());
+}
+
+void Channel::MakeWrongPassword(WorldPacket* data)
+{
+    MakeNotifyPacket(data, CHAT_WRONG_PASSWORD_NOTICE);
+}
+
+void Channel::MakeNotMember(WorldPacket* data)
+{
+    MakeNotifyPacket(data, CHAT_NOT_MEMBER_NOTICE);
+}
+
+void Channel::MakeNotModerator(WorldPacket* data)
+{
+    MakeNotifyPacket(data, CHAT_NOT_MODERATOR_NOTICE);
+}
+
+void Channel::MakePasswordChanged(WorldPacket* data, uint64 guid)
+{
+    MakeNotifyPacket(data, CHAT_PASSWORD_CHANGED_NOTICE);
+    *data << uint64(guid);
+}
+
+void Channel::MakeOwnerChanged(WorldPacket* data, uint64 guid)
+{
+    MakeNotifyPacket(data, CHAT_OWNER_CHANGED_NOTICE);
+    *data << uint64(guid);
+}
+
+void Channel::MakePlayerNotFound(WorldPacket* data, std::string const& name)
+{
+    MakeNotifyPacket(data, CHAT_PLAYER_NOT_FOUND_NOTICE);
+    *data << name;
+}
+
+void Channel::MakeNotOwner(WorldPacket* data)
+{
+    MakeNotifyPacket(data, CHAT_NOT_OWNER_NOTICE);
+}
+
+void Channel::MakeChannelOwner(WorldPacket* data)
+{
+    std::string name = "";
+
+    if (!sObjectMgr->GetPlayerNameByGUID(_ownerGUID, name) || name.empty())
+        name = "PLAYER_NOT_FOUND";
+
+    MakeNotifyPacket(data, CHAT_CHANNEL_OWNER_NOTICE);
+    *data << ((IsConstant() || !_ownerGUID) ? "Nobody" : name);
+}
+
+void Channel::MakeModeChange(WorldPacket* data, uint64 guid, uint8 oldflags)
+{
+    MakeNotifyPacket(data, CHAT_MODE_CHANGE_NOTICE);
+    *data << uint64(guid);
+    *data << uint8(oldflags);
+    *data << uint8(GetPlayerFlags(guid));
+}
+
+void Channel::MakeAnnouncementsOn(WorldPacket* data, uint64 guid)
+{
+    MakeNotifyPacket(data, CHAT_ANNOUNCEMENTS_ON_NOTICE);
+    *data << uint64(guid);
+}
+
+void Channel::MakeAnnouncementsOff(WorldPacket* data, uint64 guid)
+{
+    MakeNotifyPacket(data, CHAT_ANNOUNCEMENTS_OFF_NOTICE);
+    *data << uint64(guid);
+}
+
+void Channel::MakeMuted(WorldPacket* data)
+{
+    MakeNotifyPacket(data, CHAT_MUTED_NOTICE);
+}
+
+void Channel::MakePlayerKicked(WorldPacket* data, uint64 bad, uint64 good)
+{
+    MakeNotifyPacket(data, CHAT_PLAYER_KICKED_NOTICE);
+    *data << uint64(bad);
+    *data << uint64(good);
+}
+
+void Channel::MakeBanned(WorldPacket* data)
+{
+    MakeNotifyPacket(data, CHAT_BANNED_NOTICE);
+}
+
+void Channel::MakePlayerBanned(WorldPacket* data, uint64 bad, uint64 good)
+{
+    MakeNotifyPacket(data, CHAT_PLAYER_BANNED_NOTICE);
+    *data << uint64(bad);
+    *data << uint64(good);
+}
+
+void Channel::MakePlayerUnbanned(WorldPacket* data, uint64 bad, uint64 good)
+{
+    MakeNotifyPacket(data, CHAT_PLAYER_UNBANNED_NOTICE);
+    *data << uint64(bad);
+    *data << uint64(good);
+}
+
+void Channel::MakePlayerNotBanned(WorldPacket* data, const std::string &name)
+{
+    MakeNotifyPacket(data, CHAT_PLAYER_NOT_BANNED_NOTICE);
+    *data << name;
+}
+
+void Channel::MakePlayerAlreadyMember(WorldPacket* data, uint64 guid)
+{
+    MakeNotifyPacket(data, CHAT_PLAYER_ALREADY_MEMBER_NOTICE);
+    *data << uint64(guid);
+}
+
+void Channel::MakeInvite(WorldPacket* data, uint64 guid)
+{
+    MakeNotifyPacket(data, CHAT_INVITE_NOTICE);
+    *data << uint64(guid);
+}
+
+void Channel::MakeInviteWrongFaction(WorldPacket* data)
+{
+    MakeNotifyPacket(data, CHAT_INVITE_WRONG_FACTION_NOTICE);
+}
+
+void Channel::MakeWrongFaction(WorldPacket* data)
+{
+    MakeNotifyPacket(data, CHAT_WRONG_FACTION_NOTICE);
+}
+
+void Channel::MakeInvalidName(WorldPacket* data)
+{
+    MakeNotifyPacket(data, CHAT_INVALID_NAME_NOTICE);
+}
+
+void Channel::MakeNotModerated(WorldPacket* data)
+{
+    MakeNotifyPacket(data, CHAT_NOT_MODERATED_NOTICE);
+}
+
+void Channel::MakePlayerInvited(WorldPacket* data, const std::string& name)
+{
+    MakeNotifyPacket(data, CHAT_PLAYER_INVITED_NOTICE);
+    *data << name;
+}
+
+void Channel::MakePlayerInviteBanned(WorldPacket* data, const std::string& name)
+{
+    MakeNotifyPacket(data, CHAT_PLAYER_INVITE_BANNED_NOTICE);
+    *data << name;
+}
+
+void Channel::MakeThrottled(WorldPacket* data)
+{
+    MakeNotifyPacket(data, CHAT_THROTTLED_NOTICE);
+}
+
+void Channel::MakeNotInArea(WorldPacket* data)
+{
+    MakeNotifyPacket(data, CHAT_NOT_IN_AREA_NOTICE);
+}
+
+void Channel::MakeNotInLfg(WorldPacket* data)
+{
+    MakeNotifyPacket(data, CHAT_NOT_IN_LFG_NOTICE);
+}
+
+void Channel::MakeVoiceOn(WorldPacket* data, uint64 guid)
+{
+    MakeNotifyPacket(data, CHAT_VOICE_ON_NOTICE);
+    *data << uint64(guid);
+}
+
+void Channel::MakeVoiceOff(WorldPacket* data, uint64 guid)
+{
+    MakeNotifyPacket(data, CHAT_VOICE_OFF_NOTICE);
+    *data << uint64(guid);
+}
+
+void Channel::JoinNotify(ObjectGuid UserGUID, uint32 ChannelID, uint8 ChannelFlags, uint8 UserFlags, const std::string ChannelName)
+{
+    WorldPacket data(IsConstant() ? SMSG_USERLIST_ADD : SMSG_USERLIST_UPDATE, 8 + 1 + 1 + 4 + ChannelName.size());
     if (IsConstant())
     {
-        auto builder = [&](LocaleConstant locale)
-        {
-            auto userlistAdd = new WorldPackets::Channel::UserlistAdd();
-            userlistAdd->AddedUserGUID = guid;
-            userlistAdd->_ChannelFlags = GetFlags();
-            userlistAdd->UserFlags = GetPlayerFlags(guid);
-            userlistAdd->ChannelID = GetChannelId();
-            userlistAdd->ChannelName = GetName();
-            return userlistAdd;
-        };
-
-        SendToAllButOne(builder, guid);
+        data << uint32(ChannelID);
+        data << uint8(ChannelFlags);
+        data << uint8(UserFlags);
+        data.WriteGuidMask(UserGUID, 7);
+        data.WriteBits(ChannelName.size(), 7);
+        data.WriteGuidMask(UserGUID, 0, 5, 4, 6, 1, 3, 2);
+        data.FlushBits();
+        data.WriteGuidBytes(UserGUID, 4, 5, 7, 1, 2, 3, 6, 0);
+        data << ChannelName;
+        SendToAllButOne(&data, UserGUID);
     }
     else
-    {
-        auto builder = [&](LocaleConstant locale)
-        {
-            auto* userlistUpdate = new WorldPackets::Channel::UserlistUpdate();
-            userlistUpdate->UpdatedUserGUID = guid;
-            userlistUpdate->_ChannelFlags = GetFlags();
-            userlistUpdate->UserFlags = GetPlayerFlags(guid);
-            userlistUpdate->ChannelID = GetChannelId();
-            userlistUpdate->ChannelName = GetName();
-            return userlistUpdate;
-        };
-
-        SendToAll(builder);
+    { 
+        data.WriteGuidMask(UserGUID, 2, 6, 3, 7, 5, 1, 0);
+        data.WriteBits(ChannelName.size(), 7);
+        data.WriteGuidMask(UserGUID, 4);
+        data.FlushBits();
+        data.WriteGuidBytes(UserGUID, 0, 2, 6, 5);
+        data << uint8(ChannelFlags);
+        data.WriteGuidBytes(UserGUID, 7, 3);
+        data << uint32(ChannelID);
+        data << GetName();
+        data.WriteGuidBytes(UserGUID, 1, 4);
+        data << uint8(UserFlags);
+        SendToAll(&data);
     }
 }
 
-void Channel::LeaveNotify(ObjectGuid const& guid)
+void Channel::LeaveNotify(ObjectGuid UserGUID, uint32 ChannelID, uint8 ChannelFlags, const std::string ChannelName)
 {
-    auto builder = [&](LocaleConstant locale)
-    {
-        auto userlistRemove = new WorldPackets::Channel::UserlistRemove();
-        userlistRemove->RemovedUserGUID = guid;
-        userlistRemove->_ChannelFlags = GetFlags();
-        userlistRemove->ChannelID = GetChannelId();
-        userlistRemove->ChannelName = GetName();
-        return userlistRemove;
-    };
+    WorldPacket data(SMSG_USERLIST_REMOVE, 8 + 1 + 4 + ChannelName.size());
+
+    data.WriteBits(ChannelName.size(), 7);
+    data.WriteGuidMask(UserGUID, 6, 0, 5, 4, 3, 1, 7, 2);
+    data.FlushBits();
+    data.WriteGuidBytes(UserGUID, 1, 4);
+    data << uint8(ChannelFlags);
+    data.WriteGuidBytes(UserGUID, 6, 5);
+    data << uint32(ChannelID);
+    data.WriteGuidBytes(UserGUID, 2, 7, 0);
+    data << ChannelName;
+    data.WriteGuidBytes(UserGUID, 3);
 
     if (IsConstant())
-        SendToAllButOne(builder, guid);
+        SendToAllButOne(&data, UserGUID);
     else
-        SendToAll(builder);
-}
-
-void Channel::SetModerator(ObjectGuid const& guid, bool set)
-{
-    if (!IsOn(guid))
-        return;
-
-    PlayerInfo& playerInfo = _playersStore[guid];
-    if (playerInfo.IsModerator() != set)
-    {
-        uint8 oldFlag = GetPlayerFlags(guid);
-        playerInfo.SetModerator(set);
-
-        ModeChangeAppend appender(guid, oldFlag, GetPlayerFlags(guid));
-        ChannelNameBuilder<ModeChangeAppend> builder(this, appender);
-        SendToAll(builder);
-    }
-}
-
-void Channel::SetMute(ObjectGuid const& guid, bool set)
-{
-    if (!IsOn(guid))
-        return;
-
-    PlayerInfo& playerInfo = _playersStore[guid];
-    if (playerInfo.IsMuted() != set)
-    {
-        uint8 oldFlag = GetPlayerFlags(guid);
-        playerInfo.SetMuted(set);
-
-        ModeChangeAppend appender(guid, oldFlag, GetPlayerFlags(guid));
-        ChannelNameBuilder<ModeChangeAppend> builder(this, appender);
-        SendToAll(builder);
-    }
-}
-
-void Channel::AddonSay(ObjectGuid const& guid, std::string const& prefix, std::string const& what)
-{
-    if (what.empty())
-        return;
-
-    if (!IsOn(guid))
-    {
-        NotMemberAppend appender;
-        ChannelNameBuilder<NotMemberAppend> builder(this, appender);
-        SendToOne(builder, guid);
-        return;
-    }
-
-    PlayerInfo const& playerInfo = _playersStore[guid];
-    if (playerInfo.IsMuted())
-    {
-        MutedAppend appender;
-        ChannelNameBuilder<MutedAppend> builder(this, appender);
-        SendToOne(builder, guid);
-        return;
-    }
-
-    auto builder = [&](LocaleConstant locale)
-    {
-        auto packet = new WorldPackets::Chat::Chat();
-        if (auto player = ObjectAccessor::FindPlayer(guid))
-            packet->Initialize(CHAT_MSG_CHANNEL, LANG_ADDON, player, player, what, 0, GetName(), DEFAULT_LOCALE, prefix);
-        else
-        {
-            packet->Initialize(CHAT_MSG_CHANNEL, LANG_ADDON, nullptr, nullptr, what, 0, GetName(), DEFAULT_LOCALE, prefix);
-            packet->SenderGUID = guid;
-            packet->TargetGUID = guid;
-        }
-
-        return packet;
-    };
-
-    SendToAllWithAddon(builder, prefix, !_playersStore[guid].IsModerator() ? guid : ObjectGuid::Empty);
-}
-
-template <class Builder>
-void Channel::SendToAll(Builder& builder, ObjectGuid const& guid) const
-{
-    Trinity::LocalizedPacketDo<Builder> localizer(builder);
-
-    for (auto const& i : _playersStore)
-        if (auto player = ObjectAccessor::FindPlayer(i.first))
-            if (guid.IsEmpty() || !player->GetSocial()->HasIgnore(guid))
-                localizer(player);
-}
-
-template <class Builder>
-void Channel::SendToAllButOne(Builder& builder, ObjectGuid const& who) const
-{
-    Trinity::LocalizedPacketDo<Builder> localizer(builder);
-
-    for (auto const& i : _playersStore)
-        if (i.first != who)
-            if (auto player = ObjectAccessor::FindPlayer(i.first))
-                localizer(player);
-}
-
-template <class Builder>
-void Channel::SendToOne(Builder& builder, ObjectGuid const& who) const
-{
-    Trinity::LocalizedPacketDo<Builder> localizer(builder);
-
-    if (auto player = ObjectAccessor::FindPlayer(who))
-        localizer(player);
-}
-
-template <class Builder>
-void Channel::SendToAllWithAddon(Builder& builder, std::string const& addonPrefix, ObjectGuid const& guid /*= ObjectGuid::Empty*/) const
-{
-    Trinity::LocalizedPacketDo<Builder> localizer(builder);
-
-    for (auto const& i : _playersStore)
-        if (auto player = ObjectAccessor::FindPlayer(i.first))
-            if (player->GetSession()->IsAddonRegistered(addonPrefix) && (guid.IsEmpty() || !player->GetSocial()->HasIgnore(guid)))
-                localizer(player);
+        SendToAll(&data);
 }

@@ -1,9 +1,12 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -75,22 +78,13 @@ class boss_trollgore : public CreatureScript
         {
             boss_trollgoreAI(Creature* creature) : BossAI(creature, DATA_TROLLGORE) { }
 
-            bool aggroPlayer;
-
-            void Reset() override
+            void Reset() OVERRIDE
             {
                 _Reset();
-                aggroPlayer = false;
                 _consumptionJunction = true;
             }
 
-            void EnterCombat(Unit* who) override
-            {
-                if (who->IsPlayer())
-                    _OnCombat();
-            }
-
-            void _OnCombat()
+            void EnterCombat(Unit* /*who*/) OVERRIDE
             {
                 _EnterCombat();
                 Talk(SAY_AGGRO);
@@ -102,16 +96,7 @@ class boss_trollgore : public CreatureScript
                 events.ScheduleEvent(EVENT_SPAWN, urand(30000, 40000));
             }
 
-            void DamageTaken(Unit* attacker, uint32& damage, DamageEffectType dmgType) override
-            {
-                if (!aggroPlayer && (attacker->IsPlayer() || attacker->isPet()))
-                {
-                    aggroPlayer = true;
-                    _OnCombat();
-                }
-            }
-
-            void UpdateAI(uint32 diff) override
+            void UpdateAI(uint32 diff) OVERRIDE
             {
                 if (!UpdateVictim())
                     return;
@@ -145,7 +130,7 @@ class boss_trollgore : public CreatureScript
                             break;
                         case EVENT_SPAWN:
                             for (uint8 i = 0; i < 3; ++i)
-                                if (Creature* trigger = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_TROLLGORE_INVADER_SUMMONER_1 + i)))
+                                if (Creature* trigger = ObjectAccessor::GetCreature(*me, instance->GetData64(DATA_TROLLGORE_INVADER_SUMMONER_1 + i)))
                                     trigger->CastSpell(trigger, RAND(SPELL_SUMMON_INVADER_A, SPELL_SUMMON_INVADER_B, SPELL_SUMMON_INVADER_C), true, NULL, NULL, me->GetGUID());
 
                             events.ScheduleEvent(EVENT_SPAWN, urand(30000, 40000));
@@ -165,13 +150,13 @@ class boss_trollgore : public CreatureScript
                 DoMeleeAttackIfReady();
             }
 
-            void JustDied(Unit* /*killer*/) override
+            void JustDied(Unit* /*killer*/) OVERRIDE
             {
                 _JustDied();
                 Talk(SAY_DEATH);
             }
 
-            uint32 GetData(uint32 type) const override
+            uint32 GetData(uint32 type) const OVERRIDE
             {
                 if (type == DATA_CONSUMPTION_JUNCTION)
                     return _consumptionJunction ? 1 : 0;
@@ -179,15 +164,15 @@ class boss_trollgore : public CreatureScript
                 return 0;
             }
 
-            void KilledUnit(Unit* victim) override
+            void KilledUnit(Unit* victim) OVERRIDE
             {
-                if (victim->GetTypeId() != TYPEID_PLAYER)
+                if (victim->GetTypeId() != TypeID::TYPEID_PLAYER)
                     return;
 
                 Talk(SAY_KILL);
             }
 
-            void JustSummoned(Creature* summon) override
+            void JustSummoned(Creature* summon) OVERRIDE
             {
                 summon->GetMotionMaster()->MovePoint(POINT_LANDING, Landing);
                 summons.Summon(summon);
@@ -197,9 +182,9 @@ class boss_trollgore : public CreatureScript
                 bool _consumptionJunction;
         };
 
-        CreatureAI* GetAI(Creature* creature) const override
+        CreatureAI* GetAI(Creature* creature) const OVERRIDE
         {
-            return GetInstanceAI<boss_trollgoreAI>(creature);
+            return GetDrakTharonKeepAI<boss_trollgoreAI>(creature);
         }
 };
 
@@ -212,7 +197,7 @@ class npc_drakkari_invader : public CreatureScript
         {
             npc_drakkari_invaderAI(Creature* creature) : ScriptedAI(creature) { }
 
-            void MovementInform(uint32 type, uint32 pointId) override
+            void MovementInform(uint32 type, uint32 pointId) OVERRIDE
             {
                 if (type == POINT_MOTION_TYPE && pointId == POINT_LANDING)
                 {
@@ -223,9 +208,9 @@ class npc_drakkari_invader : public CreatureScript
             }
         };
 
-        CreatureAI* GetAI(Creature* creature) const override
+        CreatureAI* GetAI(Creature* creature) const OVERRIDE
         {
-            return GetInstanceAI<npc_drakkari_invaderAI>(creature);
+            return GetDrakTharonKeepAI<npc_drakkari_invaderAI>(creature);
         }
 };
 
@@ -239,7 +224,7 @@ class spell_trollgore_consume : public SpellScriptLoader
         {
             PrepareSpellScript(spell_trollgore_consume_SpellScript);
 
-            bool Validate(SpellInfo const* /*spellInfo*/) override
+            bool Validate(SpellInfo const* /*spellInfo*/) OVERRIDE
             {
                 if (!sSpellMgr->GetSpellInfo(SPELL_CONSUME_BUFF))
                     return false;
@@ -252,13 +237,13 @@ class spell_trollgore_consume : public SpellScriptLoader
                     target->CastSpell(GetCaster(), SPELL_CONSUME_BUFF, true);
             }
 
-            void Register() override
+            void Register() OVERRIDE
             {
                 OnEffectHitTarget += SpellEffectFn(spell_trollgore_consume_SpellScript::HandleConsume, EFFECT_1, SPELL_EFFECT_SCRIPT_EFFECT);
             }
         };
 
-        SpellScript* GetSpellScript() const override
+        SpellScript* GetSpellScript() const OVERRIDE
         {
             return new spell_trollgore_consume_SpellScript();
         }
@@ -274,7 +259,7 @@ class spell_trollgore_corpse_explode : public SpellScriptLoader
         {
             PrepareAuraScript(spell_trollgore_corpse_explode_AuraScript);
 
-            bool Validate(SpellInfo const* /*spellInfo*/) override
+            bool Validate(SpellInfo const* /*spellInfo*/) OVERRIDE
             {
                 if (!sSpellMgr->GetSpellInfo(SPELL_CORPSE_EXPLODE_DAMAGE))
                     return false;
@@ -294,14 +279,14 @@ class spell_trollgore_corpse_explode : public SpellScriptLoader
                     target->DespawnOrUnsummon();
             }
 
-            void Register() override
+            void Register() OVERRIDE
             {
                 OnEffectPeriodic += AuraEffectPeriodicFn(spell_trollgore_corpse_explode_AuraScript::PeriodicTick, EFFECT_0, SPELL_AURA_PERIODIC_DUMMY);
                 AfterEffectRemove += AuraEffectRemoveFn(spell_trollgore_corpse_explode_AuraScript::HandleRemove, EFFECT_0, SPELL_AURA_PERIODIC_DUMMY, AURA_EFFECT_HANDLE_REAL);
             }
         };
 
-        AuraScript* GetAuraScript() const override
+        AuraScript* GetAuraScript() const OVERRIDE
         {
             return new spell_trollgore_corpse_explode_AuraScript();
         }
@@ -317,9 +302,9 @@ class spell_trollgore_invader_taunt : public SpellScriptLoader
         {
             PrepareSpellScript(spell_trollgore_invader_taunt_SpellScript);
 
-            bool Validate(SpellInfo const* spellInfo) override
+            bool Validate(SpellInfo const* spellInfo) OVERRIDE
             {
-                if (!sSpellMgr->GetSpellInfo(spellInfo->Effects[EFFECT_0]->CalcValue()))
+                if (!sSpellMgr->GetSpellInfo(spellInfo->Effects[EFFECT_0].CalcValue()))
                     return false;
                 return true;
             }
@@ -330,13 +315,13 @@ class spell_trollgore_invader_taunt : public SpellScriptLoader
                     target->CastSpell(GetCaster(), uint32(GetEffectValue()), true);
             }
 
-            void Register() override
+            void Register() OVERRIDE
             {
                 OnEffectHitTarget += SpellEffectFn(spell_trollgore_invader_taunt_SpellScript::HandleTaunt, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
             }
         };
 
-        SpellScript* GetSpellScript() const override
+        SpellScript* GetSpellScript() const OVERRIDE
         {
             return new spell_trollgore_invader_taunt_SpellScript();
         }
@@ -349,7 +334,7 @@ class achievement_consumption_junction : public AchievementCriteriaScript
         {
         }
 
-        bool OnCheck(Player* /*player*/, Unit* target) override
+        bool OnCheck(Player* /*player*/, Unit* target) OVERRIDE
         {
             if (!target)
                 return false;

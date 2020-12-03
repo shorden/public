@@ -199,8 +199,6 @@ extern DBCStorage <ResearchProjectEntry>         sResearchProjectStore;
 extern DBCStorage <ResearchSiteEntry>            sResearchSiteStore;
 extern DBCStorage <ScalingStatDistributionEntry> sScalingStatDistributionStore;
 extern DBCStorage <ScalingStatValuesEntry>       sScalingStatValuesStore;
-extern DBCStorage <ScenarioEntry>                sScenarioStore;
-extern DBCStorage <ScenarioStepEntry>            sScenarioStepStore;
 extern DBCStorage <SkillLineEntry>               sSkillLineStore;
 extern DBCStorage <SkillLineAbilityEntry>        sSkillLineAbilityStore;
 extern DBCStorage <SoundEntriesEntry>            sSoundEntriesStore;

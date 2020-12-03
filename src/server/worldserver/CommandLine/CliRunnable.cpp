@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -16,7 +17,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/// \addtogroup Trinityd
+/// \addtogroup Skyfired
 /// @{
 /// \file
 
@@ -39,11 +40,11 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
-char * command_finder(const char* text, int state)
+char* command_finder(const char* text, int state)
 {
-    static int idx, len;
+    static size_t idx, len;
     const char* ret;
-    ChatCommand* cmd = ChatHandler::getCommandTable();
+    std::vector<ChatCommand> const& cmd = ChatHandler::getCommandTable();
 
     if (!state)
     {
@@ -51,45 +52,39 @@ char * command_finder(const char* text, int state)
         len = strlen(text);
     }
 
-    while ((ret = cmd[idx].Name))
+    while (idx < cmd.size())
     {
+        ret = cmd[idx].Name;
         if (!cmd[idx].AllowConsole)
         {
-            idx++;
+            ++idx;
             continue;
         }
 
-        idx++;
+        ++idx;
         //printf("Checking %s \n", cmd[idx].Name);
         if (strncmp(ret, text, len) == 0)
             return strdup(ret);
-        if (cmd[idx].Name == NULL)
-            break;
     }
 
     return ((char*)NULL);
 }
 
-char ** cli_completion(const char * text, int start, int /*end*/)
+char** cli_completion(const char* text, int start, int /*end*/)
 {
-    char ** matches;
-    matches = (char**)NULL;
+    char** matches = NULL;
 
-    if (start == 0)
-        matches = rl_completion_matches((char*)text, &command_finder);
-/*#ifdef PLATFORM != PLATFORM_APPLE
-    else
+    if (start)
         rl_bind_key('\t', rl_abort);
-#endif*/
-    return (matches);
+    else
+        matches = rl_completion_matches((char*)text, &command_finder);
+    return matches;
 }
 
-int cli_hook_func(void)
+int cli_hook_func()
 {
-#ifdef PLATFORM != PLATFORM_APPLE
        if (World::IsStopped())
            rl_done = 1;
-#endif
        return 0;
 }
 
@@ -116,7 +111,7 @@ void utf8print(void* /*arg*/, const char* str)
 
 void commandFinished(void*, bool /*success*/)
 {
-    printf("TC> ");
+    printf("SF> ");
     fflush(stdout);
 }
 
@@ -136,15 +131,13 @@ int kb_hit_return()
 #endif
 
 /// %Thread start
-void CliThread()
+void CliRunnable::run()
 {
     ///- Display the list of available CLI functions then beep
-    //TC_LOG_INFO(LOG_FILTER_WORLDSERVER, "");
+    //SF_LOG_INFO("server.worldserver", "");
 #if PLATFORM != PLATFORM_WINDOWS
     rl_attempted_completion_function = cli_completion;
-    #ifdef PLATFORM != PLATFORM_APPLE
     rl_event_hook = cli_hook_func;
-    #endif
 #endif
 
     if (sConfigMgr->GetBoolDefault("BeepAtStart", true))
@@ -152,7 +145,7 @@ void CliThread()
 
     // print this here the first time
     // later it will be printed after command queue updates
-    printf("TC>");
+    printf("SF>");
 
     ///- As long as the World is running (no World::m_stopEvent), get the command line and handle it
     while (!World::IsStopped())
@@ -165,7 +158,7 @@ void CliThread()
         char commandbuf[256];
         command_str = fgets(commandbuf, sizeof(commandbuf), stdin);
 #else
-        command_str = readline("TC>");
+        command_str = readline("SF>");
         rl_bind_key('\t', rl_complete);
 #endif
 
@@ -181,7 +174,7 @@ void CliThread()
             if (!*command_str)
             {
 #if PLATFORM == PLATFORM_WINDOWS
-                printf("TC>");
+                printf("SF>");
 #else
                 free(command_str);
 #endif
@@ -192,7 +185,7 @@ void CliThread()
             if (!consoleToUtf8(command_str, command))         // convert from console encoding to utf8
             {
 #if PLATFORM == PLATFORM_WINDOWS
-                printf("TC>");
+                printf("SF>");
 #else
                 free(command_str);
 #endif

@@ -1,9 +1,12 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -18,31 +21,25 @@
 #include "ScriptMgr.h"
 #include "ScriptedCreature.h"
 #include "ScriptedEscortAI.h"
+#include "Player.h"
+#include "SpellInfo.h"
+#include "CreatureTextMgr.h"
 
 //How to win friends and influence enemies
 // texts signed for creature 28939 but used for 28939, 28940, 28610
 enum win_friends
 {
-    SAY_PERSUADE1                     = 1,
-    SAY_PERSUADE2                     = 2,
-    SAY_PERSUADE3                     = 3,
-    SAY_PERSUADE4                     = 4,
-    SAY_PERSUADE5                     = 5,
-    SAY_PERSUADE6                     = 6,
-    SAY_PERSUADE7                     = 7,
-    SAY_CRUSADER1                     = 8,
-    SAY_CRUSADER2                     = 9,
-    SAY_CRUSADER3                     = 10,
-    SAY_CRUSADER4                     = 11,
-    SAY_CRUSADER5                     = 12,
-    SAY_CRUSADER6                     = 13,
-    SAY_PERSUADED1                    = 14,
-    SAY_PERSUADED2                    = 15,
-    SAY_PERSUADED3                    = 16,
-    SAY_PERSUADED4                    = 17,
-    SAY_PERSUADED5                    = 18,
-    SAY_PERSUADED6                    = 19,
-    SPELL_PERSUASIVE_STRIKE           = 52781
+    SAY_CRUSADER                      = 1,
+    SAY_PERSUADED1                    = 2,
+    SAY_PERSUADED2                    = 3,
+    SAY_PERSUADED3                    = 4,
+    SAY_PERSUADED4                    = 5,
+    SAY_PERSUADED5                    = 6,
+    SAY_PERSUADED6                    = 7,
+    SAY_PERSUADE_RAND                 = 8,
+    SPELL_PERSUASIVE_STRIKE           = 52781,
+    SPELL_THREAT_PULSE                = 58111,
+    QUEST_HOW_TO_WIN_FRIENDS          = 12720,
 };
 
 class npc_crusade_persuaded : public CreatureScript
@@ -50,115 +47,105 @@ class npc_crusade_persuaded : public CreatureScript
 public:
     npc_crusade_persuaded() : CreatureScript("npc_crusade_persuaded") { }
 
-    CreatureAI* GetAI(Creature* creature) const
+    CreatureAI* GetAI(Creature* creature) const OVERRIDE
     {
-        return new npc_crusade_persuadedAI (creature);
+        return new npc_crusade_persuadedAI(creature);
     }
 
     struct npc_crusade_persuadedAI : public ScriptedAI
     {
-        npc_crusade_persuadedAI(Creature* creature) : ScriptedAI(creature) {}
+        npc_crusade_persuadedAI(Creature* creature) : ScriptedAI(creature) { }
 
-        uint32 uiSpeech_timer;
-        uint32 uiSpeech_counter;
-        ObjectGuid uiPlayerGUID;
+        uint32 speechTimer;
+        uint32 speechCounter;
+        uint64 playerGUID;
 
-        void Reset()
+        void Reset() OVERRIDE
         {
-            uiSpeech_timer = 0;
-            uiSpeech_counter = 0;
-            uiPlayerGUID.Clear();
+            speechTimer = 0;
+            speechCounter = 0;
+            playerGUID = 0;
             me->SetReactState(REACT_AGGRESSIVE);
             me->RestoreFaction();
         }
 
-        void SpellHit(Unit* caster, const SpellInfo* spell)
+        void SpellHit(Unit* caster, const SpellInfo* spell) OVERRIDE
         {
-            if (spell->Id == SPELL_PERSUASIVE_STRIKE && caster->IsPlayer() && me->isAlive() && !uiSpeech_counter)
+            if (spell->Id == SPELL_PERSUASIVE_STRIKE && caster->GetTypeId() == TypeID::TYPEID_PLAYER && me->IsAlive() && !speechCounter)
             {
-                if (CAST_PLR(caster)->GetQuestStatus(12720) == QUEST_STATUS_INCOMPLETE)
+                if (Player* player = caster->ToPlayer())
                 {
-                    if (roll_chance_i(5))
+                    if (player->GetQuestStatus(QUEST_HOW_TO_WIN_FRIENDS) == QUEST_STATUS_INCOMPLETE)
                     {
-                        uiPlayerGUID = caster->GetGUID();
-                        uiSpeech_timer = 1000;
-                        uiSpeech_counter = 1;
-                        me->setFaction(caster->getFaction());
+                        playerGUID = player->GetGUID();
+                        speechTimer = 1000;
+                        speechCounter = 1;
+                        me->setFaction(player->getFaction());
                         me->CombatStop(true);
                         me->GetMotionMaster()->MoveIdle();
                         me->SetReactState(REACT_PASSIVE);
-                        DoCastAOE(58111, true);
-                    }
-                    else if (roll_chance_i(20))
-                    {
-                        Talk(RAND(SAY_PERSUADE1, SAY_PERSUADE2, SAY_PERSUADE3,
-                                          SAY_PERSUADE4, SAY_PERSUADE5, SAY_PERSUADE6,
-                                          SAY_PERSUADE7));
-                    }
-                    else if (roll_chance_i(40)) 
-                    {
-                        Talk(RAND(SAY_CRUSADER1, SAY_CRUSADER2, SAY_CRUSADER3,
-                                          SAY_CRUSADER4, SAY_CRUSADER5, SAY_CRUSADER6));
+                        DoCastAOE(SPELL_THREAT_PULSE, true);
+
+                        sCreatureTextMgr->SendChat(me, SAY_PERSUADE_RAND, 0, ChatMsg::CHAT_MSG_ADDON, Language::LANG_ADDON, TEXT_RANGE_NORMAL, 0, TEAM_OTHER, false, player);
+                        Talk(SAY_CRUSADER);
                     }
                 }
             }
         }
 
-        void UpdateAI(uint32 diff)
+        void UpdateAI(uint32 diff) OVERRIDE
         {
-            if (uiSpeech_counter)
+            if (speechCounter)
             {
-                if (uiSpeech_timer <= diff)
+                if (speechTimer <= diff)
                 {
-                    Player* player = Unit::GetPlayer(*me, uiPlayerGUID);
+                    Player* player = ObjectAccessor::GetPlayer(*me, playerGUID);
                     if (!player)
                     {
                         EnterEvadeMode();
                         return;
                     }
 
-                    switch (uiSpeech_counter)
+                    switch (speechCounter)
                     {
                         case 1:
                             Talk(SAY_PERSUADED1);
-                            uiSpeech_timer = 8000;
+                            speechTimer = 8000;
                             break;
 
                         case 2:
                             Talk(SAY_PERSUADED2);
-                            uiSpeech_timer = 8000;
+                            speechTimer = 8000;
                             break;
 
                         case 3:
                             Talk(SAY_PERSUADED3);
-                            uiSpeech_timer = 8000;
+                            speechTimer = 8000;
                             break;
 
                         case 4:
                             Talk(SAY_PERSUADED4);
-                            uiSpeech_timer = 8000;
+                            speechTimer = 8000;
                             break;
 
                         case 5:
-                            Talk(SAY_PERSUADED5);
-                            uiSpeech_timer = 8000;
+                            sCreatureTextMgr->SendChat(me, SAY_PERSUADED5, 0, ChatMsg::CHAT_MSG_ADDON, Language::LANG_ADDON, TEXT_RANGE_NORMAL, 0, TEAM_OTHER, false, player);
+                            speechTimer = 8000;
                             break;
 
                         case 6:
                             Talk(SAY_PERSUADED6);
                             player->Kill(me);
-                            //me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
-                            //me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-                            uiSpeech_counter = 0;
-                            player->GroupEventHappens(12720, me);
+                            speechCounter = 0;
+                            player->GroupEventHappens(QUEST_HOW_TO_WIN_FRIENDS, me);
                             return;
                     }
 
-                    ++uiSpeech_counter;
-                    DoCast(me, 58111, true);
+                    ++speechCounter;
+                    DoCastAOE(SPELL_THREAT_PULSE, true);
                 }
                 else
-                    uiSpeech_timer -= diff;
+                    speechTimer -= diff;
 
                 return;
             }
@@ -169,7 +156,6 @@ public:
             DoMeleeAttackIfReady();
         }
     };
-
 };
 
 /*######
@@ -178,16 +164,16 @@ public:
 
 enum Koltira
 {
-    SAY_BREAKOUT1                   = 1,
-    SAY_BREAKOUT2                   = 2,
-    SAY_BREAKOUT3                   = 3,
-    SAY_BREAKOUT4                   = 4,
-    SAY_BREAKOUT5                   = 5,
-    SAY_BREAKOUT6                   = 6,
-    SAY_BREAKOUT7                   = 7,
-    SAY_BREAKOUT8                   = 8,
-    SAY_BREAKOUT9                   = 9,
-    SAY_BREAKOUT10                  = 10,
+    SAY_BREAKOUT1                   = 0,
+    SAY_BREAKOUT2                   = 1,
+    SAY_BREAKOUT3                   = 2,
+    SAY_BREAKOUT4                   = 3,
+    SAY_BREAKOUT5                   = 4,
+    SAY_BREAKOUT6                   = 5,
+    SAY_BREAKOUT7                   = 6,
+    SAY_BREAKOUT8                   = 7,
+    SAY_BREAKOUT9                   = 8,
+    SAY_BREAKOUT10                  = 9,
 
     SPELL_KOLTIRA_TRANSFORM         = 52899,
     SPELL_ANTI_MAGIC_ZONE           = 52894,
@@ -196,7 +182,6 @@ enum Koltira
 
     NPC_CRIMSON_ACOLYTE             = 29007,
     NPC_HIGH_INQUISITOR_VALROTH     = 29001,
-
 
     //not sure about this id
     //NPC_DEATH_KNIGHT_MOUNT        = 29201,
@@ -208,7 +193,7 @@ class npc_koltira_deathweaver : public CreatureScript
 public:
     npc_koltira_deathweaver() : CreatureScript("npc_koltira_deathweaver") { }
 
-    bool OnQuestAccept(Player* player, Creature* creature, const Quest* quest)
+    bool OnQuestAccept(Player* player, Creature* creature, const Quest* quest) OVERRIDE
     {
         if (quest->GetQuestId() == QUEST_BREAKOUT)
         {
@@ -227,13 +212,13 @@ public:
             me->SetReactState(REACT_DEFENSIVE);
         }
 
-        void Reset()
+        void Reset() OVERRIDE
         {
             if (!HasEscortState(STATE_ESCORT_ESCORTING))
             {
                 wave = 0;
                 waveTimer = 3000;
-                valrothGUID.Clear();
+                valrothGUID = 0;
                 me->LoadEquipment(0, true);
                 me->RemoveAurasDueToSpell(SPELL_ANTI_MAGIC_ZONE);
                 me->RemoveAurasDueToSpell(SPELL_KOLTIRA_TRANSFORM);
@@ -241,7 +226,7 @@ public:
             }
         }
 
-        void WaypointReached(uint32 waypointId)
+        void WaypointReached(uint32 waypointId) OVERRIDE
         {
             switch (waypointId)
             {
@@ -275,7 +260,7 @@ public:
             }
         }
 
-        void JustSummoned(Creature* summoned)
+        void JustSummoned(Creature* summoned) OVERRIDE
         {
             if (Player* player = GetPlayerForEscort())
                 summoned->AI()->AttackStart(player);
@@ -289,10 +274,10 @@ public:
         void SummonAcolyte(uint32 uiAmount)
         {
             for (uint32 i = 0; i < uiAmount; ++i)
-                me->SummonCreature(NPC_CRIMSON_ACOLYTE, 1642.329f, -6045.818f, 127.583f, 0.0f, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 5000);
+                me->SummonCreature(NPC_CRIMSON_ACOLYTE, 1642.329f, -6045.818f, 127.583f, 0.0f, TempSummonType::TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 5000);
         }
 
-        void UpdateAI(uint32 uiDiff)
+        void UpdateAI(uint32 uiDiff) OVERRIDE
         {
             npc_escortAI::UpdateAI(uiDiff);
 
@@ -319,14 +304,14 @@ public:
                             break;
                         case 3:
                             Talk(SAY_BREAKOUT6);
-                            me->SummonCreature(NPC_HIGH_INQUISITOR_VALROTH, 1642.329f, -6045.818f, 127.583f, 0.0f, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 1000);
+                            me->SummonCreature(NPC_HIGH_INQUISITOR_VALROTH, 1642.329f, -6045.818f, 127.583f, 0.0f, TempSummonType::TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 1000);
                             waveTimer = 1000;
                             break;
                         case 4:
                         {
                             Creature* temp = Unit::GetCreature(*me, valrothGUID);
 
-                            if (!temp || !temp->isAlive())
+                            if (!temp || !temp->IsAlive())
                             {
                                 Talk(SAY_BREAKOUT8);
                                 waveTimer = 5000;
@@ -356,19 +341,19 @@ public:
                     waveTimer -= uiDiff;
             }
         }
-        
+
     private:
         uint8 wave;
         uint32 waveTimer;
-        ObjectGuid valrothGUID;
-
+        uint64 valrothGUID;
     };
-    
-    CreatureAI* GetAI(Creature* creature) const
+
+    CreatureAI* GetAI(Creature* creature) const OVERRIDE
     {
         return new npc_koltira_deathweaverAI(creature);
     }
 };
+
 //Scarlet courier
 enum ScarletCourierEnum
 {
@@ -379,38 +364,38 @@ enum ScarletCourierEnum
     NPC_SCARLET_COURIER                = 29076
 };
 
-class mob_scarlet_courier : public CreatureScript
+class npc_scarlet_courier : public CreatureScript
 {
 public:
-    mob_scarlet_courier() : CreatureScript("mob_scarlet_courier") { }
+    npc_scarlet_courier() : CreatureScript("npc_scarlet_courier") { }
 
-    CreatureAI* GetAI(Creature* creature) const
+    CreatureAI* GetAI(Creature* creature) const OVERRIDE
     {
-        return new mob_scarlet_courierAI (creature);
+        return new npc_scarlet_courierAI(creature);
     }
 
-    struct mob_scarlet_courierAI : public ScriptedAI
+    struct npc_scarlet_courierAI : public ScriptedAI
     {
-        mob_scarlet_courierAI(Creature* creature) : ScriptedAI(creature) {}
+        npc_scarlet_courierAI(Creature* creature) : ScriptedAI(creature) { }
 
         uint32 uiStage;
         uint32 uiStage_timer;
 
-        void Reset()
+        void Reset() OVERRIDE
         {
             me->Mount(14338); // not sure about this id
             uiStage = 1;
             uiStage_timer = 3000;
         }
 
-        void EnterCombat(Unit* /*who*/)
+        void EnterCombat(Unit* /*who*/) OVERRIDE
         {
             Talk(SAY_TREE2);
             me->Dismount();
             uiStage = 0;
         }
 
-        void MovementInform(uint32 type, uint32 id)
+        void MovementInform(uint32 type, uint32 id) OVERRIDE
         {
             if (type != POINT_MOTION_TYPE)
                 return;
@@ -419,9 +404,9 @@ public:
                 uiStage = 2;
         }
 
-        void UpdateAI(uint32 diff)
+        void UpdateAI(uint32 diff) OVERRIDE
         {
-            if (uiStage && !me->isInCombat())
+            if (uiStage && !me->IsInCombat())
             {
                 if (uiStage_timer <= diff)
                 {
@@ -454,90 +439,75 @@ public:
             DoMeleeAttackIfReady();
         }
     };
-
 };
 
 //Koltira & Valroth- Breakout
 
 enum valroth
 {
-    SAY_VALROTH1                      = 4,
-    SAY_VALROTH2                      = 5,
-    SAY_VALROTH3                      = 3,
-    SAY_VALROTH4                      = 7,
-    SAY_VALROTH5                      = 2,
-    SAY_VALROTH6                      = 6,
+  //SAY_VALROTH1                      = 0, Unused
+    SAY_VALROTH_AGGRO                 = 1,
+    SAY_VALROTH_RAND                  = 2,
+    SAY_VALROTH_DEATH                 = 3,
     SPELL_RENEW                       = 38210,
     SPELL_INQUISITOR_PENANCE          = 52922,
     SPELL_VALROTH_SMITE               = 52926,
     SPELL_SUMMON_VALROTH_REMAINS      = 52929
 };
 
-class mob_high_inquisitor_valroth : public CreatureScript
+class npc_high_inquisitor_valroth : public CreatureScript
 {
 public:
-    mob_high_inquisitor_valroth() : CreatureScript("mob_high_inquisitor_valroth") {}
+    npc_high_inquisitor_valroth() : CreatureScript("npc_high_inquisitor_valroth") { }
 
-    CreatureAI* GetAI(Creature* creature) const
+    CreatureAI* GetAI(Creature* creature) const OVERRIDE
     {
-        return new mob_high_inquisitor_valrothAI (creature);
+        return new npc_high_inquisitor_valrothAI(creature);
     }
 
-    struct mob_high_inquisitor_valrothAI : public ScriptedAI
+    struct npc_high_inquisitor_valrothAI : public ScriptedAI
     {
-        mob_high_inquisitor_valrothAI(Creature* creature) : ScriptedAI(creature) {}
+        npc_high_inquisitor_valrothAI(Creature* creature) : ScriptedAI(creature) { }
 
         uint32 uiRenew_timer;
         uint32 uiInquisitor_Penance_timer;
         uint32 uiValroth_Smite_timer;
 
-        void Reset() override
+        void Reset() OVERRIDE
         {
             uiRenew_timer = 1000;
             uiInquisitor_Penance_timer = 2000;
             uiValroth_Smite_timer = 1000;
         }
 
-        void EnterCombat(Unit* who) override
+        void EnterCombat(Unit* who) OVERRIDE
         {
-            Talk(SAY_VALROTH2);
+            Talk(SAY_VALROTH_AGGRO);
             DoCast(who, SPELL_VALROTH_SMITE);
         }
 
-        void UpdateAI(uint32 diff) override
+        void UpdateAI(uint32 diff) OVERRIDE
         {
             if (uiRenew_timer <= diff)
             {
                 Shout();
-                DoCast(me, SPELL_RENEW, false);
+                DoCast(me, SPELL_RENEW);
                 uiRenew_timer = urand(1000, 6000);
-            }
-            else
-                uiRenew_timer -= diff;
+            } else uiRenew_timer -= diff;
 
             if (uiInquisitor_Penance_timer <= diff)
             {
                 Shout();
-
-                if (auto victim = me->getVictim())
-                    DoCast(victim, SPELL_INQUISITOR_PENANCE, false);
-
+                DoCastVictim(SPELL_INQUISITOR_PENANCE);
                 uiInquisitor_Penance_timer = urand(2000, 7000);
-            }
-            else
-                uiInquisitor_Penance_timer -= diff;
+            } else uiInquisitor_Penance_timer -= diff;
 
             if (uiValroth_Smite_timer <= diff)
             {
                 Shout();
-
-                if (auto victim = me->getVictim())
-                    DoCast(victim, SPELL_VALROTH_SMITE);
-
+                DoCastVictim(SPELL_VALROTH_SMITE);
                 uiValroth_Smite_timer = urand(1000, 6000);
-            }
-            else
-                uiValroth_Smite_timer -= diff;
+            } else uiValroth_Smite_timer -= diff;
 
             DoMeleeAttackIfReady();
         }
@@ -545,16 +515,15 @@ public:
         void Shout()
         {
             if (rand()%100 < 15)
-                Talk(RAND(SAY_VALROTH3, SAY_VALROTH4, SAY_VALROTH5));
+                Talk(SAY_VALROTH_RAND);
         }
 
-        void JustDied(Unit* killer) override
+        void JustDied(Unit* killer) OVERRIDE
         {
-            Talk(SAY_VALROTH6);
+            Talk(SAY_VALROTH_DEATH);
             killer->CastSpell(me, SPELL_SUMMON_VALROTH_REMAINS, true);
         }
     };
-
 };
 
 /*######
@@ -624,26 +593,26 @@ enum SpecialSurprise
 class npc_a_special_surprise : public CreatureScript
 {
 public:
-    npc_a_special_surprise() : CreatureScript("npc_a_special_surprise") {}
+    npc_a_special_surprise() : CreatureScript("npc_a_special_surprise") { }
 
-    CreatureAI* GetAI(Creature* creature) const
+    CreatureAI* GetAI(Creature* creature) const OVERRIDE
     {
         return new npc_a_special_surpriseAI(creature);
     }
 
     struct npc_a_special_surpriseAI : public ScriptedAI
     {
-        npc_a_special_surpriseAI(Creature* creature) : ScriptedAI(creature) {}
+        npc_a_special_surpriseAI(Creature* creature) : ScriptedAI(creature) { }
 
         uint32 ExecuteSpeech_Timer;
         uint32 ExecuteSpeech_Counter;
-        ObjectGuid PlayerGUID;
+        uint64 PlayerGUID;
 
-        void Reset() override
+        void Reset() OVERRIDE
         {
             ExecuteSpeech_Timer = 0;
             ExecuteSpeech_Counter = 0;
-            PlayerGUID.Clear();
+            PlayerGUID = 0;
 
             me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
         }
@@ -692,36 +661,28 @@ public:
                     if (player->GetQuestStatus(12746) == QUEST_STATUS_INCOMPLETE)
                         return true;
                     break;
-                case 49355:                                     // Seigneur Haford
-                    if (player->GetQuestStatus(28649) == QUEST_STATUS_INCOMPLETE)
-                        return true;
-                    break;
-                case 49356:                                     // Gally Grossetache
-                    if (player->GetQuestStatus(28650) == QUEST_STATUS_INCOMPLETE)
-                        return true;
-                    break;
-                    
             }
 
             return false;
         }
 
-        void MoveInLineOfSight(Unit* who) override
+        void MoveInLineOfSight(Unit* who) OVERRIDE
+
         {
-            if (PlayerGUID || !who->IsPlayer() || !who->IsWithinDist(me, INTERACTION_DISTANCE))
+            if (PlayerGUID || who->GetTypeId() != TypeID::TYPEID_PLAYER || !who->IsWithinDist(me, INTERACTION_DISTANCE))
                 return;
 
             if (MeetQuestCondition(who->ToPlayer()))
                 PlayerGUID = who->GetGUID();
         }
 
-        void UpdateAI(uint32 diff) override
+        void UpdateAI(uint32 diff) OVERRIDE
         {
-            if (PlayerGUID && !me->getVictim() && me->isAlive())
+            if (PlayerGUID && !me->GetVictim() && me->IsAlive())
             {
                 if (ExecuteSpeech_Timer <= diff)
                 {
-                    Player* player = Unit::GetPlayer(*me, PlayerGUID);
+                    Player* player = ObjectAccessor::GetPlayer(*me, PlayerGUID);
 
                     if (!player)
                     {
@@ -729,97 +690,36 @@ public:
                         return;
                     }
 
-                    //TODO: simplify text's selection
+                    /// @todo simplify text's selection
 
                     switch (player->getRace())
                     {
-                        // TODO : exactly text for goblin & worgen
-                        case RACE_GOBLIN:
-                            switch (ExecuteSpeech_Counter)
-                            {
-                                case 0: Talk(SAY_EXEC_START_1, player->GetGUID()); break;
-                                case 1: me->SetStandState(UNIT_STAND_STATE_STAND); break;
-                                case 2: Talk(SAY_EXEC_PROG_5, player->GetGUID()); break;
-                                case 3: Talk(SAY_EXEC_NAME_1, player->GetGUID()); break;
-                                case 4: Talk(SAY_EXEC_RECOG_1, player->GetGUID()); break;
-                                case 5: Talk(SAY_EXEC_NOREM_5, player->GetGUID()); break;
-                                case 6: Talk(SAY_EXEC_THINK_7, player->GetGUID()); break;
-                                case 7: Talk(SAY_EXEC_LISTEN_1, player->GetGUID()); break;
-                                case 8:
-                                    if (Creature* Plaguefist = GetClosestCreatureWithEntry(me, NPC_PLAGUEFIST, 85.0f))
-                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player->GetGUID());
-                                    break;
-                                case 9:
-                                    Talk(SAY_EXEC_TIME_6, player->GetGUID());
-                                    me->SetStandState(UNIT_STAND_STATE_KNEEL);
-                                    me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
-                                    break;
-                                case 10:
-                                    Talk(SAY_EXEC_WAITING, player->GetGUID());
-                                    break;
-                                case 11:
-                                    Talk(EMOTE_DIES);
-                                    me->setDeathState(JUST_DIED);
-                                    me->SetHealth(0);
-                                    return;
-                            }
-                            break;
-                        case RACE_WORGEN:
-                            switch (ExecuteSpeech_Counter)
-                            {
-                                case 0: Talk(SAY_EXEC_START_1, player->GetGUID()); break;
-                                case 1: me->SetStandState(UNIT_STAND_STATE_STAND); break;
-                                case 2: Talk(SAY_EXEC_PROG_5, player->GetGUID()); break;
-                                case 3: Talk(SAY_EXEC_NAME_1, player->GetGUID()); break;
-                                case 4: Talk(SAY_EXEC_RECOG_1, player->GetGUID()); break;
-                                case 5: Talk(SAY_EXEC_NOREM_5, player->GetGUID()); break;
-                                case 6: Talk(SAY_EXEC_THINK_7, player->GetGUID()); break;
-                                case 7: Talk(SAY_EXEC_LISTEN_1, player->GetGUID()); break;
-                                case 8:
-                                    if (Creature* Plaguefist = GetClosestCreatureWithEntry(me, NPC_PLAGUEFIST, 85.0f))
-                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player->GetGUID());
-                                    break;
-                                case 9:
-                                    Talk(SAY_EXEC_TIME_6, player->GetGUID());
-                                    me->SetStandState(UNIT_STAND_STATE_KNEEL);
-                                    me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
-                                    break;
-                                case 10:
-                                    Talk(SAY_EXEC_WAITING, player->GetGUID());
-                                    break;
-                                case 11:
-                                    Talk(EMOTE_DIES);
-                                    me->setDeathState(JUST_DIED);
-                                    me->SetHealth(0);
-                                    return;
-                            }
-                            break;
                         case RACE_HUMAN:
                             switch (ExecuteSpeech_Counter)
                             {
-                                case 0: Talk(SAY_EXEC_START_1, player->GetGUID()); break;
+                                case 0: Talk(SAY_EXEC_START_1, player); break;
                                 case 1: me->SetStandState(UNIT_STAND_STATE_STAND); break;
-                                case 2: Talk(SAY_EXEC_PROG_5, player->GetGUID()); break;
-                                case 3: Talk(SAY_EXEC_NAME_1, player->GetGUID()); break;
-                                case 4: Talk(SAY_EXEC_RECOG_1, player->GetGUID()); break;
-                                case 5: Talk(SAY_EXEC_NOREM_5, player->GetGUID()); break;
-                                case 6: Talk(SAY_EXEC_THINK_7, player->GetGUID()); break;
-                                case 7: Talk(SAY_EXEC_LISTEN_1, player->GetGUID()); break;
+                                case 2: Talk(SAY_EXEC_PROG_5, player); break;
+                                case 3: Talk(SAY_EXEC_NAME_1, player); break;
+                                case 4: Talk(SAY_EXEC_RECOG_1, player); break;
+                                case 5: Talk(SAY_EXEC_NOREM_5, player); break;
+                                case 6: Talk(SAY_EXEC_THINK_7, player); break;
+                                case 7: Talk(SAY_EXEC_LISTEN_1, player); break;
                                 case 8:
                                     if (Creature* Plaguefist = GetClosestCreatureWithEntry(me, NPC_PLAGUEFIST, 85.0f))
-                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player->GetGUID());
+                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player);
                                     break;
                                 case 9:
-                                    Talk(SAY_EXEC_TIME_6, player->GetGUID());
+                                    Talk(SAY_EXEC_TIME_6, player);
                                     me->SetStandState(UNIT_STAND_STATE_KNEEL);
                                     me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
                                     break;
                                 case 10:
-                                    Talk(SAY_EXEC_WAITING, player->GetGUID());
+                                    Talk(SAY_EXEC_WAITING, player);
                                     break;
                                 case 11:
                                     Talk(EMOTE_DIES);
-                                    me->setDeathState(JUST_DIED);
+                                    me->setDeathState(DeathState::JUST_DIED);
                                     me->SetHealth(0);
                                     return;
                             }
@@ -827,29 +727,29 @@ public:
                         case RACE_ORC:
                             switch (ExecuteSpeech_Counter)
                             {
-                                case 0: Talk(SAY_EXEC_START_1, player->GetGUID()); break;
+                                case 0: Talk(SAY_EXEC_START_1, player); break;
                                 case 1: me->SetStandState(UNIT_STAND_STATE_STAND); break;
-                                case 2: Talk(SAY_EXEC_PROG_6, player->GetGUID()); break;
-                                case 3: Talk(SAY_EXEC_NAME_1, player->GetGUID()); break;
-                                case 4: Talk(SAY_EXEC_RECOG_1, player->GetGUID()); break;
-                                case 5: Talk(SAY_EXEC_NOREM_7, player->GetGUID()); break;
-                                case 6: Talk(SAY_EXEC_THINK_8, player->GetGUID()); break;
-                                case 7: Talk(SAY_EXEC_LISTEN_1, player->GetGUID()); break;
+                                case 2: Talk(SAY_EXEC_PROG_6, player); break;
+                                case 3: Talk(SAY_EXEC_NAME_1, player); break;
+                                case 4: Talk(SAY_EXEC_RECOG_1, player); break;
+                                case 5: Talk(SAY_EXEC_NOREM_7, player); break;
+                                case 6: Talk(SAY_EXEC_THINK_8, player); break;
+                                case 7: Talk(SAY_EXEC_LISTEN_1, player); break;
                                 case 8:
                                     if (Creature* Plaguefist = GetClosestCreatureWithEntry(me, NPC_PLAGUEFIST, 85.0f))
-                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player->GetGUID());
+                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player);
                                     break;
                                 case 9:
-                                    Talk(SAY_EXEC_TIME_8, player->GetGUID());
+                                    Talk(SAY_EXEC_TIME_8, player);
                                     me->SetStandState(UNIT_STAND_STATE_KNEEL);
                                     me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
                                     break;
                                 case 10:
-                                    Talk(SAY_EXEC_WAITING, player->GetGUID());
+                                    Talk(SAY_EXEC_WAITING, player);
                                     break;
                                 case 11:
                                     Talk(EMOTE_DIES);
-                                    me->setDeathState(JUST_DIED);
+                                    me->setDeathState(DeathState::JUST_DIED);
                                     me->SetHealth(0);
                                     return;
                             }
@@ -857,29 +757,29 @@ public:
                         case RACE_DWARF:
                             switch (ExecuteSpeech_Counter)
                             {
-                                case 0: Talk(SAY_EXEC_START_2, player->GetGUID()); break;
+                                case 0: Talk(SAY_EXEC_START_2, player); break;
                                 case 1: me->SetStandState(UNIT_STAND_STATE_STAND); break;
-                                case 2: Talk(SAY_EXEC_PROG_2, player->GetGUID()); break;
-                                case 3: Talk(SAY_EXEC_NAME_1, player->GetGUID()); break;
-                                case 4: Talk(SAY_EXEC_RECOG_3, player->GetGUID()); break;
-                                case 5: Talk(SAY_EXEC_NOREM_2, player->GetGUID()); break;
-                                case 6: Talk(SAY_EXEC_THINK_5, player->GetGUID()); break;
-                                case 7: Talk(SAY_EXEC_LISTEN_2, player->GetGUID()); break;
+                                case 2: Talk(SAY_EXEC_PROG_2, player); break;
+                                case 3: Talk(SAY_EXEC_NAME_1, player); break;
+                                case 4: Talk(SAY_EXEC_RECOG_3, player); break;
+                                case 5: Talk(SAY_EXEC_NOREM_2, player); break;
+                                case 6: Talk(SAY_EXEC_THINK_5, player); break;
+                                case 7: Talk(SAY_EXEC_LISTEN_2, player); break;
                                 case 8:
                                     if (Creature* Plaguefist = GetClosestCreatureWithEntry(me, NPC_PLAGUEFIST, 85.0f))
-                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player->GetGUID());
+                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player);
                                     break;
                                 case 9:
-                                    Talk(SAY_EXEC_TIME_3, player->GetGUID());
+                                    Talk(SAY_EXEC_TIME_3, player);
                                     me->SetStandState(UNIT_STAND_STATE_KNEEL);
                                     me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
                                     break;
                                 case 10:
-                                    Talk(SAY_EXEC_WAITING, player->GetGUID());
+                                    Talk(SAY_EXEC_WAITING, player);
                                     break;
                                 case 11:
                                     Talk(EMOTE_DIES);
-                                    me->setDeathState(JUST_DIED);
+                                    me->setDeathState(DeathState::JUST_DIED);
                                     me->SetHealth(0);
                                     return;
                             }
@@ -887,29 +787,29 @@ public:
                         case RACE_NIGHTELF:
                             switch (ExecuteSpeech_Counter)
                             {
-                                case 0: Talk(SAY_EXEC_START_1, player->GetGUID()); break;
+                                case 0: Talk(SAY_EXEC_START_1, player); break;
                                 case 1: me->SetStandState(UNIT_STAND_STATE_STAND); break;
-                                case 2: Talk(SAY_EXEC_PROG_5, player->GetGUID()); break;
-                                case 3: Talk(SAY_EXEC_NAME_1, player->GetGUID()); break;
-                                case 4: Talk(SAY_EXEC_RECOG_1, player->GetGUID()); break;
-                                case 5: Talk(SAY_EXEC_NOREM_6, player->GetGUID()); break;
-                                case 6: Talk(SAY_EXEC_THINK_2, player->GetGUID()); break;
-                                case 7: Talk(SAY_EXEC_LISTEN_1, player->GetGUID()); break;
+                                case 2: Talk(SAY_EXEC_PROG_5, player); break;
+                                case 3: Talk(SAY_EXEC_NAME_1, player); break;
+                                case 4: Talk(SAY_EXEC_RECOG_1, player); break;
+                                case 5: Talk(SAY_EXEC_NOREM_6, player); break;
+                                case 6: Talk(SAY_EXEC_THINK_2, player); break;
+                                case 7: Talk(SAY_EXEC_LISTEN_1, player); break;
                                 case 8:
                                     if (Creature* Plaguefist = GetClosestCreatureWithEntry(me, NPC_PLAGUEFIST, 85.0f))
-                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player->GetGUID());
+                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player);
                                     break;
                                 case 9:
-                                    Talk(SAY_EXEC_TIME_7, player->GetGUID());
+                                    Talk(SAY_EXEC_TIME_7, player);
                                     me->SetStandState(UNIT_STAND_STATE_KNEEL);
                                     me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
                                     break;
                                 case 10:
-                                    Talk(SAY_EXEC_WAITING, player->GetGUID());
+                                    Talk(SAY_EXEC_WAITING, player);
                                     break;
                                 case 11:
                                     Talk(EMOTE_DIES);
-                                    me->setDeathState(JUST_DIED);
+                                    me->setDeathState(DeathState::JUST_DIED);
                                     me->SetHealth(0);
                                     return;
                             }
@@ -917,29 +817,29 @@ public:
                         case RACE_UNDEAD_PLAYER:
                             switch (ExecuteSpeech_Counter)
                             {
-                                case 0: Talk(SAY_EXEC_START_1, player->GetGUID()); break;
+                                case 0: Talk(SAY_EXEC_START_1, player); break;
                                 case 1: me->SetStandState(UNIT_STAND_STATE_STAND); break;
-                                case 2: Talk(SAY_EXEC_PROG_3, player->GetGUID()); break;
-                                case 3: Talk(SAY_EXEC_NAME_1, player->GetGUID()); break;
-                                case 4: Talk(SAY_EXEC_RECOG_4, player->GetGUID()); break;
-                                case 5: Talk(SAY_EXEC_NOREM_3, player->GetGUID()); break;
-                                case 6: Talk(SAY_EXEC_THINK_1, player->GetGUID()); break;
-                                case 7: Talk(SAY_EXEC_LISTEN_3, player->GetGUID()); break;
+                                case 2: Talk(SAY_EXEC_PROG_3, player); break;
+                                case 3: Talk(SAY_EXEC_NAME_1, player); break;
+                                case 4: Talk(SAY_EXEC_RECOG_4, player); break;
+                                case 5: Talk(SAY_EXEC_NOREM_3, player); break;
+                                case 6: Talk(SAY_EXEC_THINK_1, player); break;
+                                case 7: Talk(SAY_EXEC_LISTEN_3, player); break;
                                 case 8:
                                     if (Creature* Plaguefist = GetClosestCreatureWithEntry(me, NPC_PLAGUEFIST, 85.0f))
-                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player->GetGUID());
+                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player);
                                     break;
                                 case 9:
-                                    Talk(SAY_EXEC_TIME_4, player->GetGUID());
+                                    Talk(SAY_EXEC_TIME_4, player);
                                     me->SetStandState(UNIT_STAND_STATE_KNEEL);
                                     me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
                                     break;
                                 case 10:
-                                    Talk(SAY_EXEC_WAITING, player->GetGUID());
+                                    Talk(SAY_EXEC_WAITING, player);
                                     break;
                                 case 11:
                                     Talk(EMOTE_DIES);
-                                    me->setDeathState(JUST_DIED);
+                                    me->setDeathState(DeathState::JUST_DIED);
                                     me->SetHealth(0);
                                     return;
                             }
@@ -947,29 +847,29 @@ public:
                         case RACE_TAUREN:
                             switch (ExecuteSpeech_Counter)
                             {
-                                case 0: Talk(SAY_EXEC_START_1, player->GetGUID()); break;
+                                case 0: Talk(SAY_EXEC_START_1, player); break;
                                 case 1: me->SetStandState(UNIT_STAND_STATE_STAND); break;
-                                case 2: Talk(SAY_EXEC_PROG_1, player->GetGUID()); break;
-                                case 3: Talk(SAY_EXEC_NAME_1, player->GetGUID()); break;
-                                case 4: Talk(SAY_EXEC_RECOG_5, player->GetGUID()); break;
-                                case 5: Talk(SAY_EXEC_NOREM_8, player->GetGUID()); break;
-                                case 6: Talk(SAY_EXEC_THINK_9, player->GetGUID()); break;
-                                case 7: Talk(SAY_EXEC_LISTEN_1, player->GetGUID()); break;
+                                case 2: Talk(SAY_EXEC_PROG_1, player); break;
+                                case 3: Talk(SAY_EXEC_NAME_1, player); break;
+                                case 4: Talk(SAY_EXEC_RECOG_5, player); break;
+                                case 5: Talk(SAY_EXEC_NOREM_8, player); break;
+                                case 6: Talk(SAY_EXEC_THINK_9, player); break;
+                                case 7: Talk(SAY_EXEC_LISTEN_1, player); break;
                                 case 8:
                                     if (Creature* Plaguefist = GetClosestCreatureWithEntry(me, NPC_PLAGUEFIST, 85.0f))
-                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player->GetGUID());
+                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player);
                                     break;
                                 case 9:
-                                    Talk(SAY_EXEC_TIME_9, player->GetGUID());
+                                    Talk(SAY_EXEC_TIME_9, player);
                                     me->SetStandState(UNIT_STAND_STATE_KNEEL);
                                     me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
                                     break;
                                 case 10:
-                                    Talk(SAY_EXEC_WAITING, player->GetGUID());
+                                    Talk(SAY_EXEC_WAITING, player);
                                     break;
                                 case 11:
                                     Talk(EMOTE_DIES);
-                                    me->setDeathState(JUST_DIED);
+                                    me->setDeathState(DeathState::JUST_DIED);
                                     me->SetHealth(0);
                                     return;
                             }
@@ -977,29 +877,29 @@ public:
                         case RACE_GNOME:
                             switch (ExecuteSpeech_Counter)
                             {
-                                case 0: Talk(SAY_EXEC_START_1, player->GetGUID()); break;
+                                case 0: Talk(SAY_EXEC_START_1, player); break;
                                 case 1: me->SetStandState(UNIT_STAND_STATE_STAND); break;
-                                case 2: Talk(SAY_EXEC_PROG_4, player->GetGUID()); break;
-                                case 3: Talk(SAY_EXEC_NAME_1, player->GetGUID()); break;
-                                case 4: Talk(SAY_EXEC_RECOG_1, player->GetGUID()); break;
-                                case 5: Talk(SAY_EXEC_NOREM_4, player->GetGUID()); break;
-                                case 6: Talk(SAY_EXEC_THINK_6, player->GetGUID()); break;
-                                case 7: Talk(SAY_EXEC_LISTEN_1, player->GetGUID()); break;
+                                case 2: Talk(SAY_EXEC_PROG_4, player); break;
+                                case 3: Talk(SAY_EXEC_NAME_1, player); break;
+                                case 4: Talk(SAY_EXEC_RECOG_1, player); break;
+                                case 5: Talk(SAY_EXEC_NOREM_4, player); break;
+                                case 6: Talk(SAY_EXEC_THINK_6, player); break;
+                                case 7: Talk(SAY_EXEC_LISTEN_1, player); break;
                                 case 8:
                                     if (Creature* Plaguefist = GetClosestCreatureWithEntry(me, NPC_PLAGUEFIST, 85.0f))
-                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player->GetGUID());
+                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player);
                                     break;
                                 case 9:
-                                    Talk(SAY_EXEC_TIME_5, player->GetGUID());
+                                    Talk(SAY_EXEC_TIME_5, player);
                                     me->SetStandState(UNIT_STAND_STATE_KNEEL);
                                     me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
                                     break;
                                 case 10:
-                                    Talk(SAY_EXEC_WAITING, player->GetGUID());
+                                    Talk(SAY_EXEC_WAITING, player);
                                     break;
                                 case 11:
                                     Talk(EMOTE_DIES);
-                                    me->setDeathState(JUST_DIED);
+                                    me->setDeathState(DeathState::JUST_DIED);
                                     me->SetHealth(0);
                                     return;
                             }
@@ -1007,29 +907,29 @@ public:
                         case RACE_TROLL:
                             switch (ExecuteSpeech_Counter)
                             {
-                                case 0: Talk(SAY_EXEC_START_3, player->GetGUID()); break;
+                                case 0: Talk(SAY_EXEC_START_3, player); break;
                                 case 1: me->SetStandState(UNIT_STAND_STATE_STAND); break;
-                                case 2: Talk(SAY_EXEC_PROG_7, player->GetGUID()); break;
-                                case 3: Talk(SAY_EXEC_NAME_2, player->GetGUID()); break;
-                                case 4: Talk(SAY_EXEC_RECOG_6, player->GetGUID()); break;
-                                case 5: Talk(SAY_EXEC_NOREM_9, player->GetGUID()); break;
-                                case 6: Talk(SAY_EXEC_THINK_10, player->GetGUID()); break;
-                                case 7: Talk(SAY_EXEC_LISTEN_4, player->GetGUID()); break;
+                                case 2: Talk(SAY_EXEC_PROG_7, player); break;
+                                case 3: Talk(SAY_EXEC_NAME_2, player); break;
+                                case 4: Talk(SAY_EXEC_RECOG_6, player); break;
+                                case 5: Talk(SAY_EXEC_NOREM_9, player); break;
+                                case 6: Talk(SAY_EXEC_THINK_10, player); break;
+                                case 7: Talk(SAY_EXEC_LISTEN_4, player); break;
                                 case 8:
                                     if (Creature* Plaguefist = GetClosestCreatureWithEntry(me, NPC_PLAGUEFIST, 85.0f))
-                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player->GetGUID());
+                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player);
                                     break;
                                 case 9:
-                                    Talk(SAY_EXEC_TIME_10, player->GetGUID());
+                                    Talk(SAY_EXEC_TIME_10, player);
                                     me->SetStandState(UNIT_STAND_STATE_KNEEL);
                                     me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
                                     break;
                                 case 10:
-                                    Talk(SAY_EXEC_WAITING, player->GetGUID());
+                                    Talk(SAY_EXEC_WAITING, player);
                                     break;
                                 case 11:
                                     Talk(EMOTE_DIES);
-                                    me->setDeathState(JUST_DIED);
+                                    me->setDeathState(DeathState::JUST_DIED);
                                     me->SetHealth(0);
                                     return;
                             }
@@ -1037,29 +937,29 @@ public:
                         case RACE_BLOODELF:
                             switch (ExecuteSpeech_Counter)
                             {
-                                case 0: Talk(SAY_EXEC_START_1, player->GetGUID()); break;
+                                case 0: Talk(SAY_EXEC_START_1, player); break;
                                 case 1: me->SetStandState(UNIT_STAND_STATE_STAND); break;
-                                case 2: Talk(SAY_EXEC_PROG_1, player->GetGUID()); break;
-                                case 3: Talk(SAY_EXEC_NAME_1, player->GetGUID()); break;
-                                case 4: Talk(SAY_EXEC_RECOG_1, player->GetGUID()); break;
+                                case 2: Talk(SAY_EXEC_PROG_1, player); break;
+                                case 3: Talk(SAY_EXEC_NAME_1, player); break;
+                                case 4: Talk(SAY_EXEC_RECOG_1, player); break;
                                 //case 5: //unknown
-                                case 6: Talk(SAY_EXEC_THINK_3, player->GetGUID()); break;
-                                case 7: Talk(SAY_EXEC_LISTEN_1, player->GetGUID()); break;
+                                case 6: Talk(SAY_EXEC_THINK_3, player); break;
+                                case 7: Talk(SAY_EXEC_LISTEN_1, player); break;
                                 case 8:
                                     if (Creature* Plaguefist = GetClosestCreatureWithEntry(me, NPC_PLAGUEFIST, 85.0f))
-                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player->GetGUID());
+                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player);
                                     break;
                                 case 9:
-                                    Talk(SAY_EXEC_TIME_1, player->GetGUID());
+                                    Talk(SAY_EXEC_TIME_1, player);
                                     me->SetStandState(UNIT_STAND_STATE_KNEEL);
                                     me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
                                     break;
                                 case 10:
-                                    Talk(SAY_EXEC_WAITING, player->GetGUID());
+                                    Talk(SAY_EXEC_WAITING, player);
                                     break;
                                 case 11:
                                     Talk(EMOTE_DIES);
-                                    me->setDeathState(JUST_DIED);
+                                    me->setDeathState(DeathState::JUST_DIED);
                                     me->SetHealth(0);
                                     return;
                             }
@@ -1067,29 +967,29 @@ public:
                         case RACE_DRAENEI:
                             switch (ExecuteSpeech_Counter)
                             {
-                                case 0: Talk(SAY_EXEC_START_1, player->GetGUID()); break;
+                                case 0: Talk(SAY_EXEC_START_1, player); break;
                                 case 1: me->SetStandState(UNIT_STAND_STATE_STAND); break;
-                                case 2: Talk(SAY_EXEC_PROG_1, player->GetGUID()); break;
-                                case 3: Talk(SAY_EXEC_NAME_1, player->GetGUID()); break;
-                                case 4: Talk(SAY_EXEC_RECOG_2, player->GetGUID()); break;
-                                case 5: Talk(SAY_EXEC_NOREM_1, player->GetGUID()); break;
-                                case 6: Talk(SAY_EXEC_THINK_4, player->GetGUID()); break;
-                                case 7: Talk(SAY_EXEC_LISTEN_1, player->GetGUID()); break;
+                                case 2: Talk(SAY_EXEC_PROG_1, player); break;
+                                case 3: Talk(SAY_EXEC_NAME_1, player); break;
+                                case 4: Talk(SAY_EXEC_RECOG_2, player); break;
+                                case 5: Talk(SAY_EXEC_NOREM_1, player); break;
+                                case 6: Talk(SAY_EXEC_THINK_4, player); break;
+                                case 7: Talk(SAY_EXEC_LISTEN_1, player); break;
                                 case 8:
                                     if (Creature* Plaguefist = GetClosestCreatureWithEntry(me, NPC_PLAGUEFIST, 85.0f))
-                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player->GetGUID());
+                                        Plaguefist->AI()->Talk(SAY_PLAGUEFIST, player);
                                     break;
                                 case 9:
-                                    Talk(SAY_EXEC_TIME_2, player->GetGUID());
+                                    Talk(SAY_EXEC_TIME_2, player);
                                     me->SetStandState(UNIT_STAND_STATE_KNEEL);
                                     me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
                                     break;
                                 case 10:
-                                    Talk(SAY_EXEC_WAITING, player->GetGUID());
+                                    Talk(SAY_EXEC_WAITING, player);
                                     break;
                                 case 11:
                                     Talk(EMOTE_DIES);
-                                    me->setDeathState(JUST_DIED);
+                                    me->setDeathState(DeathState::JUST_DIED);
                                     me->SetHealth(0);
                                     return;
                             }
@@ -1113,8 +1013,8 @@ public:
 void AddSC_the_scarlet_enclave_c2()
 {
     new npc_crusade_persuaded();
-    new mob_scarlet_courier();
+    new npc_scarlet_courier();
     new npc_koltira_deathweaver();
-    new mob_high_inquisitor_valroth();
+    new npc_high_inquisitor_valroth();
     new npc_a_special_surprise();
 }

@@ -1,9 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -24,40 +26,48 @@ EndScriptData */
 
 #include "Chat.h"
 #include "ScriptMgr.h"
+#include "ObjectMgr.h"
+#include "Language.h"
 #include "SpellMgr.h"
 #include "SpellInfo.h"
-#include "GlobalFunctional.h"
+#include "Player.h"
+#include "Pet.h"
 
 class learn_commandscript : public CommandScript
 {
 public:
     learn_commandscript() : CommandScript("learn_commandscript") { }
 
-    ChatCommand* GetCommands() const override
+    std::vector<ChatCommand> GetCommands() const OVERRIDE
     {
-
-        static ChatCommand learnAllCommandTable[] =
+        static std::vector<ChatCommand> learnAllMyCommandTable =
         {
-            { "gm",             SEC_GAMEMASTER,     false, &HandleLearnAllGMCommand,            "", NULL },
-            { "crafts",         SEC_GAMEMASTER,     false, &HandleLearnAllCraftsCommand,        "", NULL },
-            { "default",        SEC_MODERATOR,      false, &HandleLearnAllDefaultCommand,       "", NULL },
-            { "lang",           SEC_MODERATOR,      false, &HandleLearnAllLangCommand,          "", NULL },
-            { "recipes",        SEC_GAMEMASTER,     false, &HandleLearnAllRecipesCommand,       "", NULL },
-            { NULL,             0,                  false, NULL,                                "", NULL }
+            { "class",      rbac::RBAC_PERM_COMMAND_LEARN_ALL_MY_CLASS,      false, &HandleLearnAllMyClassCommand,      "", },
+            { "pettalents", rbac::RBAC_PERM_COMMAND_LEARN_ALL_MY_PETTALENTS, false, &HandleLearnAllMyPetTalentsCommand, "", },
+            { "spells",     rbac::RBAC_PERM_COMMAND_LEARN_ALL_MY_SPELLS,     false, &HandleLearnAllMySpellsCommand,     "", },
+            { "talents",    rbac::RBAC_PERM_COMMAND_LEARN_ALL_MY_TALENTS,    false, &HandleLearnAllMyTalentsCommand,    "", },
         };
 
-        static ChatCommand learnCommandTable[] =
+        static std::vector<ChatCommand> learnAllCommandTable =
         {
-            { "all",            SEC_ADMINISTRATOR,  false, NULL,                                "",  learnAllCommandTable },
-            { "",               SEC_ADMINISTRATOR,  false, &HandleLearnCommand,                 "", NULL },
-            { NULL,             0,                  false, NULL,                                "", NULL }
+            { "my",      rbac::RBAC_PERM_COMMAND_LEARN_ALL_MY,      false, NULL,                          "", learnAllMyCommandTable },
+            { "gm",      rbac::RBAC_PERM_COMMAND_LEARN_ALL_GM,      false, &HandleLearnAllGMCommand,      "", },
+            { "crafts",  rbac::RBAC_PERM_COMMAND_LEARN_ALL_CRAFTS,  false, &HandleLearnAllCraftsCommand,  "", },
+            { "default", rbac::RBAC_PERM_COMMAND_LEARN_ALL_DEFAULT, false, &HandleLearnAllDefaultCommand, "", },
+            { "lang",    rbac::RBAC_PERM_COMMAND_LEARN_ALL_LANG,    false, &HandleLearnAllLangCommand,    "", },
+            { "recipes", rbac::RBAC_PERM_COMMAND_LEARN_ALL_RECIPES, false, &HandleLearnAllRecipesCommand, "", },
         };
 
-        static ChatCommand commandTable[] =
+        static std::vector<ChatCommand> learnCommandTable =
         {
-            { "learn",          SEC_MODERATOR,      false, NULL,                                "", learnCommandTable },
-            { "unlearn",        SEC_ADMINISTRATOR,  false, &HandleUnLearnCommand,               "", NULL },
-            { NULL,             0,                  false, NULL,                                "", NULL }
+            { "all", rbac::RBAC_PERM_COMMAND_LEARN_ALL, false, NULL,                "", learnAllCommandTable },
+            { "",    rbac::RBAC_PERM_COMMAND_LEARN,     false, &HandleLearnCommand, "", },
+        };
+
+        static std::vector<ChatCommand> commandTable =
+        {
+            { "learn",   rbac::RBAC_PERM_COMMAND_LEARN,   false, NULL,                  "", learnCommandTable },
+            { "unlearn", rbac::RBAC_PERM_COMMAND_UNLEARN, false, &HandleUnLearnCommand, "", },
         };
         return commandTable;
     }
@@ -104,9 +114,8 @@ public:
         else
             targetPlayer->learnSpell(spell, false);
 
-        uint32 firstSpell = sSpellMgr->GetFirstSpellInChain(spell);
-        /*if (GetTalentSpellCost(firstSpell))
-            targetPlayer->SendTalentsInfoData(false);*/
+        if (GetTalentSpellCost(spellInfo->GetFirstRankSpell()->Id))
+            targetPlayer->SendTalentsInfoData();
 
         return true;
     }
@@ -119,7 +128,7 @@ public:
             if (!spellInfo || !SpellMgr::IsSpellValid(spellInfo, handler->GetSession()->GetPlayer(), false))
                 continue;
 
-            if (!IsPartOfSkillLine(SKILL_INTERNAL, spellInfo->Id))
+            if (!spellInfo->IsAbilityOfSkillType(SKILL_INTERNAL))
                 continue;
 
             handler->GetSession()->GetPlayer()->learnSpell(i, false);
@@ -129,10 +138,164 @@ public:
         return true;
     }
 
+    static bool HandleLearnAllMyClassCommand(ChatHandler* handler, char const* /*args*/)
+    {
+        HandleLearnAllMySpellsCommand(handler, "");
+        HandleLearnAllMyTalentsCommand(handler, "");
+        return true;
+    }
+
+    static bool HandleLearnAllMySpellsCommand(ChatHandler* handler, char const* /*args*/)
+    {
+        ChrClassesEntry const* classEntry = sChrClassesStore.LookupEntry(handler->GetSession()->GetPlayer()->getClass());
+        if (!classEntry)
+            return true;
+        uint32 family = classEntry->spellfamily;
+
+        for (uint32 i = 0; i < sSkillLineAbilityStore.GetNumRows(); ++i)
+        {
+            SkillLineAbilityEntry const* entry = sSkillLineAbilityStore.LookupEntry(i);
+            if (!entry)
+                continue;
+
+            SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(entry->spellId);
+            if (!spellInfo)
+                continue;
+
+            // skip server-side/triggered spells
+            if (spellInfo->SpellLevel == 0)
+                continue;
+
+            // skip wrong class/race skills
+            if (!handler->GetSession()->GetPlayer()->IsSpellFitByClassAndRace(spellInfo->Id))
+                continue;
+
+            // skip other spell families
+            if (spellInfo->SpellFamilyName != family)
+                continue;
+
+            // skip spells with first rank learned as talent (and all talents then also)
+            if (GetTalentSpellCost(spellInfo->GetFirstRankSpell()->Id) > 0)
+                continue;
+
+            // skip broken spells
+            if (!SpellMgr::IsSpellValid(spellInfo, handler->GetSession()->GetPlayer(), false))
+                continue;
+
+            handler->GetSession()->GetPlayer()->learnSpell(spellInfo->Id, false);
+        }
+
+        handler->SendSysMessage(LANG_COMMAND_LEARN_CLASS_SPELLS);
+        return true;
+    }
+
+    static bool HandleLearnAllMyTalentsCommand(ChatHandler* handler, char const* /*args*/)
+    {
+        Player* player = handler->GetSession()->GetPlayer();
+
+        for (uint32 i = 0; i < sTalentStore.GetNumRows(); ++i)
+        {
+            TalentEntry const* talentInfo = sTalentStore.LookupEntry(i);
+            if (!talentInfo)
+                continue;
+
+            if (talentInfo->playerClass != player->getClass())
+                continue;
+
+            // search highest talent rank
+            uint32 spellId = talentInfo->SpellId;
+
+            if (!spellId)                                        // ??? none spells in talent
+                continue;
+
+            SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
+            if (!spellInfo || !SpellMgr::IsSpellValid(spellInfo, handler->GetSession()->GetPlayer(), false))
+                continue;
+
+            // learn highest rank of talent and learn all non-talent spell ranks (recursive by tree)
+            player->learnSpellHighRank(spellId);
+            player->AddTalent(spellId, player->GetActiveSpec(), true);
+        }
+
+        handler->SendSysMessage(LANG_COMMAND_LEARN_CLASS_TALENTS);
+        return true;
+    }
+
+    static bool HandleLearnAllMyPetTalentsCommand(ChatHandler* handler, char const* /*args*/)
+    {
+        return false;
+
+        Player* player = handler->GetSession()->GetPlayer();
+
+        Pet* pet = player->GetPet();
+        if (!pet)
+        {
+            handler->SendSysMessage(LANG_NO_PET_FOUND);
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
+
+        CreatureTemplate const* creatureInfo = pet->GetCreatureTemplate();
+        if (!creatureInfo)
+        {
+            handler->SendSysMessage(LANG_WRONG_PET_TYPE);
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
+
+        CreatureFamilyEntry const* petFamily = sCreatureFamilyStore.LookupEntry(creatureInfo->family);
+        if (!petFamily)
+        {
+            handler->SendSysMessage(LANG_WRONG_PET_TYPE);
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
+
+        if (petFamily->petTalentType < 0)                       // not hunter pet
+        {
+            handler->SendSysMessage(LANG_WRONG_PET_TYPE);
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
+
+        for (uint32 i = 0; i < sTalentStore.GetNumRows(); ++i)
+        {
+            TalentEntry const* talentInfo = sTalentStore.LookupEntry(i);
+            if (!talentInfo)
+                continue;
+
+            /*TalentTabEntry const* talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->TalentTab);
+            if (!talentTabInfo)
+                continue;
+
+            // prevent learn talent for different family (cheating)
+            if (((1 << petFamily->petTalentType) & talentTabInfo->petTalentMask) == 0)
+                continue;*/
+
+            // search highest talent rank
+            uint32 spellId = 0;
+
+            if (!spellId)                                        // ??? none spells in talent
+                continue;
+
+            SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
+            if (!spellInfo || !SpellMgr::IsSpellValid(spellInfo, handler->GetSession()->GetPlayer(), false))
+                continue;
+
+            // learn highest rank of talent and learn all non-talent spell ranks (recursive by tree)
+            pet->learnSpellHighRank(spellId);
+        }
+
+        pet->SetFreeTalentPoints(0);
+
+        handler->SendSysMessage(LANG_COMMAND_LEARN_PET_TALENTS);
+        return true;
+    }
+
     static bool HandleLearnAllLangCommand(ChatHandler* handler, char const* /*args*/)
     {
         // skipping UNIVERSAL language (0)
-        for (uint8 i = 1; i < LANGUAGE_DESC_COUNT; ++i)
+        for (uint8 i = 1; i < LANGUAGES_COUNT; ++i)
             handler->GetSession()->GetPlayer()->learnSpell(lang_description[i].spell_id, false);
 
         handler->SendSysMessage(LANG_COMMAND_LEARN_ALL_LANG);
@@ -145,22 +308,30 @@ public:
         if (!handler->extractPlayerTarget((char*)args, &target))
             return false;
 
+        target->learnDefaultSpells();
         target->learnQuestRewardedSpells();
 
         handler->PSendSysMessage(LANG_COMMAND_LEARN_ALL_DEFAULT_AND_QUEST, handler->GetNameLink(target).c_str());
         return true;
     }
 
-    static bool HandleLearnAllCraftsCommand(ChatHandler* handler, char const* /*args*/)
+    static bool HandleLearnAllCraftsCommand(ChatHandler* handler, char const* args)
     {
+        Player* target;
+        if (!handler->extractPlayerTarget((char*)args, &target))
+            return false;
+
         for (uint32 i = 0; i < sSkillLineStore.GetNumRows(); ++i)
         {
             SkillLineEntry const* skillInfo = sSkillLineStore.LookupEntry(i);
             if (!skillInfo)
                 continue;
 
-            if ((skillInfo->CategoryID == SKILL_CATEGORY_PROFESSION || skillInfo->CategoryID == SKILL_CATEGORY_SECONDARY) && skillInfo->CanLink) // only prof. with recipes have
-                HandleLearnSkillRecipesHelper(handler->GetSession()->GetPlayer(), skillInfo->ID);
+            if ((skillInfo->categoryId == SKILL_CATEGORY_PROFESSION || skillInfo->categoryId == SKILL_CATEGORY_SECONDARY) &&
+                skillInfo->canLink)                             // only prof. with recipes have
+            {
+                HandleLearnSkillRecipesHelper(target, skillInfo->id);
+            }
         }
 
         handler->SendSysMessage(LANG_COMMAND_LEARN_ALL_CRAFT);
@@ -199,10 +370,12 @@ public:
             if (!skillInfo)
                 continue;
 
-            if ((skillInfo->CategoryID != SKILL_CATEGORY_PROFESSION && skillInfo->CategoryID != SKILL_CATEGORY_SECONDARY) || !skillInfo->CanLink) // only prof with recipes have set
+            if ((skillInfo->categoryId != SKILL_CATEGORY_PROFESSION &&
+                skillInfo->categoryId != SKILL_CATEGORY_SECONDARY) ||
+                !skillInfo->canLink)                            // only prof with recipes have set
                 continue;
 
-            name = skillInfo->DisplayName[DEFAULT_LOCALE].Str[DEFAULT_LOCALE];
+            name = skillInfo->name;
             if (name.empty())
                 continue;
 
@@ -215,10 +388,10 @@ public:
         if (!targetSkillInfo)
             return false;
 
-        HandleLearnSkillRecipesHelper(target, targetSkillInfo->ID);
+        HandleLearnSkillRecipesHelper(target, targetSkillInfo->id);
 
-        uint16 maxLevel = target->GetPureMaxSkillValue(targetSkillInfo->ID);
-        target->SetSkill(targetSkillInfo->ID, target->GetSkillStep(targetSkillInfo->ID), maxLevel, maxLevel);
+        uint16 maxLevel = target->GetPureMaxSkillValue(targetSkillInfo->id);
+        target->SetSkill(targetSkillInfo->id, target->GetSkillStep(targetSkillInfo->id), maxLevel, maxLevel);
         handler->PSendSysMessage(LANG_COMMAND_LEARN_ALL_RECIPES, name.c_str());
         return true;
     }
@@ -234,26 +407,26 @@ public:
                 continue;
 
             // wrong skill
-            if (skillLine->SkillLine != skillId)
+            if (skillLine->skillId != skillId)
                 continue;
 
             // not high rank
-            if (skillLine->SupercedesSpell)
+            if (skillLine->forward_spellid)
                 continue;
 
             // skip racial skills
-            if (skillLine->RaceMask != 0)
+            if (skillLine->racemask != 0)
                 continue;
 
             // skip wrong class skills
-            if (skillLine->ClassMask && (skillLine->ClassMask & classmask) == 0)
+            if (skillLine->classmask && (skillLine->classmask & classmask) == 0)
                 continue;
 
-            SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(skillLine->Spell);
+            SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(skillLine->spellId);
             if (!spellInfo || !SpellMgr::IsSpellValid(spellInfo, player, false))
                 continue;
 
-            player->learnSpell(skillLine->Spell, false);
+            player->learnSpell(skillLine->spellId, false);
         }
     }
 
@@ -279,15 +452,15 @@ public:
         }
 
         if (allRanks)
-            spellId = sSpellMgr->GetFirstSpellInChain (spellId);
+            spellId = sSpellMgr->GetFirstSpellInChain(spellId);
 
         if (target->HasSpell(spellId))
             target->removeSpell(spellId, false, !allRanks);
         else
             handler->SendSysMessage(LANG_FORGET_SPELL);
 
-        /*if (GetTalentSpellCost(spellId))
-            target->SendTalentsInfoData(false);*/
+        if (GetTalentSpellCost(spellId))
+            target->SendTalentsInfoData();
 
         return true;
     }

@@ -1,9 +1,12 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -37,14 +40,14 @@ class instance_vault_of_archavon : public InstanceMapScript
             {
                 SetBossNumber(EncounterCount);
 
-                EmalonGUID.Clear();
-                ToravonGUID.Clear();
+                EmalonGUID      = 0;
+                ToravonGUID     = 0;
                 ArchavonDeath   = 0;
                 EmalonDeath     = 0;
                 KoralonDeath    = 0;
             }
 
-            void OnCreatureCreate(Creature* creature) override
+            void OnCreatureCreate(Creature* creature) OVERRIDE
             {
                 switch (creature->GetEntry())
                 {
@@ -59,7 +62,7 @@ class instance_vault_of_archavon : public InstanceMapScript
                 }
             }
 
-            ObjectGuid GetGuidData(uint32 identifier) const override
+            uint64 GetData64(uint32 identifier) const OVERRIDE
             {
                 switch (identifier)
                 {
@@ -71,10 +74,10 @@ class instance_vault_of_archavon : public InstanceMapScript
                         break;
                 }
 
-                return ObjectGuid::Empty;
+                return 0;
             }
 
-            bool SetBossState(uint32 type, EncounterState state) override
+            bool SetBossState(uint32 type, EncounterState state) OVERRIDE
             {
                 if (!InstanceScript::SetBossState(type, state))
                     return false;
@@ -98,12 +101,12 @@ class instance_vault_of_archavon : public InstanceMapScript
                 }
 
                 // on every death of Archavon, Emalon and Koralon check our achievement
-                DoUpdateAchievementCriteria(CRITERIA_TYPE_BE_SPELL_TARGET, SPELL_EARTH_WIND_FIRE_ACHIEVEMENT_CHECK);
+                DoCastSpellOnPlayers(SPELL_EARTH_WIND_FIRE_ACHIEVEMENT_CHECK);
 
                 return true;
             }
 
-            bool CheckAchievementCriteriaMeet(uint32 criteria_id, Player const* /*source*/, Unit const* /*target*/, uint32 /*miscvalue1*/) override
+            bool CheckAchievementCriteriaMeet(uint32 criteria_id, Player const* /*source*/, Unit const* /*target*/, uint32 /*miscvalue1*/) OVERRIDE
             {
                 switch (criteria_id)
                 {
@@ -126,14 +129,14 @@ class instance_vault_of_archavon : public InstanceMapScript
             }
 
         private:
-            ObjectGuid EmalonGUID;
-            ObjectGuid ToravonGUID;
+            uint64 EmalonGUID;
+            uint64 ToravonGUID;
             time_t ArchavonDeath;
             time_t EmalonDeath;
             time_t KoralonDeath;
         };
 
-        InstanceScript* GetInstanceScript(InstanceMap* map) const override
+        InstanceScript* GetInstanceScript(InstanceMap* map) const OVERRIDE
         {
             return new instance_vault_of_archavon_InstanceMapScript(map);
         }

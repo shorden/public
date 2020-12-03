@@ -1,36 +1,56 @@
+/*
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
+#include "Vehicle.h"
+#include "SpellScript.h"
+#include "SpellAuraEffects.h"
 #include "baradin_hold.h"
 
 enum Spells
 {
-    SPELL_BERSERK                   = 47008, 
-    SPELL_SEARING_SHADOW            = 96913, 
-
-    SPELL_FOCUSED_FIRE              = 96872,
-    SPELL_FOCUSED_FIRE_DUMMY        = 96886,
-    SPELL_FOCUSED_FIRE_1            = 96884,
-
-    SPELL_EYE_OF_OCCUTHAR           = 96920, 
-    SPELL_EYE_OF_OCCUTHAR_25        = 101006,
-    SPELL_EYE_OF_OCCUTHAR_VEHICLE   = 96932,
-
-    SPELL_EYE_OF_OCCUTHAR_DMG       = 96942,
-
-    SPELL_OCCUTHARS_DESTRUCTION     = 96968,
-    
+    SPELL_SEARING_SHADOWS               = 96913,
+    SPELL_FOCUSED_FIRE_FIRST_DAMAGE     = 97212,
+    SPELL_FOCUSED_FIRE_TRIGGER          = 96872,
+    SPELL_FOCUSED_FIRE_VISUAL           = 96886,
+    SPELL_FOCUSED_FIRE                  = 96884,
+    SPELL_EYES_OF_OCCUTHAR              = 96920,
+    SPELL_GAZE_OF_OCCUTHAR              = 96942,
+    SPELL_OCCUTHARS_DESTUCTION          = 96968,
+    SPELL_BERSERK                       = 47008
 };
 
 enum Events
 {
-    EVENT_BERSERK           = 1,
-    EVENT_SEARING_SHADOWS   = 2,
-    EVENT_EYE_OF_OCCUTHAR   = 3,
-    EVENT_FOCUSED_FIRE      = 4,
+    EVENT_SEARING_SHADOWS               = 1,
+    EVENT_FOCUSED_FIRE                  = 2,
+    EVENT_EYES_OF_OCCUTHAR              = 3,
+    EVENT_BERSERK                       = 4,
+
+    EVENT_FOCUSED_FIRE_FIRST_DAMAGE     = 1
 };
 
-enum Adds
+enum Misc
 {
-    NPC_EYE_OF_OCCUTHAR = 52389,
-    NPC_EYESTALK        = 52369,
+    MAX_OCCUTHAR_VEHICLE_SEATS          = 7
 };
 
 class boss_occuthar : public CreatureScript
@@ -38,56 +58,54 @@ class boss_occuthar : public CreatureScript
     public:
         boss_occuthar() : CreatureScript("boss_occuthar") { }
 
-        CreatureAI* GetAI(Creature* pCreature) const
-        {
-            return GetInstanceAI<boss_occutharAI>(pCreature);
-        }
-
         struct boss_occutharAI : public BossAI
         {
-            boss_occutharAI(Creature* pCreature) : BossAI(pCreature, DATA_OCCUTHAR) 
+            boss_occutharAI(Creature* creature) : BossAI(creature, DATA_OCCUTHAR),
+                _vehicle(me->GetVehicleKit())
             {
-                me->ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_KNOCK_BACK, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_GRIP, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_STUN, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_FEAR, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_ROOT, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_FREEZE, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_POLYMORPH, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_HORROR, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_SAPPED, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_CHARM, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_DISORIENTED, true);
-                me->ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_MOD_CONFUSE, true);
+                ASSERT(_vehicle);
             }
 
-            void Reset()
+            void EnterCombat(Unit* /*who*/) OVERRIDE
             {
-                _Reset();
-                
-                events.Reset();
+                _EnterCombat();
+                instance->SendEncounterUnit(ENCOUNTER_FRAME_ENGAGE, me);
+                events.ScheduleEvent(EVENT_SEARING_SHADOWS, 8 * IN_MILLISECONDS);
+                events.ScheduleEvent(EVENT_FOCUSED_FIRE, 15 * IN_MILLISECONDS);
+                events.ScheduleEvent(EVENT_EYES_OF_OCCUTHAR, 30 * IN_MILLISECONDS);
+                events.ScheduleEvent(EVENT_BERSERK, 5 * MINUTE * IN_MILLISECONDS);
             }
 
-            void JustReachedHome()
+            void EnterEvadeMode() OVERRIDE
             {
-                _JustReachedHome();
+                BossAI::EnterEvadeMode();
+                instance->SendEncounterUnit(ENCOUNTER_FRAME_DISENGAGE, me);
+                _DespawnAtEvade();
             }
 
-            void EnterCombat(Unit* attacker)
-            {
-                events.RescheduleEvent(EVENT_BERSERK, 300000);
-                events.RescheduleEvent(EVENT_EYE_OF_OCCUTHAR, 59000);
-                events.RescheduleEvent(EVENT_FOCUSED_FIRE, 26000);
-                events.RescheduleEvent(EVENT_SEARING_SHADOWS, 24000); 
-                instance->SetBossState(DATA_OCCUTHAR, IN_PROGRESS);
-            }
-
-            void JustDied(Unit* killer)
+            void JustDied(Unit* /*killer*/) OVERRIDE
             {
                 _JustDied();
+                instance->SendEncounterUnit(ENCOUNTER_FRAME_DISENGAGE, me);
             }
 
-            void UpdateAI(uint32 diff)
+            void JustSummoned(Creature* summon) OVERRIDE
+            {
+                summons.Summon(summon);
+
+                if (summon->GetEntry() == NPC_FOCUS_FIRE_DUMMY)
+                {
+                    DoCast(summon, SPELL_FOCUSED_FIRE);
+
+                    for (uint8 i = 0; i < MAX_OCCUTHAR_VEHICLE_SEATS; ++i)
+                    {
+                        if (Unit* vehicle = _vehicle->GetPassenger(i))
+                            vehicle->CastSpell(summon, SPELL_FOCUSED_FIRE_VISUAL);
+                    }
+                }
+            }
+
+            void UpdateAI(uint32 diff) OVERRIDE
             {
                 if (!UpdateVictim())
                     return;
@@ -97,150 +115,282 @@ class boss_occuthar : public CreatureScript
                 if (me->HasUnitState(UNIT_STATE_CASTING))
                     return;
 
-                if (uint32 eventId = events.ExecuteEvent())
+                while (uint32 eventId = events.ExecuteEvent())
                 {
                     switch (eventId)
                     {
+                        case EVENT_SEARING_SHADOWS:
+                            DoCastAOE(SPELL_SEARING_SHADOWS);
+                            events.ScheduleEvent(EVENT_SEARING_SHADOWS, 25 * IN_MILLISECONDS);
+                            break;
+                        case EVENT_FOCUSED_FIRE:
+                            DoCastAOE(SPELL_FOCUSED_FIRE_TRIGGER, true);
+                            events.ScheduleEvent(EVENT_FOCUSED_FIRE, 15 * IN_MILLISECONDS);
+                            break;
+                        case EVENT_EYES_OF_OCCUTHAR:
+                            DoCastAOE(SPELL_EYES_OF_OCCUTHAR);
+                            events.RescheduleEvent(EVENT_FOCUSED_FIRE, 15 * IN_MILLISECONDS);
+                            events.ScheduleEvent(EVENT_EYES_OF_OCCUTHAR, 60 * IN_MILLISECONDS);
+                            break;
                         case EVENT_BERSERK:
                             DoCast(me, SPELL_BERSERK, true);
                             break;
-                        case EVENT_SEARING_SHADOWS:
-                            DoCast(me->getVictim(), SPELL_SEARING_SHADOW);
-                            events.RescheduleEvent(EVENT_SEARING_SHADOWS, 24000);
-                            break;
-                        case EVENT_FOCUSED_FIRE:
-                            DoCastAOE(SPELL_FOCUSED_FIRE);
-                            events.RescheduleEvent(EVENT_FOCUSED_FIRE, 14000);
-                            break;
-                        case EVENT_EYE_OF_OCCUTHAR:
-                            DoCastAOE(SPELL_EYE_OF_OCCUTHAR);
-                            events.RescheduleEvent(EVENT_FOCUSED_FIRE, 26000);
-                            events.RescheduleEvent(EVENT_EYE_OF_OCCUTHAR, 59000);
+                        default:
                             break;
                     }
                 }
 
                 DoMeleeAttackIfReady();
             }
+
+        private:
+            Vehicle* _vehicle;
         };
+
+        CreatureAI* GetAI(Creature* creature) const OVERRIDE
+        {
+            return GetBaradinHoldAI<boss_occutharAI>(creature);
+        }
 };
 
-class npc_occuthar_eyestalk : public CreatureScript
+class npc_eyestalk : public CreatureScript
 {
     public:
-        npc_occuthar_eyestalk() : CreatureScript("npc_occuthar_eyestalk") { }
+        npc_eyestalk() : CreatureScript("npc_eyestalk") { }
 
-        CreatureAI* GetAI(Creature* pCreature) const
+        struct npc_eyestalkAI : public ScriptedAI
         {
-            return GetInstanceAI<npc_occuthar_eyestalkAI>(pCreature);
-        }
-
-        struct npc_occuthar_eyestalkAI : public Scripted_NoMovementAI
-        {
-            npc_occuthar_eyestalkAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature)
+            npc_eyestalkAI(Creature* creature) : ScriptedAI(creature),
+                _instance(creature->GetInstanceScript())
             {
-                //me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-                //me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
-                me->SetReactState(REACT_PASSIVE);
+                _damageCount = 0;
             }
 
-            void IsSummonedBy(Unit* owner)
+            void IsSummonedBy(Unit* /*summoner*/) OVERRIDE
             {
-                if (Creature* pOccuthar = me->FindNearestCreature(NPC_OCCUTHAR, 200.0f))
-                {
-                    if (pOccuthar->isInCombat())
-                        me->SetInCombatWithZone();
+                // player is the spellcaster so register summon manually
+                if (Creature* occuthar = ObjectAccessor::GetCreature(*me, _instance->GetData64(DATA_OCCUTHAR)))
+                    occuthar->AI()->JustSummoned(me);
+            }
 
-                    pOccuthar->CastSpell(me, SPELL_FOCUSED_FIRE_1, true);
+            void Reset() OVERRIDE
+            {
+                _events.Reset();
+                _events.ScheduleEvent(EVENT_FOCUSED_FIRE_FIRST_DAMAGE, 0);
+            }
+
+            void UpdateAI(uint32 diff) OVERRIDE
+            {
+                _events.Update(diff);
+
+                if (_events.ExecuteEvent() == EVENT_FOCUSED_FIRE_FIRST_DAMAGE)
+                {
+                    DoCastAOE(SPELL_FOCUSED_FIRE_FIRST_DAMAGE);
+                    if (++_damageCount < 2)
+                        _events.ScheduleEvent(EVENT_FOCUSED_FIRE_FIRST_DAMAGE, 1 * IN_MILLISECONDS);
                 }
             }
+
+            void EnterEvadeMode() OVERRIDE { } // Never evade
+
+        private:
+            InstanceScript* _instance;
+            EventMap _events;
+            uint8 _damageCount;
         };
+
+        CreatureAI* GetAI(Creature* creature) const OVERRIDE
+        {
+            return GetBaradinHoldAI<npc_eyestalkAI>(creature);
+        }
 };
 
-class npc_occuthar_eye_of_occuthar : public CreatureScript
+class FocusedFireTargetSelector : public SF_UNARY_FUNCTION<Unit *, bool>
 {
     public:
-        npc_occuthar_eye_of_occuthar() : CreatureScript("npc_occuthar_eye_of_occuthar") { }
+        FocusedFireTargetSelector(Creature* me, const Unit* victim) : _me(me), _victim(victim) { }
 
-        CreatureAI* GetAI(Creature* pCreature) const
+        bool operator() (WorldObject* target)
         {
-            return GetInstanceAI<npc_occuthar_eye_of_occutharAI>(pCreature);
+            if (target == _victim && _me->getThreatManager().getThreatList().size() > 1)
+                return true;
+
+            if (target->GetTypeId() != TypeID::TYPEID_PLAYER)
+                return true;
+
+            return false;
         }
 
-        struct npc_occuthar_eye_of_occutharAI : public Scripted_NoMovementAI
-        {
-            npc_occuthar_eye_of_occutharAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature)
-            {
-                me->ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_KNOCK_BACK, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_GRIP, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_STUN, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_FEAR, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_ROOT, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_FREEZE, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_POLYMORPH, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_HORROR, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_SAPPED, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_CHARM, true);
-                me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_DISORIENTED, true);
-                me->ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_MOD_CONFUSE, true);
-                me->SetReactState(REACT_PASSIVE);
-                uiDestructionTimer = 9500;
-                bDestruction = false;
-            }
-
-            uint32 uiDestructionTimer;
-            bool bDestruction;
-
-            void UpdateAI(uint32 diff)
-            {
-                if (uiDestructionTimer <= diff && !bDestruction)
-                {
-                    bDestruction = true;
-                    DoCastAOE(SPELL_OCCUTHARS_DESTRUCTION, true);
-                }
-                else
-                    uiDestructionTimer -= diff;
-            }
-
-        };
+        Creature* _me;
+        Unit const* _victim;
 };
 
-class spell_occuthar_eye_of_occuthar : public SpellScriptLoader
+// 96872 - Focused Fire
+class spell_occuthar_focused_fire : public SpellScriptLoader
 {
     public:
-        spell_occuthar_eye_of_occuthar() : SpellScriptLoader("spell_occuthar_eye_of_occuthar") { }
+        spell_occuthar_focused_fire() : SpellScriptLoader("spell_occuthar_focused_fire") { }
 
-        class spell_occuthar_eye_of_occuthar_SpellScript : public SpellScript
+        class spell_occuthar_focused_fire_SpellScript : public SpellScript
         {
-            PrepareSpellScript(spell_occuthar_eye_of_occuthar_SpellScript);
+            PrepareSpellScript(spell_occuthar_focused_fire_SpellScript);
+
+            void FilterTargets(std::list<WorldObject*>& targets)
+            {
+                if (targets.empty())
+                    return;
+
+                targets.remove_if(FocusedFireTargetSelector(GetCaster()->ToCreature(), GetCaster()->GetVictim()));
+                WorldObject* target = Skyfire::Containers::SelectRandomContainerElement(targets);
+                targets.clear();
+                targets.push_back(target);
+            }
+
+            void Register() OVERRIDE
+            {
+                OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_occuthar_focused_fire_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_SRC_AREA_ENEMY);
+            }
+        };
+
+        SpellScript* GetSpellScript() const OVERRIDE
+        {
+            return new spell_occuthar_focused_fire_SpellScript();
+        }
+};
+
+// ID - 96931 Eyes of Occu'thar
+class spell_occuthar_eyes_of_occuthar : public SpellScriptLoader
+{
+    public:
+        spell_occuthar_eyes_of_occuthar() : SpellScriptLoader("spell_occuthar_eyes_of_occuthar") { }
+
+        class spell_occuthar_eyes_of_occuthar_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_occuthar_eyes_of_occuthar_SpellScript);
+
+            bool Validate(SpellInfo const* spellInfo) OVERRIDE
+            {
+                if (!sSpellMgr->GetSpellInfo(spellInfo->Effects[EFFECT_0].CalcValue()))
+                    return false;
+                return true;
+            }
+
+            bool Load() OVERRIDE
+            {
+                return GetCaster()->GetTypeId() == TypeID::TYPEID_PLAYER;
+            }
+
+            void FilterTargets(std::list<WorldObject*>& targets)
+            {
+                if (targets.empty())
+                    return;
+
+                WorldObject* target = Skyfire::Containers::SelectRandomContainerElement(targets);
+                targets.clear();
+                targets.push_back(target);
+            }
 
             void HandleScript(SpellEffIndex /*effIndex*/)
             {
-                if (!GetCaster() || !GetHitUnit())
-                    return;
-
-                GetCaster()->CastSpell(GetCaster(), SPELL_EYE_OF_OCCUTHAR_VEHICLE, true);
-                
-                if (Creature* pEye = GetCaster()->SummonCreature(NPC_EYE_OF_OCCUTHAR, GetCaster()->GetPositionX(), GetCaster()->GetPositionY(), GetCaster()->GetPositionZ(), GetCaster()->GetOrientation(), TEMPSUMMON_TIMED_DESPAWN, 11000))
-                    pEye->CastSpell(GetCaster(), SPELL_EYE_OF_OCCUTHAR_DMG, true); 
+                GetHitUnit()->CastSpell(GetCaster(), GetEffectValue(), true);
             }
 
-            void Register()
+            void Register() OVERRIDE
             {
-                OnEffectHitTarget += SpellEffectFn(spell_occuthar_eye_of_occuthar_SpellScript::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
+                OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_occuthar_eyes_of_occuthar_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_SRC_AREA_ENTRY);
+                OnEffectHitTarget += SpellEffectFn(spell_occuthar_eyes_of_occuthar_SpellScript::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
             }
         };
 
-        SpellScript* GetSpellScript() const
+        SpellScript* GetSpellScript() const OVERRIDE
         {
-            return new spell_occuthar_eye_of_occuthar_SpellScript();
+            return new spell_occuthar_eyes_of_occuthar_SpellScript();
+        }
+};
+
+// ID - 96932 Eyes of Occu'thar
+class spell_occuthar_eyes_of_occuthar_vehicle : public SpellScriptLoader
+{
+    public:
+        spell_occuthar_eyes_of_occuthar_vehicle() : SpellScriptLoader("spell_occuthar_eyes_of_occuthar_vehicle") { }
+
+        class spell_occuthar_eyes_of_occuthar_vehicle_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_occuthar_eyes_of_occuthar_vehicle_SpellScript);
+
+            bool Load() OVERRIDE
+            {
+                return GetCaster()->GetInstanceScript() != NULL;
+            }
+
+            void HandleScript()
+            {
+                Position pos;
+                GetHitUnit()->GetPosition(&pos);
+
+                if (Creature* occuthar = ObjectAccessor::GetCreature(*GetCaster(), GetCaster()->GetInstanceScript()->GetData64(DATA_OCCUTHAR)))
+                {
+                    if (Creature* creature = occuthar->SummonCreature(NPC_EYE_OF_OCCUTHAR, pos))
+                        creature->CastSpell(GetHitUnit(), SPELL_GAZE_OF_OCCUTHAR, false);
+                }
+            }
+
+            void Register() OVERRIDE
+            {
+                AfterHit += SpellHitFn(spell_occuthar_eyes_of_occuthar_vehicle_SpellScript::HandleScript);
+            }
+        };
+
+        SpellScript* GetSpellScript() const OVERRIDE
+        {
+            return new spell_occuthar_eyes_of_occuthar_vehicle_SpellScript();
+        }
+};
+
+// 96942 / 101009 - Gaze of Occu'thar
+class spell_occuthar_occuthars_destruction : public SpellScriptLoader
+{
+    public:
+        spell_occuthar_occuthars_destruction() : SpellScriptLoader("spell_occuthar_occuthars_destruction") { }
+
+        class spell_occuthar_occuthars_destruction_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_occuthar_occuthars_destruction_AuraScript);
+
+            bool Load() OVERRIDE
+            {
+                return GetCaster() && GetCaster()->GetTypeId() == TypeID::TYPEID_UNIT;
+            }
+
+            void OnRemove(AuraEffect const* aurEff, AuraEffectHandleModes /*mode*/)
+            {
+                if (Unit* caster = GetCaster())
+                {
+                    if (IsExpired())
+                        caster->CastSpell((Unit*)NULL, SPELL_OCCUTHARS_DESTUCTION, true, NULL, aurEff);
+
+                    caster->ToCreature()->DespawnOrUnsummon(500);
+                }
+            }
+
+            void Register() OVERRIDE
+            {
+                OnEffectRemove += AuraEffectRemoveFn(spell_occuthar_occuthars_destruction_AuraScript::OnRemove, EFFECT_2, SPELL_AURA_PERIODIC_TRIGGER_SPELL, AURA_EFFECT_HANDLE_REAL);
+            }
+        };
+
+        AuraScript* GetAuraScript() const OVERRIDE
+        {
+            return new spell_occuthar_occuthars_destruction_AuraScript();
         }
 };
 
 void AddSC_boss_occuthar()
 {
     new boss_occuthar();
-    new npc_occuthar_eyestalk();
-    new npc_occuthar_eye_of_occuthar();
-    new spell_occuthar_eye_of_occuthar();
+    new npc_eyestalk();
+    new spell_occuthar_focused_fire();
+    new spell_occuthar_eyes_of_occuthar();
+    new spell_occuthar_eyes_of_occuthar_vehicle();
+    new spell_occuthar_occuthars_destruction();
 }

@@ -1,9 +1,12 @@
 /*
- * Copyright (C) 2008-2013 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -15,74 +18,70 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef OCULUS_H_
-#define OCULUS_H_
+#ifndef DEF_OCULUS_H
+#define DEF_OCULUS_H
 
-uint32 const EncounterCount = 4;
-
-enum DataTypes
+enum Data
 {
-    // Encounter States/Boss GUIDs
-    DATA_DRAKOS                 = 0,
-    DATA_VAROS                  = 1,
-    DATA_UROM                   = 2,
-    DATA_EREGOS                 = 3
+    DATA_DRAKOS_EVENT,
+    DATA_VAROS_EVENT,
+    DATA_UROM_EVENT,
+    DATA_EREGOS_EVENT,
+    DATA_UROM_PLATAFORM
 };
 
-enum CreatureIds
+enum Data64
+{
+    DATA_DRAKOS,
+    DATA_VAROS,
+    DATA_UROM,
+    DATA_EREGOS
+};
+
+enum Bosses_NPCs
 {
     NPC_DRAKOS                  = 27654,
     NPC_VAROS                   = 27447,
     NPC_UROM                    = 27655,
     NPC_EREGOS                  = 27656,
 
-    NPC_AZURE_RING_GUARDIAN     = 28236,
-    NPC_CENTRIFUGE_CONSTRUCT    = 27641,
-    NPC_RUBY_DRAKE_VEHICLE      = 27756,
-    NPC_EMERALD_DRAKE_VEHICLE   = 27692,
-    NPC_AMBER_DRAKE_VEHICLE     = 27755,
-    NPC_VERDISA                 = 27657,
-    NPC_BELGARISTRASZ           = 27658,
-    NPC_ETERNOS                 = 27659,
-    NPC_GREATER_WHELP           = 28276
+    NPC_AZURE_RING_GUARDIAN         = 28236,
+    NPC_CENTRIFUGE_CONSTRUCT        = 27641,
+    NPC_RUBY_DRAKE_VEHICLE          = 27756,
+    NPC_EMERALD_DRAKE_VEHICLE       = 27692,
+    NPC_AMBER_DRAKE_VEHICLE         = 27755,
+    NPC_VERDISA                     = 27657,
+    NPC_BELGARISTRASZ               = 27658,
+    NPC_ETERNOS                     = 27659,
+    NPC_GREATER_WHELP               = 28276
 };
 
-enum GameObjectIds
+enum GameObjects
 {
-    GO_DRAGON_CAGE_DOOR         = 193995,
-    GO_EREGOS_CACHE_N           = 191349,
-    GO_EREGOS_CACHE_H           = 193603
+    GO_DRAGON_CAGE_DOOR                           = 193995,
+    GO_EREGOS_CACHE_N                             = 191349,
+    GO_EREGOS_CACHE_H                             = 193603
 };
 
 enum SpellEvents
 {
-    EVENT_CALL_DRAGON           = 12229
+    EVENT_CALL_DRAGON = 12229
 };
 
 enum CreatureActions
 {
-    ACTION_CALL_DRAGON_EVENT    = 1
+    ACTION_CALL_DRAGON_EVENT = 1
+};
+
+enum OculusWorldStates
+{
+    WORLD_STATE_CENTRIFUGE_CONSTRUCT_SHOW   = 3524,
+    WORLD_STATE_CENTRIFUGE_CONSTRUCT_AMOUNT = 3486
 };
 
 enum OculusSpells
 {
-    SPELL_CENTRIFUGE_SHIELD     = 50053,
-    SPELL_DEATH_SPELL           = 50415
+    SPELL_CENTRIFUGE_SHIELD = 50053,
+    SPELL_DEATH_SPELL       = 50415
 };
-
-enum Misc
-{
-    POINT_MOVE_OUT              = 1
-};
-
-template<class AI>
-CreatureAI* GetInstanceAI(Creature* creature)
-{
-    if (InstanceMap* instance = creature->GetMap()->ToInstanceMap())
-        if (instance->GetInstanceScript())
-            if (instance->GetScriptId() == sObjectMgr->GetScriptId("instance_oculus"))
-                return new AI(creature);
-    return NULL;
-}
-
-#endif // OCULUS_H_
+#endif

@@ -1,9 +1,12 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -15,6 +18,8 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "violet_hold.h"
 
 enum Spells
@@ -74,9 +79,9 @@ class boss_ichoron : public CreatureScript
 public:
     boss_ichoron() : CreatureScript("boss_ichoron") { }
 
-    CreatureAI* GetAI(Creature* creature) const override
+    CreatureAI* GetAI(Creature* creature) const OVERRIDE
     {
-        return new boss_ichoronAI (creature);
+        return new boss_ichoronAI(creature);
     }
 
     struct boss_ichoronAI : public ScriptedAI
@@ -97,7 +102,7 @@ public:
 
         SummonList m_waterElements;
 
-        void Reset() override
+        void Reset() OVERRIDE
         {
             bIsExploded = false;
             bIsFrenzy = false;
@@ -117,7 +122,7 @@ public:
             }
         }
 
-        void EnterCombat(Unit* /*who*/) override
+        void EnterCombat(Unit* /*who*/) OVERRIDE
         {
             Talk(SAY_AGGRO);
 
@@ -125,8 +130,8 @@ public:
 
             if (instance)
             {
-                if (GameObject* pDoor = instance->instance->GetGameObject(instance->GetGuidData(DATA_ICHORON_CELL)))
-                    if (pDoor->GetGoState() == GO_STATE_READY)
+                if (GameObject* pDoor = instance->instance->GetGameObject(instance->GetData64(DATA_ICHORON_CELL)))
+                    if (pDoor->GetGoState() == GOState::GO_STATE_READY)
                     {
                         EnterEvadeMode();
                         return;
@@ -138,7 +143,7 @@ public:
             }
         }
 
-        void AttackStart(Unit* who) override
+        void AttackStart(Unit* who) OVERRIDE
         {
             if (me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC) || me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE))
                 return;
@@ -152,9 +157,9 @@ public:
             }
         }
 
-        void DoAction(const int32 param) override
+        void DoAction(int32 param) OVERRIDE
         {
-            if (!me->isAlive())
+            if (!me->IsAlive())
                 return;
 
             switch (param)
@@ -193,10 +198,10 @@ public:
             }
 
             me->SetVisible(true);
-            me->GetMotionMaster()->MoveChase(me->getVictim());
+            me->GetMotionMaster()->MoveChase(me->GetVictim());
         }
 
-        uint32 GetData(uint32 type) const override
+        uint32 GetData(uint32 type) const OVERRIDE
         {
             if (type == DATA_DEHYDRATION)
                 return dehydration ? 1 : 0;
@@ -204,10 +209,10 @@ public:
             return 0;
         }
 
-        void MoveInLineOfSight(Unit* /*who*/) override { }
+        void MoveInLineOfSight(Unit* /*who*/) OVERRIDE { }
 
 
-        void UpdateAI(uint32 uiDiff) override
+        void UpdateAI(uint32 uiDiff) OVERRIDE
         {
             if (!UpdateVictim())
                 return;
@@ -225,7 +230,7 @@ public:
                 {
                     if (!bIsExploded)
                     {
-                        if (!me->HasAura(SPELL_PROTECTIVE_BUBBLE, ObjectGuid::Empty))
+                        if (!me->HasAura(SPELL_PROTECTIVE_BUBBLE, 0))
                         {
                             Talk(SAY_SHATTER);
                             DoCast(me, SPELL_WATER_BLAST);
@@ -236,7 +241,7 @@ public:
                             for (uint8 i = 0; i < 10; i++)
                             {
                                 int tmp = urand(0, MAX_SPAWN_LOC-1);
-                                me->SummonCreature(NPC_ICHOR_GLOBULE, SpawnLoc[tmp], TEMPSUMMON_CORPSE_DESPAWN);
+                                me->SummonCreature(NPC_ICHOR_GLOBULE, SpawnLoc[tmp], TempSummonType::TEMPSUMMON_CORPSE_DESPAWN);
                             }
                         }
                     }
@@ -245,9 +250,9 @@ public:
                         bool bIsWaterElementsAlive = false;
                         if (!m_waterElements.empty())
                         {
-                            for (GuidList::const_iterator itr = m_waterElements.begin(); itr != m_waterElements.end(); ++itr)
-                                if (Creature* temp = ObjectAccessor::GetCreature(*me, *itr))
-                                    if (temp->isAlive())
+                            for (std::list<uint64>::const_iterator itr = m_waterElements.begin(); itr != m_waterElements.end(); ++itr)
+                                if (Creature* temp = Unit::GetCreature(*me, *itr))
+                                    if (temp->IsAlive())
                                     {
                                         bIsWaterElementsAlive = true;
                                         break;
@@ -275,7 +280,7 @@ public:
             }
         }
 
-        void JustDied(Unit* /*killer*/) override
+        void JustDied(Unit* /*killer*/) OVERRIDE
         {
             Talk(SAY_DEATH);
 
@@ -302,35 +307,34 @@ public:
             }
         }
 
-        void JustSummoned(Creature* summoned) override
+        void JustSummoned(Creature* summoned) OVERRIDE
         {
             if (summoned)
             {
                 summoned->SetSpeed(MOVE_RUN, 0.3f);
                 summoned->GetMotionMaster()->MoveFollow(me, 0, 0);
                 m_waterElements.Summon(summoned);
-                instance->SetGuidData(DATA_ADD_TRASH_MOB, summoned->GetGUID());
+                instance->SetData64(DATA_ADD_TRASH_MOB, summoned->GetGUID());
             }
         }
 
-        void SummonedCreatureDespawn(Creature* summoned) override
+        void SummonedCreatureDespawn(Creature* summoned) OVERRIDE
         {
             if (summoned)
             {
                 m_waterElements.Despawn(summoned);
-                instance->SetGuidData(DATA_DEL_TRASH_MOB, summoned->GetGUID());
+                instance->SetData64(DATA_DEL_TRASH_MOB, summoned->GetGUID());
             }
         }
 
-        void KilledUnit(Unit* victim) override
+        void KilledUnit(Unit* victim) OVERRIDE
         {
-            if (victim->GetTypeId() != TYPEID_PLAYER)
+            if (victim->GetTypeId() != TypeID::TYPEID_PLAYER)
                 return;
 
             Talk(SAY_SLAY);
         }
     };
-
 };
 
 class npc_ichor_globule : public CreatureScript
@@ -338,9 +342,9 @@ class npc_ichor_globule : public CreatureScript
 public:
     npc_ichor_globule() : CreatureScript("npc_ichor_globule") { }
 
-    CreatureAI* GetAI(Creature* creature) const override
+    CreatureAI* GetAI(Creature* creature) const OVERRIDE
     {
-        return new npc_ichor_globuleAI (creature);
+        return new npc_ichor_globuleAI(creature);
     }
 
     struct npc_ichor_globuleAI : public ScriptedAI
@@ -354,28 +358,31 @@ public:
 
         uint32 uiRangeCheck_Timer;
 
-        void Reset() override
+        void Reset() OVERRIDE
         {
             uiRangeCheck_Timer = 1000;
             DoCast(me, SPELL_WATER_GLOBULE);
         }
 
-        void AttackStart(Unit* /*who*/) override
+        void AttackStart(Unit* /*who*/) OVERRIDE
         {
             return;
         }
 
-        void UpdateAI(uint32 uiDiff) override
+        void UpdateAI(uint32 uiDiff) OVERRIDE
         {
             if (uiRangeCheck_Timer < uiDiff)
             {
-                if (Creature* pIchoron = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_ICHORON)))
+                if (instance)
                 {
-                    if (me->IsWithinDist(pIchoron, 2.0f, false))
+                    if (Creature* pIchoron = Unit::GetCreature(*me, instance->GetData64(DATA_ICHORON)))
                     {
-                        if (pIchoron->AI())
-                            pIchoron->AI()->DoAction(ACTION_WATER_ELEMENT_HIT);
-                        me->DespawnOrUnsummon();
+                        if (me->IsWithinDist(pIchoron, 2.0f, false))
+                        {
+                            if (pIchoron->AI())
+                                pIchoron->AI()->DoAction(ACTION_WATER_ELEMENT_HIT);
+                            me->DespawnOrUnsummon();
+                        }
                     }
                 }
                 uiRangeCheck_Timer = 1000;
@@ -383,15 +390,14 @@ public:
             else uiRangeCheck_Timer -= uiDiff;
         }
 
-        void JustDied(Unit* /*killer*/) override
+        void JustDied(Unit* /*killer*/) OVERRIDE
         {
             DoCast(me, SPELL_SPLASH);
-            if (Creature* pIchoron = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_ICHORON)))
+            if (Creature* pIchoron = Unit::GetCreature(*me, instance->GetData64(DATA_ICHORON)))
                 if (pIchoron->AI())
                     pIchoron->AI()->DoAction(ACTION_WATER_ELEMENT_KILLED);
         }
     };
-
 };
 
 class achievement_dehydration : public AchievementCriteriaScript
@@ -401,7 +407,7 @@ class achievement_dehydration : public AchievementCriteriaScript
         {
         }
 
-        bool OnCheck(Player* /*player*/, Unit* target) override
+        bool OnCheck(Player* /*player*/, Unit* target) OVERRIDE
         {
             if (!target)
                 return false;

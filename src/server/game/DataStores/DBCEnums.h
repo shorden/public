@@ -601,11 +601,4 @@ enum CurrencyTypes
     CURRENCY_TYPE_BLOODY_COIN                     = 789,
 };
 
-enum ScenarioType
-{
-	SCENARIO_TYPE_SCENARIO = 0,
-	SCENARIO_TYPE_DUNGEON = 1,
-	SCENARIO_TYPE_SOLO = 2,
-};
-
 #endif

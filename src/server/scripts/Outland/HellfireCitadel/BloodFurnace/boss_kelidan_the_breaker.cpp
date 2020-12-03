@@ -1,10 +1,12 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -15,6 +17,18 @@
  * You should have received a copy of the GNU General Public License along
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+
+/* ScriptData
+SDName: Boss_Kelidan_The_Breaker
+SD%Complete: 100
+SDComment:
+SDCategory: Hellfire Citadel, Blood Furnace
+EndScriptData */
+
+/* ContentData
+boss_kelidan_the_breaker
+npc_shadowmoon_channeler
+EndContentData */
 
 #include "ScriptMgr.h"
 #include "ScriptedCreature.h"
@@ -61,13 +75,16 @@ class boss_kelidan_the_breaker : public CreatureScript
     public:
         boss_kelidan_the_breaker() : CreatureScript("boss_kelidan_the_breaker") { }
 
-        struct boss_kelidan_the_breakerAI : public BossAI
+        struct boss_kelidan_the_breakerAI : public ScriptedAI
         {
-            boss_kelidan_the_breakerAI(Creature* creature) : BossAI(creature, DATA_KELIDAN_THE_BREAKER)
+            boss_kelidan_the_breakerAI(Creature* creature) : ScriptedAI(creature)
             {
-                for (uint8 i = 0; i < 5; ++i)
-                    Channelers[i].Clear();
+                instance = creature->GetInstanceScript();
+                for (uint8 i=0; i<5; ++i)
+                    Channelers[i] = 0;
             }
+
+            InstanceScript* instance;
 
             uint32 ShadowVolley_Timer;
             uint32 BurningNova_Timer;
@@ -76,11 +93,10 @@ class boss_kelidan_the_breaker : public CreatureScript
             uint32 check_Timer;
             bool Firenova;
             bool addYell;
-            ObjectGuid Channelers[5];
+            uint64 Channelers[5];
 
-            void Reset()
+            void Reset() OVERRIDE
             {
-                _Reset();
                 ShadowVolley_Timer = 1000;
                 BurningNova_Timer = 15000;
                 Corruption_Timer = 5000;
@@ -90,18 +106,21 @@ class boss_kelidan_the_breaker : public CreatureScript
                 SummonChannelers();
                 me->SetReactState(REACT_PASSIVE);
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_NON_ATTACKABLE);
+                if (instance)
+                    instance->SetData(TYPE_KELIDAN_THE_BREAKER_EVENT, NOT_STARTED);
             }
 
-            void EnterCombat(Unit* who)
+            void EnterCombat(Unit* who) OVERRIDE
             {
-                _EnterCombat();
                 Talk(SAY_WAKE);
-                if (me->IsNonMeleeSpellCast(false))
+                if (me->IsNonMeleeSpellCasted(false))
                     me->InterruptNonMeleeSpells(true);
                 DoStartMovement(who);
+                if (instance)
+                    instance->SetData(TYPE_KELIDAN_THE_BREAKER_EVENT, IN_PROGRESS);
             }
 
-            void KilledUnit(Unit* /*victim*/)
+            void KilledUnit(Unit* /*victim*/) OVERRIDE
             {
                 if (rand()%2)
                     return;
@@ -118,8 +137,8 @@ class boss_kelidan_the_breaker : public CreatureScript
                 }
                 for (uint8 i=0; i<5; ++i)
                 {
-                    Creature* channeler = ObjectAccessor::GetCreature(*me, Channelers[i]);
-                    if (who && channeler && !channeler->isInCombat())
+                    Creature* channeler = Unit::GetCreature(*me, Channelers[i]);
+                    if (who && channeler && !channeler->IsInCombat())
                         channeler->AI()->AttackStart(who);
                 }
             }
@@ -128,26 +147,26 @@ class boss_kelidan_the_breaker : public CreatureScript
             {
                 for (uint8 i=0; i<5; ++i)
                 {
-                    Creature* channeler = ObjectAccessor::GetCreature(*me, Channelers[i]);
-                    if (channeler && channeler->isAlive())
+                    Creature* channeler = Unit::GetCreature(*me, Channelers[i]);
+                    if (channeler && channeler->IsAlive())
                         return;
                 }
                 me->SetReactState(REACT_AGGRESSIVE);
                 me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_NON_ATTACKABLE);
                 if (killer)
-                    AttackStart(killer);
+                    me->AI()->AttackStart(killer);
             }
 
-            ObjectGuid GetChanneled(Creature* channeler1)
+            uint64 GetChanneled(Creature* channeler1)
             {
                 SummonChannelers();
                 if (!channeler1)
-                    return ObjectGuid::Empty;
+                    return 0;
 
                 uint8 i;
                 for (i=0; i<5; ++i)
                 {
-                    Creature* channeler = ObjectAccessor::GetCreature(*me, Channelers[i]);
+                    Creature* channeler = Unit::GetCreature(*me, Channelers[i]);
                     if (channeler && channeler->GetGUID() == channeler1->GetGUID())
                         break;
                 }
@@ -158,29 +177,35 @@ class boss_kelidan_the_breaker : public CreatureScript
             {
                 for (uint8 i=0; i<5; ++i)
                 {
-                    Creature* channeler = ObjectAccessor::GetCreature(*me, Channelers[i]);
+                    Creature* channeler = Unit::GetCreature(*me, Channelers[i]);
                     if (!channeler || channeler->isDead())
-                        channeler = me->SummonCreature(ENTRY_CHANNELER, ShadowmoonChannelers[i][0], ShadowmoonChannelers[i][1], ShadowmoonChannelers[i][2], ShadowmoonChannelers[i][3], TEMPSUMMON_CORPSE_TIMED_DESPAWN, 300000);
+                        channeler = me->SummonCreature(ENTRY_CHANNELER, ShadowmoonChannelers[i][0], ShadowmoonChannelers[i][1], ShadowmoonChannelers[i][2], ShadowmoonChannelers[i][3], TempSummonType::TEMPSUMMON_CORPSE_TIMED_DESPAWN, 300000);
                     if (channeler)
                         Channelers[i] = channeler->GetGUID();
                     else
-                        Channelers[i].Clear();
+                        Channelers[i] = 0;
                 }
             }
 
-            void JustDied(Unit* /*killer*/)
+            void JustDied(Unit* /*killer*/) OVERRIDE
             {
-                _JustDied();
                 Talk(SAY_DIE);
+
+                if (!instance)
+                    return;
+
+                instance->SetData(TYPE_KELIDAN_THE_BREAKER_EVENT, DONE);
+                instance->HandleGameObject(instance->GetData64(DATA_DOOR1), true);
+                instance->HandleGameObject(instance->GetData64(DATA_DOOR6), true);
             }
 
-            void UpdateAI(uint32 diff)
+            void UpdateAI(uint32 diff) OVERRIDE
             {
                 if (!UpdateVictim())
                 {
                     if (check_Timer <= diff)
                     {
-                        if (!me->IsNonMeleeSpellCast(false))
+                        if (!me->IsNonMeleeSpellCasted(false))
                             DoCast(me, SPELL_EVOCATION);
                         check_Timer = 5000;
                     }
@@ -221,7 +246,7 @@ class boss_kelidan_the_breaker : public CreatureScript
 
                 if (BurningNova_Timer <= diff)
                 {
-                    if (me->IsNonMeleeSpellCast(false))
+                    if (me->IsNonMeleeSpellCasted(false))
                         me->InterruptNonMeleeSpells(true);
 
                     Talk(SAY_NOVA);
@@ -246,7 +271,7 @@ class boss_kelidan_the_breaker : public CreatureScript
             }
         };
 
-        CreatureAI* GetAI(Creature* creature) const
+        CreatureAI* GetAI(Creature* creature) const OVERRIDE
         {
             return new boss_kelidan_the_breakerAI(creature);
         }
@@ -268,7 +293,6 @@ enum Shadowmoon
 class npc_shadowmoon_channeler : public CreatureScript
 {
     public:
-
         npc_shadowmoon_channeler() : CreatureScript("npc_shadowmoon_channeler") { }
 
         struct npc_shadowmoon_channelerAI : public ScriptedAI
@@ -279,41 +303,41 @@ class npc_shadowmoon_channeler : public CreatureScript
             uint32 MarkOfShadow_Timer;
             uint32 check_Timer;
 
-            void Reset()
+            void Reset() OVERRIDE
             {
                 ShadowBolt_Timer = 1000+rand()%1000;
                 MarkOfShadow_Timer = 5000+rand()%2000;
                 check_Timer = 0;
-                if (me->IsNonMeleeSpellCast(false))
+                if (me->IsNonMeleeSpellCasted(false))
                     me->InterruptNonMeleeSpells(true);
             }
 
-            void EnterCombat(Unit* who)
+            void EnterCombat(Unit* who) OVERRIDE
             {
                 if (Creature* Kelidan = me->FindNearestCreature(ENTRY_KELIDAN, 100))
                     CAST_AI(boss_kelidan_the_breaker::boss_kelidan_the_breakerAI, Kelidan->AI())->ChannelerEngaged(who);
-                if (me->IsNonMeleeSpellCast(false))
+                if (me->IsNonMeleeSpellCasted(false))
                     me->InterruptNonMeleeSpells(true);
                 DoStartMovement(who);
             }
 
-            void JustDied(Unit* killer)
+            void JustDied(Unit* killer) OVERRIDE
             {
                if (Creature* Kelidan = me->FindNearestCreature(ENTRY_KELIDAN, 100))
                    CAST_AI(boss_kelidan_the_breaker::boss_kelidan_the_breakerAI, Kelidan->AI())->ChannelerDied(killer);
             }
 
-            void UpdateAI(uint32 diff)
+            void UpdateAI(uint32 diff) OVERRIDE
             {
                 if (!UpdateVictim())
                 {
                     if (check_Timer <= diff)
                     {
-                        if (!me->IsNonMeleeSpellCast(false))
+                        if (!me->IsNonMeleeSpellCasted(false))
                             if (Creature* Kelidan = me->FindNearestCreature(ENTRY_KELIDAN, 100))
                             {
-                                ObjectGuid channeler = CAST_AI(boss_kelidan_the_breaker::boss_kelidan_the_breakerAI, Kelidan->AI())->GetChanneled(me);
-                                if (Unit* channeled = ObjectAccessor::GetUnit(*me, channeler))
+                                uint64 channeler = CAST_AI(boss_kelidan_the_breaker::boss_kelidan_the_breakerAI, Kelidan->AI())->GetChanneled(me);
+                                if (Unit* channeled = Unit::GetUnit(*me, channeler))
                                     DoCast(channeled, SPELL_CHANNELING);
                             }
                         check_Timer = 5000;
@@ -344,7 +368,7 @@ class npc_shadowmoon_channeler : public CreatureScript
             }
         };
 
-        CreatureAI* GetAI(Creature* creature) const
+        CreatureAI* GetAI(Creature* creature) const OVERRIDE
         {
             return new npc_shadowmoon_channelerAI(creature);
         }
@@ -355,3 +379,4 @@ void AddSC_boss_kelidan_the_breaker()
     new boss_kelidan_the_breaker();
     new npc_shadowmoon_channeler();
 }
+

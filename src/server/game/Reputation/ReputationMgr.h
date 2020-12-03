@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -16,13 +17,15 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __TRINITY_REPUTATION_MGR_H
-#define __TRINITY_REPUTATION_MGR_H
+#ifndef SF_SKYFIRE_REPUTATION_MGR_H
+#define SF_SKYFIRE_REPUTATION_MGR_H
 
 #include "Common.h"
 #include "SharedDefines.h"
 #include "Language.h"
-//#include "DatabaseEnvFwd.h"
+#include "DBCStructure.h"
+#include "QueryResult.h"
+#include <map>
 
 static uint32 ReputationRankStrIndex[MAX_REPUTATION_RANK] =
 {
@@ -43,22 +46,19 @@ enum FactionFlags
     FACTION_FLAG_SPECIAL            = 0x80                  // horde and alliance home cities and their northrend allies have this flag
 };
 
-typedef int32 RepListID;
+typedef uint8 FactionIndex;
+typedef uint32 RepListID;
 struct FactionState
 {
     uint32 ID;
     RepListID ReputationListID;
-    int32 Standing;
+    int32  Standing;
     uint8 Flags;
-    bool init = false;
-    bool notInDB = true;
-    bool needSend = false;
-    bool needSave = false;
-    bool needUpdateStanding = false;
-    bool needUpdateFlags = false;
+    bool needSend;
+    bool needSave;
 };
 
-typedef std::vector<FactionState> FactionStateList;
+typedef std::map<RepListID, FactionState> FactionStateList;
 typedef std::map<uint32, ReputationRank> ForcedReactions;
 
 class Player;
@@ -66,27 +66,36 @@ class Player;
 class ReputationMgr
 {
     public:                                                 // constructors and global modifiers
-        explicit ReputationMgr(Player* owner);
-
-        ~ReputationMgr() {}
-
-        void Clear();
-        uint32 GetSize();
+        explicit ReputationMgr(Player* owner) : _player(owner),
+            _visibleFactionCount(0), _honoredFactionCount(0), _reveredFactionCount(0), _exaltedFactionCount(0), _sendFactionIncreased(false) { }
+        ~ReputationMgr() { }
 
         void SaveToDB(SQLTransaction& trans);
         void LoadFromDB(PreparedQueryResult result);
+    public:                                                 // statics
+        static const int32 PointsInRank[MAX_REPUTATION_RANK];
+        static const int32 Reputation_Cap    =  42999;
+        static const int32 Reputation_Bottom = -42000;
 
-        static ReputationRank GetReactionLevel(int32 standing);
+        static ReputationRank ReputationToRank(int32 standing);
+    public:                                                 // accessors
+        uint8 GetVisibleFactionCount() const { return _visibleFactionCount; }
+        uint8 GetHonoredFactionCount() const { return _honoredFactionCount; }
+        uint8 GetReveredFactionCount() const { return _reveredFactionCount; }
+        uint8 GetExaltedFactionCount() const { return _exaltedFactionCount; }
 
-        uint8 GetVisibleFactionCount() const;
-        uint8 GetHonoredFactionCount() const;
-        uint8 GetReveredFactionCount() const;
-        uint8 GetExaltedFactionCount() const;
+        FactionStateList const& GetStateList() const { return _factions; }
 
-        FactionStateList const& GetStateList() const;
-        FactionState const* GetState(FactionEntry const* factionEntry) const;
-        FactionState const* GetState(RepListID id) const;
-        FactionState* GetState(RepListID id);
+        FactionState const* GetState(FactionEntry const* factionEntry) const
+        {
+            return factionEntry->CanHaveReputation() ? GetState(factionEntry->reputationListID) : NULL;
+        }
+
+        FactionState const* GetState(RepListID id) const
+        {
+            FactionStateList::const_iterator repItr = _factions.find (id);
+            return repItr != _factions.end() ? &repItr->second : NULL;
+        }
 
         bool IsAtWar(uint32 faction_id) const;
         bool IsAtWar(FactionEntry const* factionEntry) const;
@@ -97,40 +106,55 @@ class ReputationMgr
 
         ReputationRank GetRank(FactionEntry const* factionEntry) const;
         ReputationRank GetBaseRank(FactionEntry const* factionEntry) const;
-        uint32 GetReputationRankStrIndex(FactionEntry const* factionEntry) const;
-        ReputationRank const* GetForcedRankIfAny(uint32 factionId) const;
-        ReputationRank const* GetForcedRankIfAny(FactionTemplateEntry const* factionTemplateEntry) const;
+        uint32 GetReputationRankStrIndex(FactionEntry const* factionEntry) const
+        {
+            return ReputationRankStrIndex[GetRank(factionEntry)];
+        };
 
-        bool SetReputation(FactionEntry const* factionEntry, int32 standing);
-        bool ModifyReputation(FactionEntry const* factionEntry, int32 standing, bool noSpillover = false);
-        void ModifyParagonReputation(FactionEntry const* factionEntry, int32 standing);
+        ReputationRank const* GetForcedRankIfAny(FactionTemplateEntry const* factionTemplateEntry) const
+        {
+            ForcedReactions::const_iterator forceItr = _forcedReactions.find(factionTemplateEntry->faction);
+            return forceItr != _forcedReactions.end() ? &forceItr->second : NULL;
+        }
+
+    public:                                                 // modifiers
+        bool SetReputation(FactionEntry const* factionEntry, int32 standing)
+        {
+            return SetReputation(factionEntry, standing, false);
+        }
+        bool ModifyReputation(FactionEntry const* factionEntry, int32 standing)
+        {
+            return SetReputation(factionEntry, standing, true);
+        }
 
         void SetVisible(FactionTemplateEntry const* factionTemplateEntry);
         void SetVisible(FactionEntry const* factionEntry);
-        void SetAtWar(RepListID repListID, bool on);
+        void SetAtWar(FactionIndex FactionIndexID);
+        void SetNotAtWar(FactionIndex FactionIndexID);
         void SetInactive(RepListID repListID, bool on);
 
         void ApplyForceReaction(uint32 faction_id, ReputationRank rank, bool apply);
 
         //! Public for chat command needs
-        bool SetOneFactionReputation(FactionEntry const* factionEntry, int32 standing, bool incremental, bool paragon);
+        bool SetOneFactionReputation(FactionEntry const* factionEntry, int32 standing, bool incremental);
 
+    public:                                                 // senders
         void SendInitialReputations();
         void SendForceReactions();
         void SendState(FactionState const* faction);
         void SendStates();
-        bool IsVisible(RepListID repListID) const;
 
     private:                                                // internal helper functions
         void Initialize();
         uint32 GetDefaultStateFlags(FactionEntry const* factionEntry) const;
-        bool SetReputation(FactionEntry const* factionEntry, int32 standing, bool incremental, bool noSpillover);
+        bool SetReputation(FactionEntry const* factionEntry, int32 standing, bool incremental);
         void SetVisible(FactionState* faction);
         void SetAtWar(FactionState* faction, bool atWar) const;
         void SetInactive(FactionState* faction, bool inactive) const;
-        void SendVisible(FactionState const* faction, bool visible = true) const;
+        void SendVisible(FactionState const* faction) const;
         void UpdateRankCounters(ReputationRank old_rank, ReputationRank new_rank);
-
+        float GetLFGBonus(FactionEntry const* factionEntry);
+    private:
         Player* _player;
         FactionStateList _factions;
         ForcedReactions _forcedReactions;

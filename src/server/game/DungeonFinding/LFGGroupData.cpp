@@ -1,9 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -21,10 +23,12 @@
 namespace lfg
 {
 
-LfgGroupData::LfgGroupData(): m_State(LFG_STATE_NONE), m_OldState(LFG_STATE_NONE), m_Dungeon(0), m_QueueId(0), m_KicksLeft(LFG_GROUP_MAX_KICKS)
+LfgGroupData::LfgGroupData(): m_State(LFG_STATE_NONE), m_OldState(LFG_STATE_NONE),
+    m_Leader(0), m_Dungeon(0), m_KicksLeft(LFG_GROUP_MAX_KICKS), m_VoteKickActive(false)
 { }
 
-LfgGroupData::~LfgGroupData() = default;
+LfgGroupData::~LfgGroupData()
+{ }
 
 bool LfgGroupData::IsLfgGroup()
 {
@@ -52,14 +56,14 @@ void LfgGroupData::RestoreState()
     m_State = m_OldState;
 }
 
-void LfgGroupData::AddPlayer(ObjectGuid guid)
+void LfgGroupData::AddPlayer(uint64 guid)
 {
     m_Players.insert(guid);
 }
 
-uint8 LfgGroupData::RemovePlayer(ObjectGuid guid)
+uint8 LfgGroupData::RemovePlayer(uint64 guid)
 {
-    auto it = m_Players.find(guid);
+    LfgGuidSet::iterator it = m_Players.find(guid);
     if (it != m_Players.end())
         m_Players.erase(it);
     return uint8(m_Players.size());
@@ -70,7 +74,7 @@ void LfgGroupData::RemoveAllPlayers()
     m_Players.clear();
 }
 
-void LfgGroupData::SetLeader(ObjectGuid guid)
+void LfgGroupData::SetLeader(uint64 guid)
 {
     m_Leader = guid;
 }
@@ -78,11 +82,6 @@ void LfgGroupData::SetLeader(ObjectGuid guid)
 void LfgGroupData::SetDungeon(uint32 dungeon)
 {
     m_Dungeon = dungeon;
-}
-
-void LfgGroupData::SetQueueId(uint32 queueId)
-{
-    m_QueueId = queueId;
 }
 
 void LfgGroupData::DecreaseKicksLeft()
@@ -101,7 +100,7 @@ LfgState LfgGroupData::GetOldState() const
     return m_OldState;
 }
 
-GuidSet const& LfgGroupData::GetPlayers() const
+LfgGuidSet const& LfgGroupData::GetPlayers() const
 {
     return m_Players;
 }
@@ -111,7 +110,7 @@ uint8 LfgGroupData::GetPlayerCount() const
     return m_Players.size();
 }
 
-ObjectGuid LfgGroupData::GetLeader() const
+uint64 LfgGroupData::GetLeader() const
 {
     return m_Leader;
 }
@@ -119,19 +118,23 @@ ObjectGuid LfgGroupData::GetLeader() const
 uint32 LfgGroupData::GetDungeon(bool asId /* = true */) const
 {
     if (asId)
-        return m_Dungeon & 0xFFFFF;
-
-    return m_Dungeon;
-}
-
-uint32 LfgGroupData::GetQueueId() const
-{
-    return m_QueueId;
+        return (m_Dungeon & 0x00FFFFFF);
+    else
+        return m_Dungeon;
 }
 
 uint8 LfgGroupData::GetKicksLeft() const
 {
     return m_KicksLeft;
+}
+
+void LfgGroupData::SetVoteKick(bool active)
+{
+    m_VoteKickActive = active;
+}
+bool LfgGroupData::IsVoteKickActive() const
+{
+    return m_VoteKickActive;
 }
 
 } // namespace lfg

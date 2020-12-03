@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -16,12 +17,10 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef DYNAMICOBJECT_H
-#define DYNAMICOBJECT_H
+#ifndef SKYFIRESERVER_DYNAMICOBJECT_H
+#define SKYFIRESERVER_DYNAMICOBJECT_H
 
 #include "Object.h"
-#include "GridObject.h"
-#include "MapObject.h"
 
 class Unit;
 class Aura;
@@ -31,22 +30,20 @@ enum DynamicObjectType
 {
     DYNAMIC_OBJECT_PORTAL           = 0x0,      // unused
     DYNAMIC_OBJECT_AREA_SPELL       = 0x1,
-    DYNAMIC_OBJECT_FARSIGHT_FOCUS   = 0x2,
+    DYNAMIC_OBJECT_FARSIGHT_FOCUS   = 0x2
 };
 
-class DynamicObject : public WorldObject, public GridObject<DynamicObject>, public MapObject
+class DynamicObject : public WorldObject, public GridObject<DynamicObject>
 {
     public:
         DynamicObject(bool isWorldObject);
         ~DynamicObject();
 
-        void BuildValuesUpdate(uint8 updatetype, ByteBuffer* data, Player* target) const override;
+        void AddToWorld() OVERRIDE;
+        void RemoveFromWorld() OVERRIDE;
 
-        void AddToWorld() override;
-        void RemoveFromWorld() override;
-
-        bool CreateDynamicObject(ObjectGuid::LowType guidlow, Unit* caster, uint32 spellId, Position const& pos, float radius, DynamicObjectType type);
-        void Update(uint32 p_time) override;
+        bool CreateDynamicObject(uint32 guidlow, Unit* caster, SpellInfo const* spell, Position const& pos, float radius, DynamicObjectType type);
+        void Update(uint32 p_time) OVERRIDE;
         void Remove();
         void SetDuration(int32 newDuration);
         int32 GetDuration() const;
@@ -59,16 +56,8 @@ class DynamicObject : public WorldObject, public GridObject<DynamicObject>, publ
         void BindToCaster();
         void UnbindFromCaster();
         uint32 GetSpellId() const {  return GetUInt32Value(DYNAMICOBJECT_FIELD_SPELL_ID); }
-        ObjectGuid GetCasterGUID() const { return GetGuidValue(DYNAMICOBJECT_FIELD_CASTER); }
+        uint64 GetCasterGUID() const { return GetUInt64Value(DYNAMICOBJECT_FIELD_CASTER); }
         float GetRadius() const { return GetFloatValue(DYNAMICOBJECT_FIELD_RADIUS); }
-        DynamicObjectType GetType() const { return DynamicObjectType(GetUInt32Value(DYNAMICOBJECT_FIELD_TYPE)); }
-        uint32 GetVisualId() const { return GetUInt32Value(DYNAMICOBJECT_FIELD_SPELL_XSPELL_VISUAL_ID); }
-
-        void Say(int32 textId, uint32 language, ObjectGuid targetGuid) { MonsterSay(textId, language, targetGuid); }
-        void Yell(int32 textId, uint32 language, ObjectGuid targetGuid) { MonsterYell(textId, language, targetGuid); }
-        void TextEmote(int32 textId, ObjectGuid targetGuid) { MonsterTextEmote(textId, targetGuid); }
-        void Whisper(int32 textId, ObjectGuid receiver) { MonsterWhisper(textId, receiver); }
-        void YellToZone(int32 textId, uint32 language, ObjectGuid targetGuid) { MonsterYellToZone(textId, language, targetGuid); }
 
     protected:
         Aura* _aura;

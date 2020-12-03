@@ -1,16 +1,22 @@
-/*===============
-    uwow.biz
-================*/
+/*
+    Dungeon : Mogushan Palace 88-90
+    Instance General Script
+*/
 
 #ifndef MOGUSHAN_PALACE_H_
 #define MOGUSHAN_PALACE_H_
+
+#include "SpellScript.h"
+#include "Map.h"
+#include "Creature.h"
+#include "CreatureAIImpl.h"
 
 enum eData
 {
     DATA_TRIAL_OF_THE_KING      = 0,
     DATA_GEKKAN                 = 1,
     DATA_XIN_THE_WEAPONMASTER   = 2,
-
+    MAX_DATAS                   = 3,
     DATA_GEKKAN_ADDS            = 3
 };
 
@@ -46,6 +52,7 @@ enum eSpells
     SPELL_MOGU_JUMP                 = 120444,
     SPELL_THROW_DAMAGE              = 119311,
     SPELL_THROW_AURA                = 119315,
+    SPELL_PERMANENT_FEIGN_DEATH     = 130966,
     SPELL_AXE_TOURBILOL             = 119373,
     //Gurthan scrapper, harthak adept and kargesh grunt
     SPELL_GRUNT_AURA                = 121746,
@@ -54,20 +61,6 @@ enum eSpells
     SPELL_WHIRLING_DERVISH_3        = 119994,
     SPELL_THROW                     = 120087,
     SPELL_THROW_2                   = 120035,
-    
-    //Achiev: Quarrelsome Quilen Quintet
-    SPELL_ACHIEV_JADE_QUILEN        = 124352,
-    
-    //Achiev: Glintrok N' Roll
-    SPELL_GLINTROK_SCOUT_WARNING    = 119076,
-    SPELL_SAUROK_ACHIEV_AURA        = 118994,
-    
-    //Achiev: What Does This Button Do?
-    SPELL_SECRET_DEFENSE_MECHANISM  = 124527,
-    SPELL_TURN_OFF_BLADES           = 124531,
-    
-    //Achiev: Polyformic Acid Science
-    SPELL_ACHIEVEMENT_CHECK         = 124356
 };
 
 enum eCreatures
@@ -95,9 +88,6 @@ enum eCreatures
     CREATURE_ANIMATED_STAFF                 = 61433,
     CREATURE_ANIMATED_AXE                   = 61451,
     CREATURE_LAUNCH_SWORD                   = 63808,
-    
-    //Achiev: Quarrelsome Quilen Quintet
-    CREATURE_JADE_QUILEN                    = 63091
 };
 
 enum eTypes
@@ -128,27 +118,26 @@ enum eTypes
     TYPE_ACTIVATE_ANIMATED_STAFF, //18
     TYPE_ACTIVATE_ANIMATED_AXE, //19
     TYPE_ACTIVATE_SWORD, //20
-    
-    TYPE_JADECOUNT, //21
-    TYPE_GEMCOUNT //22
 };
 
 enum eGameObjects
 {
     GO_DOOR_BEFORE_TRIAL    = 213594,
     GO_TRIAL_CHEST          = 214520,
-    GO_TRIAL_CHEST2         = 214521,
     GO_DOOR_AFTER_TRIAL     = 213593,
     GO_DOOR_BEFORE_KING     = 213596,
-    GO_SECRET_DOOR          = 213810
+    ChallengeStartDoor      = 211988
 };
 
-const Position otherPos[4] = 
+enum eScenarioDatas
 {
-    {   -4222.63f, -2613.71f, 16.48f, 6.2f     },
-    {   -4326.13f, -2519.60f, -28.39f, 3.18f   },
-    {   -4653.52f, -2655.62f, 26.10f, 3.06f    },
-    {   -4612.78f, -2571.62f, 26.10f, 0.04f    }
+    ScenarioID  = 50,
+    /// Bosses datas
+    TrialKing   = 20674,
+    Gekkan      = 20887,
+    XinMaster   = 19257,
+    Ennemies    = 20009,
+    KillCount   = 20
 };
 
-#endif
+#endif // MOGUSHAN_PALACE_H_

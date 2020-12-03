@@ -48,7 +48,7 @@ enum AuthResult
     WOW_FAIL_UNLOCKABLE_LOCK                     = 0x19,
     WOW_FAIL_MUST_USE_BNET                       = 0x20,
     WOW_FAIL_OTHER                               = 0xFF
-}
+};
 
 enum LoginResult
 {
@@ -92,14 +92,14 @@ enum LoginResult
     LOGIN_NO_GAME_ACCOUNTS_IN_REGION             = 0x25,
     LOGIN_ACCOUNT_LOCKED                         = 0x26,
     LOGIN_SSO_FAILED                             = 0x27,
-}
+};
 
 enum ExpansionFlags
 {
     POST_BC_EXP_FLAG                            = 0x2,
     PRE_BC_EXP_FLAG                             = 0x1,
     NO_VALID_EXP_FLAG                           = 0x0
-}
+};
 
 struct RealmBuildInfo
 {
@@ -108,7 +108,7 @@ struct RealmBuildInfo
     int MinorVersion;
     int BugfixVersion;
     int HotfixVersion;
-}
+};
 
 namespace AuthHelper
 {
@@ -116,6 +116,6 @@ namespace AuthHelper
     bool IsAcceptedClientBuild(int build);
     bool IsPostBCAcceptedClientBuild(int build);
     bool IsPreBCAcceptedClientBuild(int build);
-}
+};
 
 #endif

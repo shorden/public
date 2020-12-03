@@ -1,9 +1,12 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -21,8 +24,14 @@
 
 enum Spells
 {
-    SPELL_POISON_CLOUD                                     = 3815,
-    SPELL_FRENZIED_RAGE                                    = 3490
+    SPELL_POISON_CLOUD     = 3815,
+    SPELL_FRENZIED_RAGE    = 3490
+};
+
+enum Events
+{
+    EVENT_POISON_CLOUD     = 1,
+    EVENT_FRENZIED_RAGE    = 2
 };
 
 class boss_aku_mai : public CreatureScript
@@ -30,63 +39,64 @@ class boss_aku_mai : public CreatureScript
 public:
     boss_aku_mai() : CreatureScript("boss_aku_mai") { }
 
-    CreatureAI* GetAI(Creature* creature) const
+    struct boss_aku_maiAI : public BossAI
     {
-        return new boss_aku_maiAI (creature);
-    }
+        boss_aku_maiAI(Creature* creature) : BossAI(creature, TYPE_AKU_MAI) { }
 
-    struct boss_aku_maiAI : public ScriptedAI
-    {
-        boss_aku_maiAI(Creature* creature) : ScriptedAI(creature)
+        void Reset() OVERRIDE
         {
-            instance = creature->GetInstanceScript();
-        }
-
-        uint32 poisonCloudTimer;
-        bool IsEnraged;
-
-        InstanceScript* instance;
-
-        void Reset()
-        {
-            poisonCloudTimer = urand(5000, 9000);
             IsEnraged = false;
-            if (instance)
-                instance->SetData(TYPE_AKU_MAI, NOT_STARTED);
+            _Reset();
         }
 
-        void EnterCombat(Unit* /*who*/)
+        void EnterCombat(Unit* /*who*/) OVERRIDE
         {
-            if (instance)
-                instance->SetData(TYPE_AKU_MAI, IN_PROGRESS);
+            events.ScheduleEvent(EVENT_POISON_CLOUD, urand(5000, 9000));
+            _EnterCombat();
         }
 
-        void JustDied(Unit* /*killer*/)
+        void JustDied(Unit* /*killer*/) OVERRIDE
         {
-            if (instance)
-                instance->SetData(TYPE_AKU_MAI, DONE);
+            _JustDied();
         }
 
-        void UpdateAI(uint32 diff)
+        void UpdateAI(uint32 diff) OVERRIDE
         {
             if (!UpdateVictim())
                 return;
 
-            if (poisonCloudTimer < diff)
-            {
-                DoCastVictim(SPELL_POISON_CLOUD);
-                poisonCloudTimer = urand(25000, 50000);
-            } else poisonCloudTimer -= diff;
+            events.Update(diff);
 
             if (!IsEnraged && HealthBelowPct(30))
-            {
-                DoCast(me, SPELL_FRENZIED_RAGE);
-                IsEnraged = true;
-            }
+                events.ScheduleEvent(EVENT_FRENZIED_RAGE, 100);
 
+            while (uint32 eventId = events.ExecuteEvent())
+            {
+                switch (eventId)
+                {
+                    case EVENT_POISON_CLOUD:
+                        DoCastVictim(SPELL_POISON_CLOUD);
+                        events.ScheduleEvent(EVENT_POISON_CLOUD, urand(25000, 50000));
+                        break;
+                    case EVENT_FRENZIED_RAGE:
+                        DoCast(me, SPELL_FRENZIED_RAGE);
+                        IsEnraged = true;
+                        break;
+                    default:
+                        break;
+                }
+            }
             DoMeleeAttackIfReady();
         }
+
+        private:
+            bool IsEnraged;
     };
+
+    CreatureAI* GetAI(Creature* creature) const OVERRIDE
+    {
+        return new boss_aku_maiAI(creature);
+    }
 };
 
 void AddSC_boss_aku_mai()

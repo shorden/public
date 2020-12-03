@@ -1,10 +1,12 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -16,33 +18,40 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+/* ScriptData
+SDName: Boss_Mother_Shahraz
+SD%Complete: 80
+SDComment: Saber Lash missing, Fatal Attraction slightly incorrect; need to damage only if affected players are within range of each other
+SDCategory: Black Temple
+EndScriptData */
+
 #include "ScriptMgr.h"
 #include "ScriptedCreature.h"
 #include "black_temple.h"
 
-//Speech'n'Sounds
-enum Says
+enum MotherShahraz
 {
-    SAY_TAUNT = 0,
-    SAY_AGGRO,
-    SAY_SPELL,
-    SAY_SLAY,
-    SAY_ENRAGE,
-    SAY_DEATH
-};
+    //Speech'n'Sounds
+    SAY_TAUNT               = 0,
+    SAY_AGGRO               = 1,
+    SAY_SPELL               = 2,
+    SAY_SLAY                = 3,
+    SAY_ENRAGE              = 4,
+    SAY_DEATH               = 5,
 
-//Spells
-#define SPELL_BEAM_SINISTER     40859
-#define SPELL_BEAM_VILE         40860
-#define SPELL_BEAM_WICKED       40861
-#define SPELL_BEAM_SINFUL       40827
-#define SPELL_ATTRACTION        40871
-#define SPELL_SILENCING_SHRIEK  40823
-#define SPELL_ENRAGE            23537
-#define SPELL_SABER_LASH        40810//43267
-#define SPELL_SABER_LASH_IMM    43690
-#define SPELL_TELEPORT_VISUAL   40869
-#define SPELL_BERSERK           45078
+    //Spells
+    SPELL_BEAM_SINISTER     = 40859,
+    SPELL_BEAM_VILE         = 40860,
+    SPELL_BEAM_WICKED       = 40861,
+    SPELL_BEAM_SINFUL       = 40827,
+    SPELL_ATTRACTION        = 40871,
+    SPELL_SILENCING_SHRIEK  = 40823,
+    SPELL_ENRAGE            = 23537,
+    SPELL_SABER_LASH        = 40810, //43267
+    SPELL_SABER_LASH_IMM    = 43690,
+    SPELL_TELEPORT_VISUAL   = 40869,
+    SPELL_BERSERK           = 45078
+};
 
 uint32 PrismaticAuras[]=
 {
@@ -75,9 +84,9 @@ class boss_mother_shahraz : public CreatureScript
 public:
     boss_mother_shahraz() : CreatureScript("boss_mother_shahraz") { }
 
-    CreatureAI* GetAI(Creature* creature) const
+    CreatureAI* GetAI(Creature* creature) const OVERRIDE
     {
-        return new boss_shahrazAI (creature);
+        return new boss_shahrazAI(creature);
     }
 
     struct boss_shahrazAI : public ScriptedAI
@@ -89,7 +98,7 @@ public:
 
         InstanceScript* instance;
 
-        ObjectGuid TargetGUID[3];
+        uint64 TargetGUID[3];
         uint32 BeamTimer;
         uint32 BeamCount;
         uint32 CurrentBeam;
@@ -104,13 +113,13 @@ public:
 
         bool Enraged;
 
-        void Reset()
+        void Reset() OVERRIDE
         {
             if (instance)
-                instance->SetData(DATA_MOTHERSHAHRAZEVENT, NOT_STARTED);
+                instance->SetBossState(DATA_MOTHER_SHAHRAZ, NOT_STARTED);
 
             for (uint8 i = 0; i<3; ++i)
-                TargetGUID[i].Clear();
+                TargetGUID[i] = 0;
 
             BeamTimer = 20000; // Timers may be incorrect
             BeamCount = 0;
@@ -127,24 +136,24 @@ public:
             Enraged = false;
         }
 
-        void EnterCombat(Unit* /*who*/)
+        void EnterCombat(Unit* /*who*/) OVERRIDE
         {
             if (instance)
-                instance->SetData(DATA_MOTHERSHAHRAZEVENT, IN_PROGRESS);
+                instance->SetBossState(DATA_MOTHER_SHAHRAZ, IN_PROGRESS);
 
             DoZoneInCombat();
             Talk(SAY_AGGRO);
         }
 
-        void KilledUnit(Unit* /*victim*/)
+        void KilledUnit(Unit* /*victim*/) OVERRIDE
         {
             Talk(SAY_SLAY);
         }
 
-        void JustDied(Unit* /*killer*/)
+        void JustDied(Unit* /*killer*/) OVERRIDE
         {
             if (instance)
-                instance->SetData(DATA_MOTHERSHAHRAZEVENT, DONE);
+                instance->SetBossState(DATA_MOTHER_SHAHRAZ, DONE);
 
             Talk(SAY_DEATH);
         }
@@ -158,7 +167,7 @@ public:
             for (uint8 i = 0; i < 3; ++i)
             {
                 Unit* unit = SelectTarget(SELECT_TARGET_RANDOM, 1);
-                if (unit && unit->isAlive() && (unit->GetTypeId() == TYPEID_PLAYER))
+                if (unit && unit->IsAlive() && (unit->GetTypeId() == TypeID::TYPEID_PLAYER))
                 {
                     TargetGUID[i] = unit->GetGUID();
                     unit->CastSpell(unit, SPELL_TELEPORT_VISUAL, true);
@@ -167,7 +176,7 @@ public:
             }
         }
 
-        void UpdateAI(uint32 diff)
+        void UpdateAI(uint32 diff) OVERRIDE
         {
             if (!UpdateVictim())
                 return;
@@ -183,7 +192,7 @@ public:
             if (BeamTimer <= diff)
             {
                 Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0);
-                if (!target || !target->isAlive())
+                if (!target || !target->IsAlive())
                     return;
 
                 BeamTimer = 9000;
@@ -243,7 +252,7 @@ public:
                         {
                             if (Unit* unit = Unit::GetUnit(*me, TargetGUID[i]))
                                 unit->CastSpell(unit, SPELL_ATTRACTION, true);
-                            TargetGUID[i].Clear();
+                            TargetGUID[i] = 0;
                         }
                     }
 
@@ -259,13 +268,13 @@ public:
 
             if (ShriekTimer <= diff)
             {
-                DoCast(me->getVictim(), SPELL_SILENCING_SHRIEK);
+                DoCastVictim(SPELL_SILENCING_SHRIEK);
                 ShriekTimer = 25000+rand()%10 * 1000;
             } else ShriekTimer -= diff;
 
             if (SaberTimer <= diff)
             {
-                DoCast(me->getVictim(), SPELL_SABER_LASH);
+                DoCastVictim(SPELL_SABER_LASH);
                 SaberTimer = 25000+rand()%10 * 1000;
             } else SaberTimer -= diff;
 
@@ -289,7 +298,6 @@ public:
             DoMeleeAttackIfReady();
         }
     };
-
 };
 
 void AddSC_boss_mother_shahraz()

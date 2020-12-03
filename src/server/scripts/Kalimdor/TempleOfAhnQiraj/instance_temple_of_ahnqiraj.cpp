@@ -1,10 +1,12 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -26,125 +28,89 @@ EndScriptData */
 #include "ScriptMgr.h"
 #include "InstanceScript.h"
 #include "temple_of_ahnqiraj.h"
-#include "Packets/WorldStatePackets.h"
 
 class instance_temple_of_ahnqiraj : public InstanceMapScript
 {
-public:
-    instance_temple_of_ahnqiraj() : InstanceMapScript("instance_temple_of_ahnqiraj", 531) { }
+    public:
+        instance_temple_of_ahnqiraj() : InstanceMapScript("instance_temple_of_ahnqiraj", 531) { }
 
-    InstanceScript* GetInstanceScript(InstanceMap* map) const
-    {
-        return new instance_temple_of_ahnqiraj_InstanceMapScript(map);
-    }
-
-    struct instance_temple_of_ahnqiraj_InstanceMapScript : public InstanceScript
-    {
-        instance_temple_of_ahnqiraj_InstanceMapScript(Map* map) : InstanceScript(map) {}
-
-        //If Vem is dead...
-        bool IsBossDied[3];
-
-        //Storing Skeram, Vem and Kri.
-        ObjectGuid SkeramGUID;
-        ObjectGuid VemGUID;
-        ObjectGuid KriGUID;
-        ObjectGuid VeklorGUID;
-        ObjectGuid VeknilashGUID;
-
-        uint32 BugTrioDeathCount;
-
-        uint32 CthunPhase;
-
-        uint32 update_worldstate;
-        uint32 CurrectAllianceScore{};
-        uint32 CurrectHordeScore{};
-        uint32 AllianceScore{};
-        uint32 HordeScore{};
-
-        void Initialize()
+        InstanceScript* GetInstanceScript(InstanceMap* map) const OVERRIDE
         {
-            IsBossDied[0] = false;
-            IsBossDied[1] = false;
-            IsBossDied[2] = false;
-
-            SkeramGUID.Clear();
-            VemGUID.Clear();
-            KriGUID.Clear();
-            VeklorGUID.Clear();
-            VeknilashGUID.Clear();
-
-            BugTrioDeathCount = 0;
-
-            CthunPhase = 0;
-
-            update_worldstate = 2000;
-
-            AllianceScore = sWorld->getWorldState(WS_SCORE_CALL_OF_THE_SCARAB_ALLINCE);
-            HordeScore = sWorld->getWorldState(WS_SCORE_CALL_OF_THE_SCARAB_HORDE);
-            CurrectAllianceScore = AllianceScore;
-            CurrectHordeScore = CurrectHordeScore;
+            return new instance_temple_of_ahnqiraj_InstanceMapScript(map);
         }
 
-        void OnCreatureCreate(Creature* creature) override
+        struct instance_temple_of_ahnqiraj_InstanceMapScript : public InstanceScript
         {
-            switch (creature->GetEntry())
+            instance_temple_of_ahnqiraj_InstanceMapScript(Map* map) : InstanceScript(map) { }
+
+            //If Vem is dead...
+            bool IsBossDied[3];
+
+            //Storing Skeram, Vem and Kri.
+            uint64 SkeramGUID;
+            uint64 VemGUID;
+            uint64 KriGUID;
+            uint64 VeklorGUID;
+            uint64 VeknilashGUID;
+            uint64 ViscidusGUID;
+
+            uint32 BugTrioDeathCount;
+
+            uint32 CthunPhase;
+
+            void Initialize() OVERRIDE
             {
-                case 15263: SkeramGUID = creature->GetGUID(); break;
-                case 15544: VemGUID = creature->GetGUID(); break;
-                case 15511: KriGUID = creature->GetGUID(); break;
-                case 15276: VeklorGUID = creature->GetGUID(); break;
-                case 15275: VeknilashGUID = creature->GetGUID(); break;
+                IsBossDied[0] = false;
+                IsBossDied[1] = false;
+                IsBossDied[2] = false;
+
+                SkeramGUID = 0;
+                VemGUID = 0;
+                KriGUID = 0;
+                VeklorGUID = 0;
+                VeknilashGUID = 0;
+                ViscidusGUID = 0;
+
+                BugTrioDeathCount = 0;
+
+                CthunPhase = 0;
             }
-        }
 
-        bool IsEncounterInProgress() const
-        {
-            //not active in AQ40
-            return false;
-        }
-
-        void FillInitialWorldStates(WorldPackets::WorldState::InitWorldStates& packet) override
-        {
-            packet.Worldstates.emplace_back(static_cast<WorldStates>(12953), AllianceScore);
-            packet.Worldstates.emplace_back(static_cast<WorldStates>(12952), HordeScore);
-        }
-
-        void Update(uint32 diff) override
-        {
-            if (update_worldstate <= diff)
+            void OnCreatureCreate(Creature* creature) OVERRIDE
             {
-                update_worldstate = 2000;
-
-                if (sGameEventMgr->IsActiveEvent(78))
+                switch (creature->GetEntry())
                 {
-                    instance->ApplyOnEveryPlayer([=](Player* player) -> void
-                    {
-                        AllianceScore = sWorld->getWorldState(WS_SCORE_CALL_OF_THE_SCARAB_ALLINCE);
-                        HordeScore = sWorld->getWorldState(WS_SCORE_CALL_OF_THE_SCARAB_HORDE);
-
-                        if (AllianceScore > CurrectAllianceScore)
-                        {
-                            CurrectAllianceScore = AllianceScore;
-                            player->SendUpdateWorldState(static_cast<WorldStates>(12953), AllianceScore);
-                        }
-
-                        if (HordeScore > CurrectHordeScore)
-                        {
-                            CurrectHordeScore = AllianceScore;
-                            player->SendUpdateWorldState(static_cast<WorldStates>(12952), HordeScore);
-                        }
-                    });
+                case NPC_SKERAM:
+                    SkeramGUID = creature->GetGUID();
+                    break;
+                case NPC_VEM:
+                    VemGUID = creature->GetGUID();
+                    break;
+                case NPC_KRI:
+                    KriGUID = creature->GetGUID();
+                    break;
+                case NPC_VEKLOR:
+                    VeklorGUID = creature->GetGUID();
+                    break;
+                case NPC_VEKNILASH:
+                    VeknilashGUID = creature->GetGUID();
+                    break;
+                case NPC_VISCIDUS:
+                    ViscidusGUID = creature->GetGUID();
+                    break;
                 }
             }
-            else
-                update_worldstate -= diff;
-        }
 
-        uint32 GetData(uint32 type) const override
-        {
-            switch (type)
+            bool IsEncounterInProgress() const OVERRIDE
             {
+                //not active in AQ40
+                return false;
+            }
+
+            uint32 GetData(uint32 type) const OVERRIDE
+            {
+                switch (type)
+                {
                 case DATA_VEMISDEAD:
                     if (IsBossDied[0])
                         return 1;
@@ -165,14 +131,14 @@ public:
 
                 case DATA_CTHUN_PHASE:
                     return CthunPhase;
+                }
+                return 0;
             }
-            return 0;
-        }
 
-        ObjectGuid GetGuidData(uint32 identifier) const
-        {
-            switch (identifier)
+            uint64 GetData64(uint32 identifier) const OVERRIDE
             {
+                switch (identifier)
+                {
                 case DATA_SKERAM:
                     return SkeramGUID;
                 case DATA_VEM:
@@ -183,14 +149,16 @@ public:
                     return VeklorGUID;
                 case DATA_VEKNILASH:
                     return VeknilashGUID;
-            }
-            return ObjectGuid::Empty;
-        }
+                case DATA_VISCIDUS:
+                    return ViscidusGUID;
+                }
+                return 0;
+            }                                                       // end GetData64
 
-        void SetData(uint32 type, uint32 data) override
-        {
-            switch (type)
+            void SetData(uint32 type, uint32 data) OVERRIDE
             {
+                switch (type)
+                {
                 case DATA_VEM_DEATH:
                     IsBossDied[0] = true;
                     break;
@@ -210,9 +178,10 @@ public:
                 case DATA_CTHUN_PHASE:
                     CthunPhase = data;
                     break;
+                }
             }
-        }
-    };
+        };
+
 };
 
 void AddSC_instance_temple_of_ahnqiraj()

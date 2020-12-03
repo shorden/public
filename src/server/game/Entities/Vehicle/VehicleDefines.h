@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -16,45 +17,57 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __TRINITY_VEHICLEDEFINES_H
-#define __TRINITY_VEHICLEDEFINES_H
+#ifndef SF_VEHICLEDEFINES_H
+#define SF_VEHICLEDEFINES_H
+
+#include "Define.h"
+#include <vector>
+#include <map>
 
 struct VehicleSeatEntry;
+
+enum PowerType
+{
+    POWER_STEAM                                  = 61,
+    POWER_PYRITE                                 = 41,
+    POWER_HEAT                                   = 101,
+    POWER_OOZE                                   = 121,
+    POWER_BLOOD                                  = 141,
+    POWER_WRATH                                  = 142,
+    POWER_ARCANE_ENERGY                          = 143,
+    POWER_LIFE_ENERGY                            = 144,
+    POWER_SUN_ENERGY                             = 145,
+    POWER_SWING_VELOCITY                         = 146,
+    POWER_SHADOWFLAME_ENERGY                     = 147,
+    POWER_BLUE_POWER                             = 148,
+    POWER_PURPLE_POWER                           = 149,
+    POWER_GREEN_POWER                            = 150,
+    POWER_ORANGE_POWER                           = 151,
+    POWER_ENERGY_2                               = 153,
+    POWER_ARCANEENERGY                           = 161,
+    POWER_WIND_POWER_1                           = 162,
+    POWER_WIND_POWER_2                           = 163,
+    POWER_WIND_POWER_3                           = 164,
+    POWER_FUEL                                   = 165,
+    POWER_SUN_POWER                              = 166,
+    POWER_TWILIGHT_ENERGY                        = 169,
+    POWER_VENOM                                  = 174,
+    POWER_ORANGE_POWER_2                         = 176,
+    POWER_CONSUMING_FLAME                        = 177,
+    POWER_PYROCLASTIC_FRENZY                     = 178,
+    POWER_FLASHFIRE                              = 179,
+};
 
 enum VehicleFlags
 {
     VEHICLE_FLAG_NO_STRAFE                       = 0x00000001,           // Sets MOVEFLAG2_NO_STRAFE
     VEHICLE_FLAG_NO_JUMPING                      = 0x00000002,           // Sets MOVEFLAG2_NO_JUMPING
     VEHICLE_FLAG_FULLSPEEDTURNING                = 0x00000004,           // Sets MOVEFLAG2_FULLSPEEDTURNING
-    VEHICLE_FLAG_UNK1                            = 0x00000008,
     VEHICLE_FLAG_ALLOW_PITCHING                  = 0x00000010,           // Sets MOVEFLAG2_ALLOW_PITCHING
     VEHICLE_FLAG_FULLSPEEDPITCHING               = 0x00000020,           // Sets MOVEFLAG2_FULLSPEEDPITCHING
     VEHICLE_FLAG_CUSTOM_PITCH                    = 0x00000040,           // If set use pitchMin and pitchMax from DBC, otherwise pitchMin = -pi/2, pitchMax = pi/2
-    VEHICLE_FLAG_UNK2                            = 0x00000080,
-    VEHICLE_FLAG_UNK3                            = 0x00000100,
-    VEHICLE_FLAG_UNK4                            = 0x00000200,           // Vehicle is accessory?
     VEHICLE_FLAG_ADJUST_AIM_ANGLE                = 0x00000400,           // Lua_IsVehicleAimAngleAdjustable
-    VEHICLE_FLAG_ADJUST_AIM_POWER                = 0x00000800,           // Lua_IsVehicleAimPowerAdjustable
-    VEHICLE_FLAG_UNK5                            = 0x00001000,
-    VEHICLE_FLAG_UNK6                            = 0x00002000,
-    VEHICLE_FLAG_UNK7                            = 0x00004000,
-    VEHICLE_FLAG_UNK8                            = 0x00008000,
-    VEHICLE_FLAG_UNK9                            = 0x00010000,
-    VEHICLE_FLAG_UNK10                           = 0x00020000,
-    VEHICLE_FLAG_UNK11                           = 0x00040000,
-    VEHICLE_FLAG_UNK12                           = 0x00080000,
-    VEHICLE_FLAG_UNK13                           = 0x00100000,
-    VEHICLE_FLAG_FIXED_POSITION                  = 0x00200000,           // Used for vehicles that have a fixed position, such as cannons
-    VEHICLE_FLAG_DISABLE_SWITCH                  = 0x00400000,           // Can't change seats, VEHICLE_ID = 335 chopper
-    VEHICLE_FLAG_UNK15                           = 0x00800000,
-    VEHICLE_FLAG_UNK16                           = 0x01000000,
-    VEHICLE_FLAG_UNK17                           = 0x02000000,
-    VEHICLE_FLAG_UNK18                           = 0x04000000,
-    VEHICLE_FLAG_UNK19                           = 0x08000000,
-    VEHICLE_FLAG_BATTLEFIELD_ICON                = 0x10000000,           // Vehicle not dismissed after eject passenger?
-    VEHICLE_FLAG_UNK21                           = 0x20000000,
-    VEHICLE_FLAG_UNK22                           = 0x40000000,
-    VEHICLE_FLAG_UNK23                           = 0x80000000,
+    VEHICLE_FLAG_ADJUST_AIM_POWER                = 0x00000800            // Lua_IsVehicleAimPowerAdjustable
 };
 
 enum VehicleSpells
@@ -65,55 +78,43 @@ enum VehicleSpells
 
 struct PassengerInfo
 {
-    ObjectGuid Guid;
+    uint64 Guid;
     bool IsUnselectable;
-    bool IsGravityDisabled;
 
     void Reset()
     {
-        Guid.Clear();
+        Guid = 0;
         IsUnselectable = false;
-        IsGravityDisabled = false;
     }
 };
 
 struct VehicleSeat
 {
-    explicit VehicleSeat(VehicleSeatEntry const* seatInfo) : SeatInfo(seatInfo) { Passenger.Reset(); }
+    explicit VehicleSeat(VehicleSeatEntry const* seatInfo) : SeatInfo(seatInfo)
+    {
+        Passenger.Reset();
+    }
+
+    bool IsEmpty() const { return !Passenger.Guid; }
+
     VehicleSeatEntry const* SeatInfo;
     PassengerInfo Passenger;
-    Unit* unit{};
 };
 
 struct VehicleAccessory
 {
-    VehicleAccessory(uint32 entry, int8 seatId, bool isMinion, uint8 summonType, uint32 summonTime, Position pos) :
-        AccessoryEntry(entry), IsMinion(isMinion), SummonTime(summonTime), SeatId(seatId), SummonedType(summonType), Pos(pos) { }
-
+    VehicleAccessory(uint32 entry, int8 seatId, bool isMinion, uint8 summonType, uint32 summonTime) :
+        AccessoryEntry(entry), IsMinion(isMinion), SummonTime(summonTime), SeatId(seatId), SummonedType(summonType) { }
     uint32 AccessoryEntry;
-    bool IsMinion;
+    uint32 IsMinion;
     uint32 SummonTime;
     int8 SeatId;
     uint8 SummonedType;
-    Position Pos;
 };
 
 typedef std::vector<VehicleAccessory> VehicleAccessoryList;
-typedef std::map<ObjectGuid::LowType, VehicleAccessoryList> VehicleAccessoryContainer;
-typedef std::map<uint32, VehicleAccessoryList> VehicleAccessoryTemplateContainer;
+typedef std::map<uint32, VehicleAccessoryList> VehicleAccessoryContainer;
 typedef std::map<int8, VehicleSeat> SeatMap;
-
-struct VehicleAttachmentOffset
-{
-    VehicleAttachmentOffset(uint32 entry, int8 seatId, Position pos) : Pos(pos), Entry(entry), SeatId(seatId) { }
-
-    Position Pos;
-    uint32 Entry;
-    int8 SeatId;
-};
-
-typedef std::vector<VehicleAttachmentOffset> VehicleAttachmentOffsetList;
-typedef std::map<uint32, VehicleAttachmentOffsetList> VehicleAttachmentOffsetContainer;
 
 class TransportBase
 {
@@ -123,11 +124,12 @@ protected:
 
 public:
     /// This method transforms supplied transport offsets into global coordinates
-    virtual void CalculatePassengerPosition(float& x, float& y, float& z, float* o = nullptr) const = 0;
+    virtual void CalculatePassengerPosition(float& x, float& y, float& z, float* o = NULL) const = 0;
 
     /// This method transforms supplied global coordinates into local offsets
-    virtual void CalculatePassengerOffset(float& x, float& y, float& z, float* o = nullptr) const = 0;
+    virtual void CalculatePassengerOffset(float& x, float& y, float& z, float* o = NULL) const = 0;
 
+protected:
     static void CalculatePassengerPosition(float& x, float& y, float& z, float* o, float transX, float transY, float transZ, float transO)
     {
         float inx = x, iny = y, inz = z;
@@ -152,4 +154,5 @@ public:
         x = (inx + iny * std::tan(transO)) / (std::cos(transO) + std::sin(transO) * std::tan(transO));
     }
 };
+
 #endif

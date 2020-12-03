@@ -1,9 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -15,60 +17,52 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _GUILDMGR_H
-#define _GUILDMGR_H
+#ifndef SF_GUILDMGR_H
+#define SF_GUILDMGR_H
 
 #include "Guild.h"
 
-struct GuildChallengeReward
-{
-    uint32 Gold;
-    uint32 ChallengeCount;
-    uint32 Gold2;
-};
-typedef std::vector<GuildChallengeReward> GuildChallengeRewardData;
-
 class GuildMgr
 {
+    friend class ACE_Singleton<GuildMgr, ACE_Null_Mutex>;
+
+private:
     GuildMgr();
     ~GuildMgr();
 
 public:
-    typedef std::unordered_map<ObjectGuid::LowType, Guild*> GuildContainer;
-
-    static GuildMgr* instance();
-
-    Guild* GetGuildByLeader(ObjectGuid const& guid) const;
-    Guild* GetGuildById(ObjectGuid::LowType guildId) const;
-    Guild* GetGuildByGuid(ObjectGuid const& guid) const;
+    Guild* GetGuildByLeader(uint64 guid) const;
+    Guild* GetGuildById(uint32 guildId) const;
+    Guild* GetGuildByGuid(uint64 guid) const;
     Guild* GetGuildByName(std::string const& guildName) const;
-    std::string GetGuildNameById(ObjectGuid::LowType const& guildId) const;
+    std::string GetGuildNameById(uint32 guildId) const;
 
     void LoadGuildXpForLevel();
     void LoadGuildRewards();
-    void LoadGuildChallengeRewardInfo();
 
     void LoadGuilds();
     void AddGuild(Guild* guild);
-    void RemoveGuild(ObjectGuid::LowType guildId);
+    void RemoveGuild(uint32 guildId);
 
     void SaveGuilds();
-    void UnloadAll();
 
-    ObjectGuid::LowType GenerateGuildId();
-    void SetNextGuildId(ObjectGuid::LowType Id);
-    std::vector<GuildReward> const& GetGuildRewards() const;
+    void ResetReputationCaps();
 
-    GuildChallengeRewardData const& GetGuildChallengeRewardData() const;
+    uint32 GenerateGuildId();
+    void SetNextGuildId(uint32 Id) { NextGuildId = Id; }
 
+    uint32 GetXPForGuildLevel(uint8 level) const;
+    std::vector<GuildReward> const& GetGuildRewards() const { return GuildRewards; }
+
+    void ResetTimes(bool week);
 protected:
-    ObjectGuid::LowType NextGuildId;
+    typedef UNORDERED_MAP<uint32, Guild*> GuildContainer;
+    uint32 NextGuildId;
     GuildContainer GuildStore;
     std::vector<uint64> GuildXPperLevel;
     std::vector<GuildReward> GuildRewards;
-    GuildChallengeRewardData _challengeRewardData;
 };
 
-#define sGuildMgr GuildMgr::instance()
+#define sGuildMgr ACE_Singleton<GuildMgr, ACE_Null_Mutex>::instance()
 
 #endif

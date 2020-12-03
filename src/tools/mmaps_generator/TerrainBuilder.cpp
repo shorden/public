@@ -17,58 +17,58 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-//#include "TerrainBuilder.h"
+#include "TerrainBuilder.h"
 
-//#include "PathCommon.h"
-//#include "MapBuilder.h"
+#include "PathCommon.h"
+#include "MapBuilder.h"
 
-//#include "VMapManager2.h"
-//#include "MapTree.h"
-//#include "ModelInstance.h"
-//#include <vector>
+#include "VMapManager2.h"
+#include "MapTree.h"
+#include "ModelInstance.h"
+#include <vector>
 
 // ******************************************
 // Map file format defines
 // ******************************************
-//struct map_fileheader
+struct map_fileheader
+{
+    uint32 mapMagic;
+    uint32 versionMagic;
+    uint32 buildMagic;
+    uint32 areaMapOffset;
+    uint32 areaMapSize;
+    uint32 heightMapOffset;
+    uint32 heightMapSize;
+    uint32 liquidMapOffset;
+    uint32 liquidMapSize;
+    uint32 holesOffset;
+    uint32 holesSize;
+};
 
-    //uint32 mapMagic;
-    //uint32 versionMagic;
-    //uint32 buildMagic;
-    //uint32 areaMapOffset;
-    //uint32 areaMapSize;
-    //uint32 heightMapOffset;
-    //uint32 heightMapSize;
-    //uint32 liquidMapOffset;
-    //uint32 liquidMapSize;
-    //uint32 holesOffset;
-    //uint32 holesSize;
+#define MAP_HEIGHT_NO_HEIGHT  0x0001
+#define MAP_HEIGHT_AS_INT16   0x0002
+#define MAP_HEIGHT_AS_INT8    0x0004
 
+struct map_heightHeader
+{
+    uint32 fourcc;
+    uint32 flags;
+    float  gridHeight;
+    float  gridMaxHeight;
+};
 
-//#define MAP_HEIGHT_NO_HEIGHT  0x0001
-//#define MAP_HEIGHT_AS_INT16   0x0002
-//#define MAP_HEIGHT_AS_INT8    0x0004
+#define MAP_LIQUID_NO_TYPE    0x0001
+#define MAP_LIQUID_NO_HEIGHT  0x0002
 
-//struct map_heightHeader
-
-    //uint32 fourcc;
-    //uint32 flags;
-    //float  gridHeight;
-    //float  gridMaxHeight;
-
-
-//#define MAP_LIQUID_NO_TYPE    0x0001
-//#define MAP_LIQUID_NO_HEIGHT  0x0002
-
-//struct map_liquidHeader
-
-    //uint32 fourcc;
-    //uint16 flags;
-    //uint16 liquidType;
-    //uint8  offsetX;
-    //uint8  offsetY;
-    //uint8  width;
-    //uint8  height;
+struct map_liquidHeader
+{
+    uint32 fourcc;
+    uint16 flags;
+    uint16 liquidType;
+    uint8  offsetX;
+    uint8  offsetY;
+    uint8  width;
+    uint8  height;
     float  liquidLevel;
 };
 

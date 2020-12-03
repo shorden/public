@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -16,13 +17,15 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TRINITY_CONDITIONMGR_H
-#define TRINITY_CONDITIONMGR_H
+#ifndef SKYFIRE_CONDITIONMGR_H
+#define SKYFIRE_CONDITIONMGR_H
 
-#include "LootMgr.h"
+#include "Define.h"
 #include "Errors.h"
+#include <ace/Singleton.h>
+#include <list>
+#include <map>
 
-struct PlayerConditionEntry;
 class Player;
 class Unit;
 class WorldObject;
@@ -44,20 +47,20 @@ enum ConditionTypes
     CONDITION_DRUNKENSTATE          = 10,                   // DrunkenState     0,             0                  true if player is drunk enough
     CONDITION_WORLD_STATE           = 11,                   // index            value          0                  true if world has the value for the index
     CONDITION_ACTIVE_EVENT          = 12,                   // event_id         0              0                  true if event is active
-    CONDITION_INSTANCE_INFO         = 13,                   // entry            data           0                  true if data is set in current instance
+    CONDITION_INSTANCE_INFO         = 13,                   // entry            data           type               true if the instance info defined by type (enum InstanceInfo) equals data.
     CONDITION_QUEST_NONE            = 14,                   // quest_id         0              0                  true if doesn't have quest saved
     CONDITION_CLASS                 = 15,                   // class            0              0                  true if player's class is equal to class
     CONDITION_RACE                  = 16,                   // race             0              0                  true if player's race is equal to race
     CONDITION_ACHIEVEMENT           = 17,                   // achievement_id   0              0                  true if achievement is complete
     CONDITION_TITLE                 = 18,                   // title id         0              0                  true if player has title
-    CONDITION_SPAWNMASK             = 19,                   // spawnMask        0              0
+    CONDITION_SPAWNMASK             = 19,                   // spawnMask        0              0                  true if in spawnMask
     CONDITION_GENDER                = 20,                   // gender           0              0                  true if player's gender is equal to gender
-    CONDITION_UNUSED_21             = 21,                   //
+    CONDITION_UNIT_STATE            = 21,                   // unitState        0              0                  true if unit has unitState
     CONDITION_MAPID                 = 22,                   // map_id           0              0                  true if in map_id
     CONDITION_AREAID                = 23,                   // area_id          0              0                  true if in area_id
-    CONDITION_UNUSED_24             = 24,                   //
+    CONDITION_CREATURE_TYPE         = 24,                   // cinfo.type       0              0                  true if creature_template.type = value1
     CONDITION_SPELL                 = 25,                   // spell_id         0              0                  true if player has learned spell
-    CONDITION_PHASEMASK             = 26,                   // phasemask        0              0                  true if object is in phasemask
+    CONDITION_PHASEID               = 26,                   // phaseid          0              0                  true if object is in phaseid
     CONDITION_LEVEL                 = 27,                   // level            ComparisonType 0                  true if unit's level is equal to param1 (param2 can modify the statement)
     CONDITION_QUEST_COMPLETE        = 28,                   // quest_id         0              0                  true if player has quest_id with all objectives complete, but not yet rewarded
     CONDITION_NEAR_CREATURE         = 29,                   // creature entry   distance       0                  true if there is a creature of entry in range
@@ -70,36 +73,8 @@ enum ConditionTypes
     CONDITION_ALIVE                 = 36,                   // 0                0              0                  true if unit is alive
     CONDITION_HP_VAL                = 37,                   // hpVal            ComparisonType 0                  true if unit's hp matches given value
     CONDITION_HP_PCT                = 38,                   // hpPct            ComparisonType 0                  true if unit's hp matches given pct
-    CONDITION_AREA_EXPLORED         = 39,                   // AreaID
-    CONDITION_SCENE_SEEN            = 40,                   // SceneID
-    CONDITION_QUEST_OBJECTIVE_DONE  = 41,                   // QuestID          ObjectiveID    Count   
-    CONDITION_SCENE_TRIGER_EVENT    = 42,                   // SceneID
-    CONDITION_GARRRISON_BUILDING    = 43,                   // BuildType        Lvl
-    CONDITION_SCENARION_STEP        = 44,                   // ScenarioID       stepID
-    CONDITION_REALM_ACHIEVEMENT     = 45,                   // achievement_id   0              0                  true if realm achievement is complete
-    CONDITION_IN_WATER              = 46,                   // 0                0              0                  true if unit in water
-    CONDITION_TERRAIN_SWAP          = 47,                   // terrainSwap      0              0                  true if object is in terrainswap
-    CONDITION_STAND_STATE           = 48,                   // stateType        state          0                  true if unit matches specified sitstate (0,x: has exactly state x; 1,0: any standing state; 1,1: any sitting state;)
-    CONDITION_CLASS_HALL_ADVANCEMENT= 49,                   // talentID         0              0                  true if learned talent at class hall.
-    CONDITION_CURRENCY              = 50,                   // currency_id      countMin       countMax           true if has #countMin and countMax
-    CONDITION_CRITERIA              = 51,                   // criteriatree_id  0              0                  true if Criteria is complete
-    CONDITION_CRITERIA_TREE         = 52,                   // criteriatree_id  0              0                  true if CriteriaTree is complete
-    CONDITION_MODIFIER_TREE         = 53,                   // modifiertree_id  0              0                  true if ModifierTree is complete
-    CONDITION_ARTIFACT_LEVEL        = 54,                   // itemEntry        minLevel       maxLevel           true if in minLevel maxLevel
-    CONDITION_SPEC_ID               = 55,                   // specId           0              0                  true if in current spec
-    CONDITION_ON_TRANSPORT          = 56,                   //                                                    true if on vehicle
-    CONDITION_ARTIFACT_POWER        = 57,                   // itemEntry or 0   minPower       maxPower           true if in minLevel maxLevel
-    CONDITION_IN_RAID_OR_GROUP      = 58,                   // 0 - not in raid  isRaid         isGroup
-    CONDITION_CURRENCY_ON_WEEK      = 59,                   // currency_id      countMin       countMax           true if has #countMin and countMax
-    CONDITION_WORLD_QUEST           = 60,                   // QuestID          0              0                  true if world quest active
-    CONDITION_HAS_POWER             = 61,                   // PowerType        > this         < this             true if power > or power < if set
-    CONDITION_GAMEMASTER            = 62,                   // 0                0              0                  true if player is GameMaster
-    CONDITION_HAS_EMOTE_STATE       = 63,                   // 0                0              0                  true if has EmoteState
-    CONDITION_IN_COMBAT             = 64,                   // 0                0              0                  true if in combat
-    CONDITION_GET_AMOUNT_STACK_AURA = 65,                   // spell_id         stack          0                  true if player (or target) has aura of spell_id with stack amount 
-    CONDITION_TIMEWALKING           = 66,                   // 0                0              0                  true if player is in timewalking.
-    CONDITION_ACOUNT_QUEST          = 67,                   // quest_id         0              0                  true if quest_id was rewarded on any char account
-    CONDITION_MAX                   = 68                    // MAX
+    CONDITION_TERRAIN_SWAP          = 39,                   // terrainSwap      0              0                  true if object is in terrainswap
+    CONDITION_MAX                   = 40                    // MAX
 };
 
 /*! Documentation on implementing a new ConditionSourceType:
@@ -154,29 +129,11 @@ enum ConditionSourceType
     CONDITION_SOURCE_TYPE_QUEST_SHOW_MARK                = 20,
     CONDITION_SOURCE_TYPE_VEHICLE_SPELL                  = 21,
     CONDITION_SOURCE_TYPE_SMART_EVENT                    = 22,
-    CONDITION_SOURCE_TYPE_PHASE_DEFINITION               = 23,
+    CONDITION_SOURCE_TYPE_NPC_VENDOR                     = 23,
     CONDITION_SOURCE_TYPE_SPELL_PROC                     = 24,
-    CONDITION_SOURCE_TYPE_NPC_VENDOR                     = 25,
-    CONDITION_SOURCE_TYPE_AREATRIGGER_ACTION             = 26,
-    CONDITION_SOURCE_TYPE_BONUS_LOOT_TEMPLATE            = 27,
-    CONDITION_SOURCE_TYPE_VIGNETTE                       = 28,
-    CONDITION_SOURCE_TYPE_SEAMLESS_TELEPORT              = 29,
-    CONDITION_SOURCE_TYPE_LOOT_ITEM                      = 30,
-    CONDITION_SOURCE_TYPE_WORLD_LOOT_TEMPLATE            = 31,
-    CONDITION_SOURCE_TYPE_PLAYER_CHOICE                  = 32,
-    CONDITION_SOURCE_TYPE_PLAYER_CHOICE_RESPONS          = 33,
-    CONDITION_SOURCE_TYPE_WORLD_STATE                    = 34,
-    CONDITION_SOURCE_TYPE_MAX                            = 35  //MAX
-};
-
-enum ComparisionType
-{
-    COMP_TYPE_EQ = 0,
-    COMP_TYPE_HIGH,
-    COMP_TYPE_LOW,
-    COMP_TYPE_HIGH_EQ,
-    COMP_TYPE_LOW_EQ,
-    COMP_TYPE_MAX
+    CONDITION_SOURCE_TYPE_TERRAIN_SWAP                   = 25,
+    CONDITION_SOURCE_TYPE_PHASE                          = 26,
+    CONDITION_SOURCE_TYPE_MAX                            = 27  // MAX
 };
 
 enum RelationType
@@ -193,22 +150,26 @@ enum RelationType
 enum InstanceInfo
 {
     INSTANCE_INFO_DATA = 0,
-    INSTANCE_INFO_GUID_DATA,
-    INSTANCE_INFO_BOSS_STATE,
-    INSTANCE_INFO_SCENARION_STEP,
+    INSTANCE_INFO_DATA64,
+    INSTANCE_INFO_BOSS_STATE
 };
 
-enum
+enum MaxConditionTargets
 {
     MAX_CONDITION_TARGETS = 3
 };
 
 struct ConditionSourceInfo
 {
-    ConditionSourceInfo(WorldObject* target0, WorldObject* target1 = nullptr, WorldObject* target2 = nullptr);
-
     WorldObject* mConditionTargets[MAX_CONDITION_TARGETS]; // an array of targets available for conditions
     Condition* mLastFailedCondition;
+    ConditionSourceInfo(WorldObject* target0, WorldObject* target1 = NULL, WorldObject* target2 = NULL)
+    {
+        mConditionTargets[0] = target0;
+        mConditionTargets[1] = target1;
+        mConditionTargets[2] = target2;
+        mLastFailedCondition = NULL;
+    }
 };
 
 struct Condition
@@ -219,20 +180,38 @@ struct Condition
     uint32                  SourceId;          // So far, only used in CONDITION_SOURCE_TYPE_SMART_EVENT
     uint32                  ElseGroup;
     ConditionTypes          ConditionType;     //ConditionTypeOrReference
-    uint32                   ConditionValue1;
-    uint32                   ConditionValue2;
-    uint32                   ConditionValue3;
+    uint32                  ConditionValue1;
+    uint32                  ConditionValue2;
+    uint32                  ConditionValue3;
+    uint32                  ErrorType;
     uint32                  ErrorTextId;
     uint32                  ReferenceId;
     uint32                  ScriptId;
     uint8                   ConditionTarget;
     bool                    NegativeCondition;
 
-    Condition();
+    Condition()
+    {
+        SourceType         = CONDITION_SOURCE_TYPE_NONE;
+        SourceGroup        = 0;
+        SourceEntry        = 0;
+        SourceId           = 0;
+        ElseGroup          = 0;
+        ConditionType      = CONDITION_NONE;
+        ConditionTarget    = 0;
+        ConditionValue1    = 0;
+        ConditionValue2    = 0;
+        ConditionValue3    = 0;
+        ReferenceId        = 0;
+        ErrorType          = 0;
+        ErrorTextId        = 0;
+        ScriptId           = 0;
+        NegativeCondition  = false;
+    }
 
     bool Meets(ConditionSourceInfo& sourceInfo);
     uint32 GetSearcherTypeMaskForCondition();
-    bool isLoaded() const;
+    bool isLoaded() const { return ConditionType > CONDITION_NONE || ReferenceId; }
     uint32 GetMaxAvailableConditionTargets();
 };
 
@@ -242,21 +221,18 @@ typedef std::map<ConditionSourceType, ConditionTypeContainer> ConditionContainer
 typedef std::map<uint32, ConditionTypeContainer> CreatureSpellConditionContainer;
 typedef std::map<uint32, ConditionTypeContainer> NpcVendorConditionContainer;
 typedef std::map<std::pair<int32, uint32 /*SAI source_type*/>, ConditionTypeContainer> SmartEventConditionContainer;
-typedef std::map<int32 /*zoneId*/, ConditionTypeContainer> PhaseDefinitionConditionContainer;
-typedef std::map<uint32 /*areatrigger id*/, ConditionTypeContainer> AreaTriggerConditionContainer;
-typedef std::map<uint32 /*itemId*/, ConditionTypeContainer> ItemLootConditionContainer;
 
 typedef std::map<uint32, ConditionList> ConditionReferenceContainer;//only used for references
 
 class ConditionMgr
 {
+    friend class ACE_Singleton<ConditionMgr, ACE_Null_Mutex>;
+
+    private:
         ConditionMgr();
         ~ConditionMgr();
 
     public:
-
-        static ConditionMgr* instance();
-
         void LoadConditions(bool isReload = false);
         bool isConditionTypeValid(Condition* cond);
         ConditionList GetConditionReferences(uint32 refId);
@@ -269,16 +245,9 @@ class ConditionMgr
         bool CanHaveSourceIdSet(ConditionSourceType sourceType) const;
         ConditionList GetConditionsForNotGroupedEntry(ConditionSourceType sourceType, uint32 entry);
         ConditionList GetConditionsForSpellClickEvent(uint32 creatureId, uint32 spellId);
-        ConditionList GetConditionsForSmartEvent(int64 entryOrGuid, uint32 eventId, uint32 sourceType);
+        ConditionList GetConditionsForSmartEvent(int32 entryOrGuid, uint32 eventId, uint32 sourceType);
         ConditionList GetConditionsForVehicleSpell(uint32 creatureId, uint32 spellId);
         ConditionList GetConditionsForNpcVendorEvent(uint32 creatureId, uint32 itemId);
-        ConditionList GetConditionsForPhaseDefinition(uint32 zone, uint32 entry);
-        ConditionList GetConditionsForAreaTriggerAction(uint32 areaTriggerId, uint32 actionId);
-        ConditionList GetConditionsForItemLoot(uint32 creatureId, uint32 itemId);
-		bool IsObjectMeetingSmartEventConditions(int64 entryOrGuid, uint32 eventId, uint32 sourceType, Unit* unit, WorldObject* baseObject) const;
-        
-        static bool IsPlayerMeetingCondition(Unit* unit, int32 conditionID, bool send = false);
-        static bool IsPlayerMeetingCondition(Unit* unit, PlayerConditionEntry const* condition);
 
     private:
         bool isSourceTypeValid(Condition* cond);
@@ -286,6 +255,8 @@ class ConditionMgr
         bool addToGossipMenus(Condition* cond);
         bool addToGossipMenuItems(Condition* cond);
         bool addToSpellImplicitTargetConditions(Condition* cond);
+        bool addToTerrainSwaps(Condition* cond);
+        bool addToPhases(Condition* cond);
         bool IsObjectMeetToConditionList(ConditionSourceInfo& sourceInfo, ConditionList const& conditions);
 
         void Clean(); // free up resources
@@ -297,14 +268,8 @@ class ConditionMgr
         CreatureSpellConditionContainer   SpellClickEventConditionStore;
         NpcVendorConditionContainer       NpcVendorConditionContainerStore;
         SmartEventConditionContainer      SmartEventConditionStore;
-        PhaseDefinitionConditionContainer PhaseDefinitionsConditionStore;
-        AreaTriggerConditionContainer     AreaTriggerConditionStore;
-        ItemLootConditionContainer        ItemLootConditionStore;
 };
 
-template <class T>
-bool CompareValues(ComparisionType type, T val1, T val2);
-
-#define sConditionMgr ConditionMgr::instance()
+#define sConditionMgr ACE_Singleton<ConditionMgr, ACE_Null_Mutex>::instance()
 
 #endif

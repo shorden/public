@@ -1,9 +1,17 @@
-/*==============
-    uwow.biz
-==============*/
+/*
+    Dungeon : Shandopan Monastery 87-89
+    Instance General Script
+*/
 
 #ifndef SHADOPAN_MONASTERY_H_
 #define SHADOPAN_MONASTERY_H_
+
+#include "SpellScript.h"
+#include "Map.h"
+#include "Creature.h"
+#include "CreatureAIImpl.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 
 uint32 const EncounterCount = 4;
 
@@ -59,7 +67,7 @@ enum CreaturesIds
 
     NPC_RESIDUAL_OF_HATRED      = 58803,
     NPC_VESTIGE_OF_HATRED       = 58807,
-    NPC_FRAGMENT_OF_HATRED      = 58810
+    NPC_FRAGMENT_OF_HATRED      = 58810,
 };
 
 enum ObjectsIds
@@ -72,20 +80,18 @@ enum ObjectsIds
     GO_SNOWDRIFT_DOJO_DOOR      = 210800,
     GO_SNOWDRIFT_EXIT           = 210862,
 
-    GO_SNOWDRIFT_POSSESSIONS    = 214518,
-    GO_SNOWDRIFT_POSSESSIONS2   = 214519,
-
-    GO_ZHU_CHEST                = 213888,
-    GO_ZHU_CHEST2               = 213889,
+    GO_SNOWDRIFT_POSSESSIONS    = 214519,
 
     GO_SHA_ENTRANCE             = 210867,
-    GO_SHA_EXIT                 = 210866
+    GO_SHA_EXIT                 = 210866,
+
+    ChallengeModeDoor           = 211989
 };
 
 enum SharedActions
 {
     ACTION_NOVICE_DONE          = 1,
-    ACTION_MINIBOSS_DONE        = 2
+    ACTION_MINIBOSS_DONE        = 2,
 };
 
 enum SharedSpells
@@ -93,7 +99,18 @@ enum SharedSpells
     SPELL_HATE                  = 107085,
     SPELL_HAZE_OF_HATE          = 107087,
     SPELL_HAZE_OF_HATE_VISUAL   = 107217,
-    SPELL_ACHIEVEMENT_CHECK     = 124979
 };
 
-#endif
+enum eScenarioDatas
+{
+    ScenarioID  = 46,
+    /// Bosses datas
+    Cloudstrike = 19239,
+    Snowdrift   = 19244,
+    ViolenceSha = 19240,
+    TaranZhu    = 20672,
+    Ennemies    = 19994,
+    KillCount   = 32
+};
+
+#endif // SHADOPAN_MONASTERY_H_

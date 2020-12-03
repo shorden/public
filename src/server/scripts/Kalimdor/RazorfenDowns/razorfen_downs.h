@@ -1,9 +1,12 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -18,27 +21,27 @@
 #ifndef DEF_RAZORFEN_DOWNS_H
 #define DEF_RAZORFEN_DOWNS_H
 
-enum eData
+enum Data
 {
     BOSS_TUTEN_KASH,
     DATA_GONG_WAVES
 };
 
-enum eData64
+enum Data64
 {
     DATA_GONG
 };
 
-enum eGameObject
+enum GameObjectIds
 {
-    GO_GONG                                     = 148917
+    GO_GONG                                        = 148917
 };
 
-enum eCreature
+enum CreatureId
 {
-    CREATURE_TOMB_FIEND                         = 7349,
-    CREATURE_TOMB_REAVER                        = 7351,
-    CREATURE_TUTEN_KASH                         = 7355
+    NPC_TOMB_FIEND                         = 7349,
+    NPC_TOMB_REAVER                        = 7351,
+    NPC_TUTEN_KASH                         = 7355
 };
 
 #endif

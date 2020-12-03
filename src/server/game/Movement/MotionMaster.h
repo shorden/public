@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -16,23 +17,17 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TRINITY_MOTIONMASTER_H
-#define TRINITY_MOTIONMASTER_H
+#ifndef SKYFIRE_MOTIONMASTER_H
+#define SKYFIRE_MOTIONMASTER_H
 
 #include "Common.h"
+#include <vector>
 #include "SharedDefines.h"
 #include "Object.h"
-#include <LockedVector.h>
 
 class MovementGenerator;
 class Unit;
-class Spell;
-class DelayCastEvent;
-
-namespace Movement
-{
-    struct SpellEffectExtraData;
-}
+class PathGenerator;
 
 // Creature Entry ID used for waypoints show, visible only for GMs
 #define VISUAL_WAYPOINT 1
@@ -58,7 +53,7 @@ enum MovementGeneratorType
     FOLLOW_MOTION_TYPE    = 14,
     ROTATE_MOTION_TYPE    = 15,
     EFFECT_MOTION_TYPE    = 16,
-    NULL_MOTION_TYPE      = 17,
+    NULL_MOTION_TYPE      = 17
 };
 
 enum MovementSlot
@@ -66,7 +61,7 @@ enum MovementSlot
     MOTION_SLOT_IDLE,
     MOTION_SLOT_ACTIVE,
     MOTION_SLOT_CONTROLLED,
-    MAX_MOTION_SLOT,
+    MAX_MOTION_SLOT
 };
 
 enum MMCleanFlag
@@ -79,7 +74,7 @@ enum MMCleanFlag
 enum RotateDirection
 {
     ROTATE_DIRECTION_LEFT,
-    ROTATE_DIRECTION_RIGHT,
+    ROTATE_DIRECTION_RIGHT
 };
 
 // assume it is 25 yard per 0.6 second
@@ -93,7 +88,7 @@ class MotionMaster //: private std::stack<MovementGenerator *>
 
         void pop()
         {
-            Impl[_top] = nullptr;
+            Impl[_top] = NULL;
             while (!top())
                 --_top;
         }
@@ -101,16 +96,9 @@ class MotionMaster //: private std::stack<MovementGenerator *>
 
         bool needInitTop() const { return _needInit[_top]; }
         void InitTop();
-    public:
 
-        explicit MotionMaster(Unit* unit) : _expList(nullptr), _top(-1), _owner(unit), _cleanFlag(MMCF_NONE)
-        {
-            for (uint8 i = 0; i < MAX_MOTION_SLOT; ++i)
-            {
-                Impl[i] = nullptr;
-                _needInit[i] = true;
-            }
-        }
+    public:
+        explicit MotionMaster(Unit* unit) : _expList(NULL), _top(-1), _owner(unit), _cleanFlag(MMCF_NONE) { }
         ~MotionMaster();
 
         void Initialize();
@@ -156,42 +144,32 @@ class MotionMaster //: private std::stack<MovementGenerator *>
         void MoveTargetedHome();
         void MoveRandom(float spawndist = 0.0f);
         void MoveFollow(Unit* target, float dist, float angle, MovementSlot slot = MOTION_SLOT_ACTIVE);
-        void MoveFetch(Unit* target, float dist, float angle, MovementSlot slot = MOTION_SLOT_ACTIVE);
         void MoveChase(Unit* target, float dist = 0.0f, float angle = 0.0f);
         void MoveConfused();
         void MoveFleeing(Unit* enemy, uint32 time = 0);
-        void MovePoint(uint32 id, const Position &pos, bool generatePath = true, float speed = 0.0f)
-        {
-            MovePoint(id, pos.m_positionX, pos.m_positionY, pos.m_positionZ, generatePath, speed);
-        }
-        void MovePoint(uint32 id, float x, float y, float z, bool generatePath = true, float speed = 0.0f);
-        void MovePointWithRot(uint32 id, float x, float y, float z, float orientation = -1000.0f, bool generatePath = true);
+        void MovePoint(uint32 id, Position const& pos, bool generatePath = true)
+            { MovePoint(id, pos.m_positionX, pos.m_positionY, pos.m_positionZ, generatePath); }
+        void MovePoint(uint32 id, float x, float y, float z, bool generatePath = true);
 
         // These two movement types should only be used with creatures having landing/takeoff animations
         void MoveLand(uint32 id, Position const& pos);
-        void MoveTakeoff(uint32 id, float x, float y, float z);
+        void MoveTakeoff(uint32 id, Position const& pos);
 
-        void MoveCharge(Position const pos, float speed = SPEED_CHARGE, uint32 id = EVENT_CHARGE, bool generatePath = true);
-        void MoveCharge(float x, float y, float z, float speed = SPEED_CHARGE, uint32 id = EVENT_CHARGE, bool generatePath = true);
-        bool SpellMoveCharge(float x, float y, float z, float speed = SPEED_CHARGE, uint32 id = EVENT_CHARGE, uint32 triggerspellId = 0);
-        void MoveKnockbackFrom(float srcX, float srcY, float speedXY, float speedZ, Movement::SpellEffectExtraData const* spellEffectExtraData = nullptr);
+        void MoveCharge(float x, float y, float z, float speed = SPEED_CHARGE, uint32 id = EVENT_CHARGE, bool generatePath = false);
+        void MoveCharge(PathGenerator const& path);
+        void MoveKnockbackFrom(float srcX, float srcY, float speedXY, float speedZ);
         void MoveJumpTo(float angle, float speedXY, float speedZ);
-        void MoveJump(Position const pos, float speedXY, float speedZ, uint32 id = 0, float o = 0.0f, DelayCastEvent* e = nullptr, Unit* target = nullptr, Movement::SpellEffectExtraData const* spellEffectExtraData = nullptr);
-        void MoveJump(float x, float y, float z, float speedXY, float speedZ, uint32 id = 0, float o = 0.0f, DelayCastEvent* e = nullptr, Unit* target = nullptr, Movement::SpellEffectExtraData const* spellEffectExtraData = nullptr);
+        void MoveJump(Position const& pos, float speedXY, float speedZ, uint32 id = EVENT_JUMP)
+            { MoveJump(pos.m_positionX, pos.m_positionY, pos.m_positionZ, speedXY, speedZ, id); };
+        void MoveJump(float x, float y, float z, float speedXY, float speedZ, uint32 id = EVENT_JUMP);
         void MoveFall(uint32 id = 0);
-        void MoveCirclePath(float x, float y, float z, float radius, bool clockwise, uint8 stepCount);
-        void MoveSmoothPath(uint32 pointId, G3D::Vector3 pathPoints, bool walk);
-        void MoveSmoothPath(uint32 pointId, G3D::Vector3 const* pathPoints, size_t pathSize, bool walk);
-        void MoveSmoothFlyPath(uint32 pointId, G3D::Vector3 const* path, size_t size);
-        void MoveSmoothFlyPath(uint32 pointId, Position const position, float flightSpeed = 0.0f);
 
         void MoveSeekAssistance(float x, float y, float z);
         void MoveSeekAssistanceDistract(uint32 timer);
         void MoveTaxiFlight(uint32 path, uint32 pathnode);
         void MoveDistract(uint32 time);
-        void MovePath(uint32 path_id, bool repeatable, float randomMoveX = 0, float randomMoveY = 0);
-        void MoveRotate(uint32 time, RotateDirection direction, bool repeat = false);
-        void MoveBackward(uint32 id, float x, float y, float z, float speed = 0.0f);
+        void MovePath(uint32 path_id, bool repeatable);
+        void MoveRotate(uint32 time, RotateDirection direction);
 
         MovementGeneratorType GetCurrentMovementGeneratorType() const;
         MovementGeneratorType GetMotionSlotType(int slot) const;
@@ -199,6 +177,7 @@ class MotionMaster //: private std::stack<MovementGenerator *>
         void propagateSpeedChange();
 
         bool GetDestination(float &x, float &y, float &z);
+
     private:
         void Mutate(MovementGenerator *m, MovementSlot slot);                  // use Move* functions instead
 
@@ -208,13 +187,12 @@ class MotionMaster //: private std::stack<MovementGenerator *>
         void DirectExpire(bool reset);
         void DelayedExpire();
 
-        typedef Trinity::LockedVector<_Ty> ExpireList;
+        typedef std::vector<_Ty> ExpireList;
         ExpireList* _expList;
-        _Ty Impl[MAX_MOTION_SLOT];
+        _Ty Impl[MAX_MOTION_SLOT] = {};
         int _top;
         Unit* _owner;
-        bool _needInit[MAX_MOTION_SLOT];
+        bool _needInit[MAX_MOTION_SLOT] = {true};
         uint8 _cleanFlag;
 };
 #endif
-

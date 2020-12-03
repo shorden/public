@@ -1,9 +1,12 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -18,6 +21,7 @@
 #include "ScriptMgr.h"
 #include "InstanceScript.h"
 #include "gnomeregan.h"
+#include "Player.h"
 
 #define    MAX_ENCOUNTER  1
 
@@ -26,7 +30,7 @@ class instance_gnomeregan : public InstanceMapScript
 public:
     instance_gnomeregan() : InstanceMapScript("instance_gnomeregan", 90) { }
 
-    InstanceScript* GetInstanceScript(InstanceMap* map) const
+    InstanceScript* GetInstanceScript(InstanceMap* map) const OVERRIDE
     {
         return new instance_gnomeregan_InstanceMapScript(map);
     }
@@ -39,22 +43,22 @@ public:
 
         uint32 m_auiEncounter[MAX_ENCOUNTER];
 
-        ObjectGuid uiCaveInLeftGUID;
-        ObjectGuid uiCaveInRightGUID;
+        uint64 uiCaveInLeftGUID;
+        uint64 uiCaveInRightGUID;
 
-        ObjectGuid uiBastmasterEmiShortfuseGUID;
+        uint64 uiBastmasterEmiShortfuseGUID;
 
-        void Initialize()
+        void Initialize() OVERRIDE
         {
             memset(&m_auiEncounter, 0, sizeof(m_auiEncounter));
 
-            uiCaveInLeftGUID.Clear();
-            uiCaveInRightGUID.Clear();
+            uiCaveInLeftGUID                = 0;
+            uiCaveInRightGUID               = 0;
 
-            uiBastmasterEmiShortfuseGUID.Clear();
+            uiBastmasterEmiShortfuseGUID    = 0;
         }
 
-        void Load(const char* in)
+        void Load(const char* in) OVERRIDE
         {
             if (!in)
             {
@@ -76,7 +80,7 @@ public:
             OUT_LOAD_INST_DATA_COMPLETE;
         }
 
-        void OnCreatureCreate(Creature* creature)
+        void OnCreatureCreate(Creature* creature) OVERRIDE
         {
             switch (creature->GetEntry())
             {
@@ -84,24 +88,24 @@ public:
             }
         }
 
-        void OnGameObjectCreate(GameObject* go)
+        void OnGameObjectCreate(GameObject* go) OVERRIDE
         {
             switch (go->GetEntry())
             {
                 case GO_CAVE_IN_LEFT:
                     uiCaveInLeftGUID = go->GetGUID();
                     if (m_auiEncounter[0] == DONE || m_auiEncounter[0] == NOT_STARTED)
-                        HandleGameObject(ObjectGuid::Empty, false, go);
+                        HandleGameObject(0, false, go);
                     break;
                 case GO_CAVE_IN_RIGHT:
                     uiCaveInRightGUID = go->GetGUID();
                     if (m_auiEncounter[0] == DONE || m_auiEncounter[0] == NOT_STARTED)
-                        HandleGameObject(ObjectGuid::Empty, false, go);
+                        HandleGameObject(0, false, go);
                     break;
             }
         }
 
-        void SetData(uint32 uiType, uint32 uiData)
+        void SetData(uint32 uiType, uint32 uiData) OVERRIDE
         {
             switch (uiType)
             {
@@ -113,17 +117,16 @@ public:
             }
         }
 
-        uint32 GetData(uint32 uiType) const
+        uint32 GetData(uint32 uiType) const OVERRIDE
         {
             switch (uiType)
             {
-                case TYPE_EVENT:
-                    return m_auiEncounter[0];
+                case TYPE_EVENT:    return m_auiEncounter[0];
             }
             return 0;
         }
 
-        ObjectGuid GetGuidData(uint32 uiType) const
+        uint64 GetData64(uint32 uiType) const OVERRIDE
         {
             switch (uiType)
             {
@@ -132,7 +135,7 @@ public:
                 case DATA_NPC_BASTMASTER_EMI_SHORTFUSE: return uiBastmasterEmiShortfuseGUID;
             }
 
-            return ObjectGuid::Empty;
+            return 0;
         }
     };
 

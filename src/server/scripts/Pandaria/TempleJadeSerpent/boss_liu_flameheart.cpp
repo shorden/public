@@ -1,16 +1,16 @@
-/*==============
-    uwow.biz
-==============*/
+//////////////////////////////////////////////////////////////////////////////
+///
+///  MILLENIUM-STUDIO
+///  Copyright 2015 Millenium-studio SARL
+///  All Rights Reserved.
+///
+////////////////////////////////////////////////////////////////////////////////
+
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 
 #define TYPE_LIU_FLAMEHEART_STATUS 6
 #define TYPE_IS_WIPE 7
-
-enum eBosses
-{
-    BOSS_LIU_FLAMEHEART,
-    BOSS_YU_LON,
-    BOSS_TRIGGER
-};
 
 enum eSpells
 {
@@ -54,14 +54,14 @@ enum eSpells
     SPELL_JADE_SERPENT_WAVE                 = 119508,
     SPELL_SERPENT_WAVE                      = 106938,
 
-    SPELL_JADE_FIRE_PERIODIC                = 107108
+    SPELL_JADE_FIRE_PERIODIC                = 107108,
 };
 
 enum eStatus
 {
     PHASE_1,
     PHASE_2,
-    PHASE_3
+    PHASE_3,
 };
 
 enum eEvents
@@ -78,7 +78,7 @@ enum eEvents
     EVENT_JADE_FIRE             = 8,
 
     EVENT_AURA_JADE             = 9,
-    EVENT_LIU_FALL              = 10
+    EVENT_LIU_FALL              = 10,
 };
 
 enum eTexts
@@ -89,409 +89,456 @@ enum eTexts
     TALK_EVENT_02,
     TALK_INTRO_01,
     TALK_KILL_01,
-    TALK_KILL_02
+    TALK_KILL_02,
 };
 
 enum eCreatures
 {
-    CREATURE_TRIGGER_WAVE = 56789
+    CREATURE_TRIGGER_WAVE   = 56789,
+    LiuFlameheart           = 56732
 };
 
-struct boss_liu_flameheart : public BossAI
+class boss_liu_flameheart : public CreatureScript
 {
-    explicit boss_liu_flameheart(Creature* creature) : BossAI(creature, BOSS_LIU_FLAMEHEART)
-    {
-        DoCast(SPELL_POSSESSED_BY_SHA);
-        status = PHASE_1;
-        DoCast(SPELL_DUST_VISUAL);
-        wipe_timer = 2000;
-        Talk(TALK_INTRO_01);
-    }
+    public:
+        boss_liu_flameheart() : CreatureScript("boss_liu_flameheart") { }
 
-    eStatus status;
-    uint32 wipe_timer;
-    bool pct70;
-    bool pct30;
-
-    void Reset() override
-    {
-        pct70 = false;
-        pct30 = false;
-        status = PHASE_1;
-        _Reset();
-    }
-
-    void IsSummonedBy(Unit* /*owner*/) override
-    {
-        std::list<Creature*> creList;
-        GetCreatureListWithEntryInGrid(creList, me, 62171, 60.0f);
-        GetCreatureListWithEntryInGrid(creList, me, 58319, 60.0f);
-        GetCreatureListWithEntryInGrid(creList, me, 57109, 60.0f);
-
-        if (!creList.empty())
-            for (auto& cre : creList)
-                cre->DespawnOrUnsummon();
-    }
-
-    void DoAction(int32 const action) override
-    {
-        if (action == 0)
+        CreatureAI* GetAI(Creature* creature) const
         {
-            me->setFaction(35);
-            me->getThreatManager().resetAllAggro();
-            me->SetReactState(REACT_PASSIVE);
-        }
-    }
-
-    void KilledUnit(Unit* u) override
-    {
-        if (!u && !u->IsPlayer())
-            return;
-
-        if (urand(0, 1))
-            Talk(TALK_KILL_01);
-        else
-            Talk(TALK_KILL_02);
-    }
-
-    void EnterCombat(Unit* /*unit*/) override
-    {
-        Talk(TALK_AGGRO_01);
-        events.RescheduleEvent(EVENT_SERPENT_STRIKE, 5000);
-    }
-
-    void EnterEvadeMode() override
-    {
-        me->ClearUnitState(UNIT_STATE_ROOT);
-        me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-        me->ApplySpellImmune(SPELL_JADE_SOUL, IMMUNITY_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, false);
-        me->ApplySpellImmune(SPELL_JADE_SOUL, IMMUNITY_DAMAGE, SPELL_SCHOOL_MASK_MAGIC, false);
-        me->SetReactState(REACT_AGGRESSIVE);
-        ScriptedAI::EnterEvadeMode();
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        events.Update(diff);
-
-        if (me->HealthBelowPct(70) && status == PHASE_1 && !pct70)
-        {
-            pct70 = true;
-            me->AddAura(SPELL_JADE_ESSENCE, me);
-            events.Reset();
-            events.RescheduleEvent(EVENT_JADE_SERPENT_STRIKE, 5000);
-            events.RescheduleEvent(EVENT_JADE_SERPENT_KICK, 10000);
-            Talk(TALK_EVENT_01);
-            status = PHASE_2;
+            return new boss_liu_flameheart_AI(creature);
         }
 
-        if (me->HealthBelowPct(30) && status == PHASE_2 && !pct30)
+        struct boss_liu_flameheart_AI : public BossAI
         {
-            pct30 = true;
-            events.Reset();
-            events.RescheduleEvent(EVENT_SUMMON_YULON, 500);
-            Talk(TALK_EVENT_02);
-            status = PHASE_3;
-        }
-
-        if (uint32 eventId = events.ExecuteEvent())
-        {
-            switch (eventId)
+            boss_liu_flameheart_AI(Creature* creature) : BossAI(creature, 2)
             {
-            case EVENT_SERPENT_STRIKE:
+                me->CastSpell(me, SPELL_POSSESSED_BY_SHA, false);
+                status = PHASE_1;
+                me->CastSpell(me, SPELL_DUST_VISUAL, false);
+                wipe_timer = 2000;
+                Talk(TALK_INTRO_01);
+            }
+            eStatus status;
+            uint32 wipe_timer;
+
+            void Reset()
             {
-                if (auto victim = me->getVictim())
-                    DoCast(victim, SPELL_SERPENT_STRIKE, false);
-
-                instance->instance->ApplyOnEveryPlayer([&](Player* player)
-                {
-                    if (player->GetDistance2d(me) < 10.f)
-                        player->KnockbackFrom(me->GetPositionX(), me->GetPositionY(), 10, 10);
-                });
-
-                events.RescheduleEvent(EVENT_SERPENT_STRIKE, 10000);
-                events.RescheduleEvent(EVENT_SERPENT_WAVE, 4000);
+                status = PHASE_1;
+                _Reset();
             }
-            break;
-            case EVENT_SERPENT_KICK:
-                if (auto victim = me->getVictim())
-                    DoCast(victim, SPELL_SERPENT_KICK, false);
 
-                events.RescheduleEvent(EVENT_SERPENT_KICK, 10000);
-                break;
-            case EVENT_SERPENT_WAVE:
+            void DoAction(const int32 action)
             {
-                if (auto sum = me->SummonCreature(CREATURE_TRIGGER_WAVE, 932.775f, -2548.743f, 179.821f, 1.254f))
+                switch (action)
                 {
-                    sum->SetDisplayId(11686);
-                    sum->CastSpell(sum, SPELL_SERPENT_WAVE_VISUAL, false);
-                    sum->CastSpell(sum, SPELL_SERPENT_WAVE_PERIODIC, false);
-                    sum->GetMotionMaster()->MovePoint(0, 939.796f, -2530.586f, 179.941f);
-                    sum->ForcedDespawn(3200);
+                case 0:
+                    me->setFaction(35);
+                    me->getThreatManager().resetAllAggro();
+                    me->SetReactState(REACT_PASSIVE);
+                    break;
                 }
-
-                if (auto sum = me->SummonCreature(CREATURE_TRIGGER_WAVE, 940.014f, -2564.114f, 179.821f, 5.978f))
-                {
-                    sum->SetDisplayId(11686);
-                    sum->CastSpell(sum, SPELL_SERPENT_WAVE_VISUAL, false);
-                    sum->CastSpell(sum, SPELL_SERPENT_WAVE_PERIODIC, false);
-                    sum->GetMotionMaster()->MovePoint(0, 957.711f, -2570.030f, 179.941f);
-                    sum->ForcedDespawn(3200);
-                }
-
-                if (auto sum = me->SummonCreature(CREATURE_TRIGGER_WAVE, 925.971f, -2572.423f, 179.821f, 4.395f))
-                {
-                    sum->SetDisplayId(11686);
-                    sum->CastSpell(sum, SPELL_SERPENT_WAVE_VISUAL, false);
-                    sum->CastSpell(sum, SPELL_SERPENT_WAVE_PERIODIC, false);
-                    sum->GetMotionMaster()->MovePoint(0, 919.606f, -2591.245f, 179.941f);
-                    sum->ForcedDespawn(3200);
-                }
-
-                if (auto sum = me->SummonCreature(CREATURE_TRIGGER_WAVE, 918.923f, -2557.356f, 179.821f, 2.821f))
-                {
-                    sum->SetDisplayId(11686);
-                    sum->CastSpell(sum, SPELL_SERPENT_WAVE_VISUAL, false);
-                    sum->CastSpell(sum, SPELL_SERPENT_WAVE_PERIODIC, false);
-                    sum->GetMotionMaster()->MovePoint(0, 901.839f, -2551.843f, 179.941f);
-                    sum->ForcedDespawn(3200);
-                }
-                break;
             }
-            case EVENT_JADE_SERPENT_STRIKE:
+
+            void KilledUnit(Unit* u)
             {
-                if (auto victim = me->getVictim())
-                    DoCast(victim, SPELL_JADE_SERPENT_STRIKE, false);
-
-                instance->instance->ApplyOnEveryPlayer([&](Player* player)
-                {
-                    if (player->GetDistance2d(me) < 10.f)
-                        player->KnockbackFrom(me->GetPositionX(), me->GetPositionY(), 10, 10);
-                });
-
-                events.RescheduleEvent(EVENT_JADE_SERPENT_STRIKE, 10000);
-                events.RescheduleEvent(EVENT_JADE_SERPENT_WAVE, 4000);
-                break;
+                if (urand(0, 1))
+                    Talk(TALK_KILL_01);
+                else
+                    Talk(TALK_KILL_02);
             }
-            case EVENT_JADE_SERPENT_KICK:
-                if (auto victim = me->getVictim())
-                    DoCast(victim, SPELL_JADE_SERPENT_KICK, false);
 
-                events.RescheduleEvent(EVENT_JADE_SERPENT_KICK, 10000);
-                break;
-            case EVENT_JADE_SERPENT_WAVE:
+            void EnterCombat(Unit* unit)
             {
-                if (auto sum = me->SummonCreature(CREATURE_TRIGGER_WAVE, 932.775f, -2548.743f, 179.821f, 1.254f))
-                {
-                    sum->SetDisplayId(11686);
-                    sum->CastSpell(sum, SPELL_JADE_SERPENT_WAVE_VISUAL, false);
-                    sum->CastSpell(sum, SPELL_SERPENT_WAVE_PERIODIC, false);
-                    sum->GetMotionMaster()->MovePoint(0, 939.796f, -2530.586f, 179.941f);
-                    sum->ForcedDespawn(3200);
-                }
-
-                if (auto sum = me->SummonCreature(CREATURE_TRIGGER_WAVE, 940.014f, -2564.114f, 179.821f, 5.978f))
-                {
-                    sum->SetDisplayId(11686);
-                    sum->CastSpell(sum, SPELL_JADE_SERPENT_WAVE_VISUAL, false);
-                    sum->CastSpell(sum, SPELL_SERPENT_WAVE_PERIODIC, false);
-                    sum->GetMotionMaster()->MovePoint(0, 957.711f, -2570.030f, 179.941f);
-                    sum->ForcedDespawn(3200);
-                }
-
-                if (auto sum = me->SummonCreature(CREATURE_TRIGGER_WAVE, 925.971f, -2572.423f, 179.821f, 4.395f))
-                {
-                    sum->SetDisplayId(11686);
-                    sum->CastSpell(sum, SPELL_JADE_SERPENT_WAVE_VISUAL, false);
-                    sum->CastSpell(sum, SPELL_SERPENT_WAVE_PERIODIC, false);
-                    sum->GetMotionMaster()->MovePoint(0, 919.606f, -2591.245f, 179.941f);
-                    sum->ForcedDespawn(3200);
-                }
-
-                if (auto sum = me->SummonCreature(CREATURE_TRIGGER_WAVE, 918.923f, -2557.356f, 179.821f, 2.821f))
-                {
-                    sum->SetDisplayId(11686);
-                    sum->CastSpell(sum, SPELL_JADE_SERPENT_WAVE_VISUAL, false);
-                    sum->CastSpell(sum, SPELL_SERPENT_WAVE_PERIODIC, false);
-                    sum->GetMotionMaster()->MovePoint(0, 901.839f, -2551.843f, 179.941f);
-                    sum->ForcedDespawn(3200);
-                }
-                break;
+                Talk(TALK_AGGRO_01);
+                events.ScheduleEvent(EVENT_SERPENT_STRIKE, 5000);
+                events.ScheduleEvent(EVENT_JADE_SERPENT_KICK, 5000);
             }
-            case EVENT_SUMMON_YULON:
-                DoCast(SPELL_SUMMON_JADE_SERPENT);
-                DoCast(SPELL_JADE_SOUL);
-                me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-                me->ApplySpellImmune(SPELL_JADE_SOUL, IMMUNITY_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, true);
-                me->ApplySpellImmune(SPELL_JADE_SOUL, IMMUNITY_DAMAGE, SPELL_SCHOOL_MASK_MAGIC, true);
-                me->SetReactState(REACT_PASSIVE);
-                me->AddUnitState(UNIT_STATE_ROOT);
-                events.RescheduleEvent(EVENT_AURA_JADE, 3000);
-                break;
-            case EVENT_AURA_JADE:
-                DoCast(SPELL_JADE_SOUL);
-                events.RescheduleEvent(EVENT_AURA_JADE, 2500);
-                break;
+
+            void UpdateAI(const uint32 diff)
+            {
+                if (wipe_timer <= diff)
+                {
+                    if (me->GetInstanceScript() && me->GetInstanceScript()->GetData(TYPE_IS_WIPE))
+                    {
+                        me->GetInstanceScript()->SetData(TYPE_IS_WIPE, 1);
+                        wipe_timer = 2000;
+                    }
+                }
+                else
+                    wipe_timer -= diff;
+
+                if (!UpdateVictim())
+                    return;
+
+                events.Update(diff);
+                
+                if (me->GetHealthPct() < 70.f && status == PHASE_1)
+                {
+                    me->AddAura(SPELL_JADE_ESSENCE, me);
+
+                    events.Reset();
+                    events.ScheduleEvent(EVENT_JADE_SERPENT_STRIKE, 5000);
+                    events.ScheduleEvent(EVENT_JADE_SERPENT_KICK, 10000);
+                    Talk(TALK_EVENT_01);
+                    status = PHASE_2;
+                }
+                if (me->GetHealthPct() < 30.f && status == PHASE_2)
+                {
+                    events.Reset();
+                    events.ScheduleEvent(EVENT_SUMMON_YULON, 500);
+                    Talk(TALK_EVENT_02);
+                    status = PHASE_3;
+                }
+
+                while (uint32 eventId = events.ExecuteEvent())
+                {
+                    switch (eventId)
+                    {
+                    case EVENT_SERPENT_STRIKE:
+                        {
+                            me->CastSpell(me->getVictim(), SPELL_SERPENT_STRIKE, false);
+                            Map::PlayerList const& PlayerList = me->GetInstanceScript()->instance->GetPlayers();
+
+                            if (!PlayerList.isEmpty())
+                            {
+                                for (Map::PlayerList::const_iterator i = PlayerList.begin(); i != PlayerList.end(); ++i)
+                                {
+                                    Player* plr = i->getSource();
+                                    if( !plr)
+                                        continue;
+                                    if (plr->GetDistance2d(me) < 10.f)
+                                        plr->KnockbackFrom(me->GetPositionX(), me->GetPositionY(), 10, 10);
+                                }
+                            }
+                            events.ScheduleEvent(EVENT_SERPENT_STRIKE, 10000);
+                            events.ScheduleEvent(EVENT_SERPENT_WAVE, 4000);
+                        }
+                        break;
+                    case EVENT_SERPENT_KICK:
+                        me->CastSpell(me->getVictim(), SPELL_SERPENT_KICK, false);
+                        events.ScheduleEvent(EVENT_SERPENT_KICK, 10000);
+                        break;
+                    case EVENT_SERPENT_WAVE:
+                        {
+                            TempSummon* sum = nullptr;
+                            sum = me->SummonCreature(CREATURE_TRIGGER_WAVE, 932.775f, -2548.743f, 179.821f, 1.254f);
+                            if (sum)
+                            {
+                                sum->SetDisplayId(11686);
+                                sum->CastSpell(sum, SPELL_SERPENT_WAVE_VISUAL, false);
+                                sum->CastSpell(sum, SPELL_SERPENT_WAVE_PERIODIC, false);
+                                sum->GetMotionMaster()->MovePoint(0, 939.796f, -2530.586f, 179.941f);
+                                sum->ForcedDespawn(3200);
+                            }
+                            sum = me->SummonCreature(CREATURE_TRIGGER_WAVE, 940.014f, -2564.114f, 179.821f, 5.978f);
+                            if (sum)
+                            {
+                                sum->SetDisplayId(11686);
+                                sum->CastSpell(sum, SPELL_SERPENT_WAVE_VISUAL, false);
+                                sum->CastSpell(sum, SPELL_SERPENT_WAVE_PERIODIC, false);
+                                sum->GetMotionMaster()->MovePoint(0, 957.711f, -2570.030f, 179.941f);
+                                sum->ForcedDespawn(3200);
+                            }
+                            sum = me->SummonCreature(CREATURE_TRIGGER_WAVE, 925.971f, -2572.423f, 179.821f, 4.395f);
+                            if (sum)
+                            {
+                                sum->SetDisplayId(11686);
+                                sum->CastSpell(sum, SPELL_SERPENT_WAVE_VISUAL, false);
+                                sum->CastSpell(sum, SPELL_SERPENT_WAVE_PERIODIC, false);
+                                sum->GetMotionMaster()->MovePoint(0, 919.606f, -2591.245f, 179.941f);
+                                sum->ForcedDespawn(3200);
+                            }
+                            sum = me->SummonCreature(CREATURE_TRIGGER_WAVE, 918.923f, -2557.356f, 179.821f, 2.821f);
+                            if (sum)
+                            {
+                                sum->SetDisplayId(11686);
+                                sum->CastSpell(sum, SPELL_SERPENT_WAVE_VISUAL, false);
+                                sum->CastSpell(sum, SPELL_SERPENT_WAVE_PERIODIC, false);
+                                sum->GetMotionMaster()->MovePoint(0, 901.839f, -2551.843f, 179.941f);
+                                sum->ForcedDespawn(3200);
+                            }
+                        }
+                        break;
+                    case EVENT_JADE_SERPENT_STRIKE:
+                        {
+                            me->CastSpell(me->getVictim(), SPELL_JADE_SERPENT_STRIKE, false);
+
+                            Map::PlayerList const& PlayerList = me->GetInstanceScript()->instance->GetPlayers();
+
+                            if (!PlayerList.isEmpty())
+                            {
+                                for (Map::PlayerList::const_iterator i = PlayerList.begin(); i != PlayerList.end(); ++i)
+                                {
+                                    Player* plr = i->getSource();
+                                    if( !plr)
+                                        continue;
+                                    if (plr->GetDistance2d(me) < 10.f)
+                                        plr->KnockbackFrom(me->GetPositionX(), me->GetPositionY(), 10, 10);
+                                }
+                            }
+                            events.ScheduleEvent(EVENT_JADE_SERPENT_STRIKE, 10000);
+                            events.ScheduleEvent(EVENT_JADE_SERPENT_WAVE, 4000);
+                        }
+                        break;
+                    case EVENT_JADE_SERPENT_KICK:
+                        me->CastSpell(me->getVictim(), SPELL_JADE_SERPENT_KICK, false);
+                        events.ScheduleEvent(EVENT_JADE_SERPENT_KICK, 10000);
+                        break;
+                    case EVENT_JADE_SERPENT_WAVE:
+                        {
+                            TempSummon* sum = nullptr;
+                            sum = me->SummonCreature(CREATURE_TRIGGER_WAVE, 932.775f, -2548.743f, 179.821f, 1.254f);
+                            if (sum)
+                            {
+                                sum->SetDisplayId(11686);
+                                sum->CastSpell(sum, SPELL_JADE_SERPENT_WAVE_VISUAL, false);
+                                sum->CastSpell(sum, SPELL_SERPENT_WAVE_PERIODIC, false);
+                                sum->GetMotionMaster()->MovePoint(0, 939.796f, -2530.586f, 179.941f);
+                                sum->ForcedDespawn(3200);
+                            }
+                            sum = me->SummonCreature(CREATURE_TRIGGER_WAVE, 940.014f, -2564.114f, 179.821f, 5.978f);
+                            if (sum)
+                            {
+                                sum->SetDisplayId(11686);
+                                sum->CastSpell(sum, SPELL_JADE_SERPENT_WAVE_VISUAL, false);
+                                sum->CastSpell(sum, SPELL_SERPENT_WAVE_PERIODIC, false);
+                                sum->GetMotionMaster()->MovePoint(0, 957.711f, -2570.030f, 179.941f);
+                                sum->ForcedDespawn(3200);
+                            }
+                            sum = me->SummonCreature(CREATURE_TRIGGER_WAVE, 925.971f, -2572.423f, 179.821f, 4.395f);
+                            if (sum)
+                            {
+                                sum->SetDisplayId(11686);
+                                sum->CastSpell(sum, SPELL_JADE_SERPENT_WAVE_VISUAL, false);
+                                sum->CastSpell(sum, SPELL_SERPENT_WAVE_PERIODIC, false);
+                                sum->GetMotionMaster()->MovePoint(0, 919.606f, -2591.245f, 179.941f);
+                                sum->ForcedDespawn(3200);
+                            }
+                            sum = me->SummonCreature(CREATURE_TRIGGER_WAVE, 918.923f, -2557.356f, 179.821f, 2.821f);
+                            if (sum)
+                            {
+                                sum->SetDisplayId(11686);
+                                sum->CastSpell(sum, SPELL_JADE_SERPENT_WAVE_VISUAL, false);
+                                sum->CastSpell(sum, SPELL_SERPENT_WAVE_PERIODIC, false);
+                                sum->GetMotionMaster()->MovePoint(0, 901.839f, -2551.843f, 179.941f);
+                                sum->ForcedDespawn(3200);
+                            }
+                        }
+                        break;
+                    case EVENT_SUMMON_YULON:
+                        me->CastSpell(me, SPELL_SUMMON_JADE_SERPENT, false);
+                        me->CastSpell(me, SPELL_JADE_SOUL, false);
+                        me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                        me->ApplySpellImmune(SPELL_JADE_SOUL, IMMUNITY_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, true);
+                        me->ApplySpellImmune(SPELL_JADE_SOUL, IMMUNITY_DAMAGE, SPELL_SCHOOL_MASK_MAGIC, true);
+                        me->SetReactState(REACT_PASSIVE);
+                        me->AddUnitState(UNIT_STATE_ROOT);
+                        events.ScheduleEvent(EVENT_AURA_JADE, 3000);
+                        break;
+
+                    case EVENT_AURA_JADE:
+                        me->CastSpell(me, SPELL_JADE_SOUL, false);
+                        events.ScheduleEvent(EVENT_AURA_JADE, 2500);
+                        break;
+                    }
+                }
+
+                DoMeleeAttackIfReady();
             }
-        }
-        DoMeleeAttackIfReady();
-    }
+        };
 };
 
-struct boss_yu_lon : public BossAI
+class boss_yu_lon : public CreatureScript
 {
-    explicit boss_yu_lon(Creature* creature) : BossAI(creature, BOSS_YU_LON) {}
+    public:
+        boss_yu_lon() : CreatureScript("boss_yu_lon") { }
 
-    void EnterCombat(Unit* /*unit*/) override
-    {
-        events.RescheduleEvent(EVENT_JADE_FIRE, 100);
-    }
-
-    void JustDied(Unit* /*died*/) override
-    {
-        DoCast(SPELL_CLEANSING_BREATH);
-    }
-
-    void SpellHitTarget(Unit* target, SpellInfo const* spell) override
-    {
-        if (spell->Id == SPELL_JADE_FIRE)
-            DoCast(target, SPELL_JADE_FIRE_MISSILE, true);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        events.Update(diff);
-
-        if (uint32 eventId = events.ExecuteEvent())
+        CreatureAI* GetAI(Creature* creature) const
         {
-            switch (eventId)
-            {
-            case EVENT_JADE_FIRE:
-                DoCast(SPELL_JADE_FIRE);
-                events.RescheduleEvent(EVENT_JADE_FIRE, 2000);
-                break;
-            }
+            return new boss_yu_lon_AI(creature);
         }
-        DoMeleeAttackIfReady();
-    }
+
+        struct boss_yu_lon_AI : public BossAI
+        {
+            boss_yu_lon_AI(Creature* creature) : BossAI(creature, 2)
+            {
+            }
+
+            void EnterCombat(Unit* unit)
+            {
+                events.ScheduleEvent(EVENT_JADE_FIRE, 100);
+            }
+
+            void JustDied(Unit* died)
+            {
+                me->CastSpell(me, 132387, false);
+
+                if (Creature* l_Liu = me->FindNearestCreature(eCreatures::LiuFlameheart, 200.0f))
+                    l_Liu->CombatStop();
+            }
+
+            void UpdateAI(const uint32 diff)
+            {
+                if (!UpdateVictim())
+                    return;
+
+                events.Update(diff);
+
+                while (uint32 eventId = events.ExecuteEvent())
+                {
+                    switch (eventId)
+                    {
+                    case EVENT_JADE_FIRE:
+                        me->CastSpell(SelectTarget(SELECT_TARGET_RANDOM), SPELL_JADE_FIRE, false);
+                        events.ScheduleEvent(EVENT_JADE_FIRE, 1700);
+                        break;
+                    }
+                }
+                
+                DoMeleeAttackIfReady();
+            }
+        };
 };
 
-struct mob_trigger_liu_flameheart : public ScriptedAI
+class mob_trigger_liu_flameheart: public CreatureScript
 {
-    explicit mob_trigger_liu_flameheart(Creature* creature) : ScriptedAI(creature)
-    {
-        if (me->GetInstanceScript() && me->GetInstanceScript()->GetData(TYPE_LIU_FLAMEHEART_STATUS))
-            timer = 500;
-        else
-            timer = 0;
-    }
+    public:
+        mob_trigger_liu_flameheart() : CreatureScript("mob_trigger_liu_flameheart") { }
 
-    uint32 timer;
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (timer <= diff)
+        CreatureAI* GetAI(Creature* creature) const
         {
-            if (me->GetInstanceScript() && me->GetInstanceScript()->GetData(TYPE_LIU_FLAMEHEART_STATUS))
-            {
-                DoCast(107103);
-                timer = 1000;
-            }
+            return new mob_trigger_liu_flameheart_AI(creature);
         }
-        else
-            timer -= diff;
-    }
+
+        struct mob_trigger_liu_flameheart_AI : public ScriptedAI
+        {
+            mob_trigger_liu_flameheart_AI(Creature* creature) : ScriptedAI(creature)
+            {
+                if (me->GetInstanceScript() && me->GetInstanceScript()->GetData(TYPE_LIU_FLAMEHEART_STATUS))
+                    timer = 500;
+                else
+                    timer = 0;
+            }
+            uint32 timer;
+
+            void UpdateAI(const uint32 diff)
+            {
+                if (timer <= diff)
+                {
+                    if (me->GetInstanceScript() && me->GetInstanceScript()->GetData(TYPE_LIU_FLAMEHEART_STATUS))
+                    {
+                        me->CastSpell(me, 107103, false);
+                        timer = 1000;
+                    }
+                }
+                else
+                    timer -= diff;
+            }
+        };
 };
 
-struct mob_minion_of_doubt : public ScriptedAI
+class mob_minion_of_doubt: public CreatureScript
 {
-    explicit mob_minion_of_doubt(Creature* creature) : ScriptedAI(creature) {}
+    public:
+        mob_minion_of_doubt() : CreatureScript("mob_minion_of_doubt") { }
 
-    EventMap events;
-
-    void EnterCombat(Unit* /*unit*/) override
-    {
-        events.RescheduleEvent(EVENT_1, 2000);
-        events.RescheduleEvent(EVENT_2, 4000);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        if (me->HasUnitState(UNIT_STATE_CASTING))
-            return;
-
-        events.Update(diff);
-
-        if (uint32 eventId = events.ExecuteEvent())
+        CreatureAI* GetAI(Creature* creature) const
         {
-            switch (eventId)
-            {
-            case EVENT_1:
-                if (auto victim = me->getVictim())
-                    DoCast(victim, 110099, false);
-
-                events.RescheduleEvent(EVENT_1, 5000);
-                break;
-            case EVENT_2:
-                if (auto victim = me->getVictim())
-                    DoCast(victim, 110125, false);
-
-                events.RescheduleEvent(EVENT_2, 5000);
-                break;
-            }
+            return new mob_minion_of_doubt_AI(creature);
         }
-        DoMeleeAttackIfReady();
-    }
+
+        struct mob_minion_of_doubt_AI : public ScriptedAI
+        {
+            mob_minion_of_doubt_AI(Creature* creature) : ScriptedAI(creature)
+            {
+            }
+            EventMap events;
+
+            void EnterCombat(Unit* unit)
+            {
+                events.ScheduleEvent(1, 2000);
+                events.ScheduleEvent(2, 4000);
+            }
+
+            void UpdateAI(const uint32 diff)
+            {
+                if (!UpdateVictim())
+                    return;
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
+
+                events.Update(diff);
+
+                while (uint32 eventId = events.ExecuteEvent())
+                {
+                    switch (eventId)
+                    {
+                    case 1:
+                        me->CastSpell(me->getVictim(), 110099, false);
+                        events.ScheduleEvent(1, 5000);
+                        break;
+                    case 2:
+                        me->CastSpell(me->getVictim(), 110125, false);
+                        events.ScheduleEvent(2, 5000);
+                        break;
+                    }
+                }
+                DoMeleeAttackIfReady();
+            }
+        };
 };
 
-struct mob_lesser_sha : public ScriptedAI
+class mob_lesser_sha: public CreatureScript
 {
-    explicit mob_lesser_sha(Creature* creature) : ScriptedAI(creature) {}
+    public:
+        mob_lesser_sha() : CreatureScript("mob_lesser_sha") { }
 
-    EventMap events;
-
-    void EnterCombat(Unit* /*unit*/) override
-    {
-        events.RescheduleEvent(EVENT_1, 2000);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        events.Update(diff);
-
-        if (uint32 eventId = events.ExecuteEvent())
+        CreatureAI* GetAI(Creature* creature) const
         {
-            switch (eventId)
-            {
-            case EVENT_1:
-                if (auto victim = me->getVictim())
-                    DoCast(victim, 122527, false);
-
-                events.RescheduleEvent(EVENT_1, 5000);
-                break;
-            }
+            return new mob_lesser_sha_AI(creature);
         }
-        DoMeleeAttackIfReady();
-    }
+
+        struct mob_lesser_sha_AI : public ScriptedAI
+        {
+            mob_lesser_sha_AI(Creature* creature) : ScriptedAI(creature)
+            {
+            }
+            EventMap events;
+
+            void EnterCombat(Unit* unit)
+            {
+                events.ScheduleEvent(1, 2000);
+            }
+
+            void UpdateAI(const uint32 diff)
+            {
+                if (!UpdateVictim())
+                    return;
+
+                events.Update(diff);
+
+                while (uint32 eventId = events.ExecuteEvent())
+                {
+                    switch (eventId)
+                    {
+                    case 1:
+                        me->CastSpell(me->getVictim(), 122527, false);
+                        events.ScheduleEvent(1, 5000);
+                        break;
+                    }
+                }
+                DoMeleeAttackIfReady();
+            }
+        };
 };
 
 void AddSC_boss_liu_flameheat()
 {
-    RegisterCreatureAI(boss_liu_flameheart);
-    RegisterCreatureAI(boss_yu_lon);
-    RegisterCreatureAI(mob_trigger_liu_flameheart);
-    RegisterCreatureAI(mob_minion_of_doubt);
-    RegisterCreatureAI(mob_lesser_sha);
+    new boss_liu_flameheart();
+    new boss_yu_lon();
+    new mob_trigger_liu_flameheart();
+    //Trashes
+    new mob_minion_of_doubt();
+    new mob_lesser_sha();
 }

@@ -1,715 +1,1556 @@
-/*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
- * option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program. If not, see <http://www.gnu.org/licenses/>.
- */
+#include "throne_of_thunder.hpp"
 
-#include "throne_of_thunder.h"
+// TODO: correct power display
+// There are two power displays in dbc (215 anima and 216 vita)
+// I think that those are correct, but there is no vehicle id for those powers
+// So I use 2888 vehicle id (power display 219 anima) until I find the correct way
 
-enum eSpells
+enum ScriptedTexts
 {
-    //Ra Den and Corrupted Sphere
-    SPELL_MATERIALS_OF_CREATION  = 138321,
-    SPELL_IMBUED_WITH_VITA       = 138332,
-    SPELL_IMBUED_WITH_ANIMA      = 138331,
-    SPELL_UNLEASHED_VITA         = 138330,
-    SPELL_UNLEASHED_ANIMA        = 138329,
-    SPELL_FATAL_STRIKE           = 138334,
-    SPELL_MURDEROUS_STRIKE       = 138333,
-    SPELL_LINGERING_ENERGIES     = 138450,
-    SPELL_S_CRACKLING_STALKER    = 138339,
-    SPELL_S_SANGUINE_HORROR      = 138338,
-    SPELL_RUIN                   = 139073,
-    SPELL_RUIN_BOLT              = 139087,
-    
-    //Crackling Stalker
-    SPELL_CRACKLE                = 138340,
-    SPELL_CAUTERIZING_FLARE      = 138337,
-    //Sanguine Horror
-    SPELL_SANGUINE_VOLLEY        = 138341,
+    SAY_AGGRO           = 0,
+    SAY_BERSERK         = 1,
+    SAY_INTRO_1         = 2,
+    SAY_INTRO_2         = 3,
+    SAY_INTRO_3         = 4,
+    SAY_KILL            = 5,
+    SAY_PHASE_2         = 6,
+    SAY_MURDEROUS       = 7,
+    SAY_CREATION        = 8,
+    SAY_VITA            = 9,
+    SAY_ANIMA           = 10,
+    SAY_END             = 11,
 };
 
-enum sEvents
+enum Spells
 {
-    //Ra Den
-    EVENT_MATERIALS_OF_CREATION  = 1,
-    EVENT_SUMMON                 = 2,
-    EVENT_RUIN_BOLT              = 3,
-    //Corrupted Sphere
-    EVENT_MOVING                 = 3,
-    //Crackling Stalker
-    EVENT_CRACKLE                = 4,
-    //Sanguine Horror
-    EVENT_SANGUINE_VOLLEY        = 5,
+    SPELL_ZERO_MANA                     = 96301, 
+
+    SPELL_MATERIALS_OF_CREATION         = 138321,
+
+    SPELL_SUMMON_ESSENSE_OF_VITA        = 138324,
+    SPELL_DRAW_VITA                     = 138328,
+    SPELL_SUMMON_CRACKLING_STALKER      = 138339,
+    SPELL_IMBUED_WITH_VITA              = 138332,
+    SPELL_UNLEASHED_VITA                = 138330,
+    SPELL_FATAL_STRIKE                  = 138334,
+    SPELL_UNSTABLE_VITA                 = 138297,
+    SPELL_UNSTABLE_VITA_ALLY            = 138308,
+    SPELL_UNSTABLE_VITA_DMG             = 138370,
+    SPELL_UNSTABLE_VITA_DUMMY           = 138371,
+    SPELL_VITA_SENSITIVITY              = 138372,
+
+    SPELL_SUMMON_ESSENSE_OF_ANIMA       = 138323,
+    SPELL_DRAW_ANIMA                    = 138327,
+    SPELL_SUMMON_SANGUINE_HORROR        = 138338,
+    SPELL_IMBUED_WITH_ANIMA             = 138331,
+    SPELL_UNLEASHED_ANIMA               = 138329,
+    SPELL_MURDEROUS_STRIKE              = 138333,
+    SPELL_UNSTABLE_ANIMA                = 138288,
+    SPELL_UNSTABLE_ANIMA_DUMMY          = 138294,
+    SPELL_UNSTABLE_ANIMA_DMG            = 138295,
+    SPELL_ANIMA_SENSITIVITY             = 139318,
+
+    SPELL_LINGERING_ENERGIES            = 138450,
+
+    SPELL_CALL_ESSENSE                  = 139040,
+
+    SPELL_RUIN_BOLT                     = 139087,
+    SPELL_RUIN                          = 139073,
+    SPELL_RUIN_DMG                      = 139074,
+
+    // Crackling Stalker
+    SPELL_CAUTERIZING_FLARE             = 138337,
+    SPELL_CRACKLE                       = 138340,
+
+    // Sanguine Horror
+    SPELL_SANGUINE_VOLLEY               = 138341,
+
+    // Corrupted Vita
+    SPELL_CORRUPTED_VITA                = 139072,
+    SPELL_CORRUPTED_VITA_DMG            = 139078,
+
+    // Corrupted Anima
+    SPELL_TWISTED_ANIMA                 = 139075,
+    SPELL_CORRUPTED_ANIMA               = 139071,
 };
 
-enum sActions
+enum Adds
 {
-    //Ra Den
-    ACTION_EVENTS_RESET          = 1,
-    ACTION_EVENTS_RESET_2        = 2,
+    NPC_ESSENSE_OF_VITA     = 69870,
+    NPC_CORRUPTED_VITA      = 69958,
+    NPC_CRACKLING_STALKER   = 69872,
+    NPC_ESSENSE_OF_ANIMA    = 69869,
+    NPC_CORRUPTED_ANIMA     = 69957,
+    NPC_SANGUINE_HORROR     = 69871,
 };
 
-enum ssData
+enum Events
 {
-    DATA_SEND_DMG                = 1,
+    EVENT_CREATION  = 1,
+    EVENT_ESSENSE_MOVE,
+    EVENT_ESSENSE_UPDATE,
+    EVENT_ACTIVATE_VITA,
+    EVENT_ACTIVATE_ANIMA,
+    EVENT_UNSTABLE_VITA,
+    EVENT_CRACKLING_STALKER,
+    EVENT_UNSTABLE_ANIMA,
+    EVENT_SANGUINE_HORROR,
+    EVENT_MOVE,
+    EVENT_CRACKLE,
+    EVENT_SANGUINE_VOLLEY,
+    EVENT_LAST_PHASE,
+    EVENT_RUIN_BOLT,
+    EVENT_CALL_ESSENSE,
 };
+
+enum Actions
+{
+    ACTION_CREATION = 1,
+    ACTION_VITA,
+    ACTION_ANIMA,
+    ACTION_CORRUPTED_VITA,
+    ACTION_CORRUPTED_ANIMA,
+    ACTION_CORRUPTED_ESSENSE_MOVE,
+};
+
+enum Datas
+{
+    DATA_CORRUPTED_ESSENSE_ACTIVE   = 1,
+};
+
+enum Phases
+{
+    PHASE_NONE,
+    PHASE_VITA,
+    PHASE_ANIMA,
+    PHASE_LAST,
+};
+
+const Position spherePos[2] = 
+{
+    {5448.32f, 4593.14f, -2.46f, 1.56f},
+    {5447.50f, 4722.57f, -2.46f, 4.71f}
+};
+
+const Position centerPos = {5448.50f, 4655.93f, -2.46f, 0.0f};
 
 class boss_ra_den : public CreatureScript
 {
     public:
-        boss_ra_den() : CreatureScript("boss_ra_den") {}
+        boss_ra_den() : CreatureScript("boss_ra_den") { }
+
+        CreatureAI* GetAI(Creature* creature) const
+        {
+            return new boss_ra_denAI(creature);
+        }
 
         struct boss_ra_denAI : public BossAI
         {
             boss_ra_denAI(Creature* creature) : BossAI(creature, DATA_RA_DEN)
             {
-                instance = creature->GetInstanceScript();
-                if (!me->GetMap()->IsHeroic())
-                    me->DespawnOrUnsummon();
-            }
+                ApplyAllImmunities(true);
 
-            InstanceScript* instance;
-            uint32 checkpower;
-            bool phasetwo;
-            int32 dmg;
+                me->SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, 8);
+                me->SetFloatValue(UNIT_FIELD_COMBATREACH, 8);
+
+                me->setActive(true);
+
+                isIntroDone = false;
+                introStep = 0;
+                introTimer = 1000;
+
+                talkCreationDone = false;
+                talkVitaDone = false;
+                talkAnimaDone = false;
+                talkMurderousStrike = false;
+
+                phase = PHASE_NONE;
+
+                isCompleted = false;
+            }
 
             void Reset()
             {
                 _Reset();
+
+                InitPowers();
+
                 me->SetReactState(REACT_AGGRESSIVE);
-                me->RemoveAurasDueToSpell(SPELL_LINGERING_ENERGIES);
-                me->RemoveAurasDueToSpell(SPELL_IMBUED_WITH_VITA);
-                me->RemoveAurasDueToSpell(SPELL_IMBUED_WITH_ANIMA);
-				me->RemoveAurasDueToSpell(SPELL_RUIN);
-                me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_REMOVE_CLIENT_CONTROL);
-                if (instance)
-                    instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_UNLEASHED_ANIMA);
-                me->setPowerType(POWER_ENERGY);
-                me->SetMaxPower(POWER_ENERGY, 100);
-                me->SetPower(POWER_ENERGY, 0);
-                checkpower = 0;
-                phasetwo = false;
-                dmg = 0;
+
+                talkCreationDone = false;
+                talkVitaDone = false;
+                talkAnimaDone = false;
+                talkMurderousStrike = false;
+
+                phase = PHASE_NONE;
+
+                isCompleted = false;
             }
 
-            void EnterCombat(Unit* who)
+            void MoveInLineOfSight(Unit* who)
             {
-                _EnterCombat();
-                checkpower = 1000;
-                events.RescheduleEvent(EVENT_MATERIALS_OF_CREATION, 12000);
-                events.RescheduleEvent(EVENT_SUMMON, 20000);
-            }
-
-            void DamageTaken(Unit* attacker, uint32 &damage, DamageEffectType dmgType)
-            {
-                if (HealthBelowPct(40) && !phasetwo && instance)
+                if (!isIntroDone)
                 {
-                    phasetwo = true;
-                    events.Reset();
-                    checkpower = 0;
-                    me->RemoveAurasDueToSpell(SPELL_IMBUED_WITH_VITA);
-                    me->RemoveAurasDueToSpell(SPELL_IMBUED_WITH_ANIMA);
-                    me->SetPower(POWER_ENERGY, 0);
-                    instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_UNLEASHED_ANIMA);
-                    me->AttackStop();
-                    me->SetReactState(REACT_PASSIVE);
-                    me->GetMotionMaster()->MoveCharge(5448.52f, 4656.22f, -2.4769f, 10.0f, 1);
+                    if (who->GetTypeId() == TYPEID_PLAYER && me->GetDistance(who) <= 100.0f)
+                    {
+                        isIntroDone = true;
+                        introStep = 1;
+                        introTimer = 1000;
+                    }
                 }
             }
 
-            void MovementInform(uint32 type, uint32 pointId)
+            void EnterCombat(Unit* attacker)
             {
-                if (type == POINT_MOTION_TYPE)
+                Talk(SAY_AGGRO);
+
+                events.ScheduleEvent(EVENT_CREATION, 11000);
+
+                instance->SetBossState(DATA_RA_DEN, IN_PROGRESS);
+                DoZoneInCombat();
+            }
+            
+            void EnterEvadeMode()
+            {
+                uint32 radenState = instance->GetBossState(DATA_RA_DEN);
+                uint32 leishenState = instance->GetBossState(DATA_LEI_SHEN);
+
+                if (radenState == IN_PROGRESS && leishenState == DONE)
                 {
-                    if (pointId == 1 && instance)
+                    uint32 radenCount = instance->GetData(DATA_RADEN_TRIES_COUNT);
+                    instance->SetData(DATA_RADEN_TRIES_COUNT, radenCount + 1);
+                }
+
+                BossAI::EnterEvadeMode();
+            }
+
+            void KilledUnit(Unit* who)
+            {
+                if (who && who->GetTypeId() == TYPEID_PLAYER)
+                {
+                    Talk(SAY_KILL);
+                }
+            }
+
+            void SummonedCreatureDies(Creature* summon, Unit* killer)
+            {
+                if (summon->GetEntry() == NPC_ESSENSE_OF_VITA)
+                {
+                    summons.DespawnEntry(NPC_ESSENSE_OF_ANIMA);
+                    DoAction(ACTION_ANIMA);
+                }
+                else if (summon->GetEntry() == NPC_ESSENSE_OF_ANIMA)
+                {
+                    summons.DespawnEntry(NPC_ESSENSE_OF_VITA);
+                    DoAction(ACTION_VITA);
+                }
+            }
+
+            void DoAction(const int32 action)
+            {
+                if (action == ACTION_CREATION)
+                {
+                    SummonEssenses();
+                }
+                else if (action == ACTION_VITA)
+                {
+                    if (phase == PHASE_VITA)
+                        return;
+
+                    phase = PHASE_VITA;
+
+                    events.CancelEvent(EVENT_ACTIVATE_ANIMA);
+                    events.ScheduleEvent(EVENT_ACTIVATE_VITA, 1500);
+                }
+                else if (action == ACTION_ANIMA)
+                {
+                    if (phase == PHASE_ANIMA)
+                        return;
+
+                    phase = PHASE_ANIMA;
+
+                    events.CancelEvent(EVENT_ACTIVATE_VITA);
+                    events.ScheduleEvent(EVENT_ACTIVATE_ANIMA, 1500);
+                }
+                else if (action == ACTION_CORRUPTED_VITA)
+                {
+                    DoCast(me, SPELL_CORRUPTED_VITA, true);
+                }
+                else if (action == ACTION_CORRUPTED_ANIMA)
+                {
+                    DoCast(me, SPELL_CORRUPTED_ANIMA, true);
+                }
+            }
+
+            void AttackStart(Unit* target)
+            {
+                if (!target)
+                    return;
+
+                if (phase == PHASE_LAST)
+                {
+                    if (me->Attack(target, true))
+                        DoStartNoMovement(target);
+                }
+                else
+                {
+                    BossAI::AttackStart(target);
+                }
+            }
+
+            void DamageTaken(Unit* attacker, uint32 &damage)
+            {
+                if (phase == PHASE_LAST)
+                {
+                    if (me->GetHealth() <= damage)
                     {
-                        if (!instance->IsWipe())
+                        damage = 0;
+
+                        if (!isCompleted)
                         {
-                            me->StopMoving();
-                            me->GetMotionMaster()->Clear(false);
-                            me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_REMOVE_CLIENT_CONTROL);
-                            me->SetReactState(REACT_AGGRESSIVE);
-                            DoZoneInCombat(me, 200.0f);
-                            DoCast(me, SPELL_RUIN);
-                            events.RescheduleEvent(EVENT_RUIN_BOLT, 3000);
+                            EndEncounter();
                         }
                     }
                 }
             }
 
-            void DoAction(int32 const action)
+            void UpdateAI(const uint32 diff)
             {
-                switch (action)
-                {
-                case ACTION_EVENTS_RESET:
-                    if (instance)
-                        instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_UNLEASHED_ANIMA);
-                    me->RemoveAurasDueToSpell(SPELL_IMBUED_WITH_VITA);
-                    me->RemoveAurasDueToSpell(SPELL_IMBUED_WITH_ANIMA);
-                    me->SetPower(POWER_ENERGY, 0); 
-                    me->AddAura(SPELL_LINGERING_ENERGIES, me);
-                    DoCastAOE(SPELL_UNLEASHED_VITA, true);
-                    break;
-                case ACTION_EVENTS_RESET_2:
-                    me->RemoveAurasDueToSpell(SPELL_IMBUED_WITH_VITA);
-                    me->RemoveAurasDueToSpell(SPELL_IMBUED_WITH_ANIMA);
-                    me->SetPower(POWER_ENERGY, 0); 
-                    me->AddAura(SPELL_LINGERING_ENERGIES, me);
-                    if (instance)
-                        instance->DoAddAuraOnPlayers(SPELL_UNLEASHED_ANIMA);
-                    break;
-                }
-            }
+                UpdateIntro(diff);
 
-            uint32 GetData(uint32 type) const
-            {
-                if (type == DATA_SEND_DMG)
-                    return dmg;
-                else
-                    return 0;
-            }
-
-            void JustDied(Unit* /*killer*/)
-            {
-                _JustDied();
-            }
-
-            void UpdateAI(uint32 diff)
-            {
                 if (!UpdateVictim())
                     return;
 
-                if (checkpower)
+                if (instance->GetBossState(DATA_LEI_SHEN) != DONE)
                 {
-                    if (checkpower <= diff)
-                    {
-                        if (me->GetPower(POWER_ENERGY) == 100 && me->getVictim())
-                        {
-                            if (me->HasAura(SPELL_IMBUED_WITH_VITA))
-                                DoCast(me->getVictim(), SPELL_FATAL_STRIKE);
-                            else if (me->HasAura(SPELL_IMBUED_WITH_ANIMA) && me->GetMap()->GetDifficultyID() == DIFFICULTY_25_HC)
-                            {
-                                dmg = 0;
-                                dmg = me->getVictim()->GetHealth();
-                                DoCast(me->getVictim(), SPELL_MURDEROUS_STRIKE);
-                                me->SetPower(POWER_ENERGY, 0);
-                            }
-                        }
-                        checkpower = 1000;
-                    }
-                    else
-                        checkpower -= diff;
+                    EnterEvadeMode();
+                    return;
                 }
+
+                events.Update(diff);
 
                 if (me->HasUnitState(UNIT_STATE_CASTING))
                     return;
 
+                if (CheckFatalStrike())
+                    return;
+
+                if (CheckMurderousStrike())
+                    return;
+
+                if (CheckLastPhase())
+                    return;
+
+                if (uint32 eventId = events.ExecuteEvent())
+                {
+                    switch (eventId)
+                    {
+                        case EVENT_CREATION:
+                            if (!talkCreationDone)
+                            {
+                                talkCreationDone = true;
+                                Talk(SAY_CREATION);
+                            }
+                            DoCast(SPELL_MATERIALS_OF_CREATION);
+                            events.ScheduleEvent(EVENT_CREATION, urand(32500, 35000));
+                            break;
+                        case EVENT_ACTIVATE_VITA:
+                            ApplyVita();
+                            break;
+                        case EVENT_ACTIVATE_ANIMA:
+                            ApplyAnima();
+                            break;
+                        case EVENT_UNSTABLE_VITA:
+                            DoCastAOE(SPELL_UNSTABLE_VITA);
+                            break;
+                        case EVENT_CRACKLING_STALKER:
+                            DoCast(me, SPELL_SUMMON_CRACKLING_STALKER);
+                            events.ScheduleEvent(EVENT_CRACKLING_STALKER, 40000);
+                            break;
+                        case EVENT_UNSTABLE_ANIMA:
+                            break;
+                        case EVENT_SANGUINE_HORROR:
+                            DoCast(me, SPELL_SUMMON_SANGUINE_HORROR);
+                            events.ScheduleEvent(EVENT_SANGUINE_HORROR, 40000);
+                            break;
+                        case EVENT_LAST_PHASE:
+                            SummonCorruptedEssenses();
+
+                            me->AddAura(SPELL_RUIN, me);
+
+                            events.ScheduleEvent(EVENT_CALL_ESSENSE, 15000);
+                            events.ScheduleEvent(EVENT_RUIN_BOLT, 5000);
+                            break;
+                        case EVENT_CALL_ESSENSE:
+                            DoCastAOE(SPELL_CALL_ESSENSE);
+                            events.ScheduleEvent(EVENT_CALL_ESSENSE, 15000);
+                            break;
+                        case EVENT_RUIN_BOLT:
+                            if (!me->IsWithinMeleeRange(me->getVictim()))
+                            {
+                                DoCastVictim(SPELL_RUIN_BOLT);
+                            }
+                            events.ScheduleEvent(EVENT_RUIN_BOLT, 3000);
+                            break;
+                        default:
+                            break;
+                    }
+                }
+
+                DoMeleeAttackIfReady();
+            }
+
+        private:
+
+            bool isIntroDone;
+            uint8 introStep;
+            uint32 introTimer;
+
+            bool talkCreationDone;
+            bool talkVitaDone;
+            bool talkAnimaDone;
+            bool talkMurderousStrike;
+
+            Phases phase;
+
+            bool isCompleted;
+
+        private:
+
+            void InitPowers()
+            {
+                me->AddAura(SPELL_ZERO_MANA, me);
+
+                me->setPowerType(POWER_MANA);
+                me->SetMaxPower(POWER_MANA, 100);
+                me->SetPower(POWER_MANA, 0);
+            }
+
+            void UpdateIntro(const uint32 diff)
+            {
+                if (introStep == 0)
+                    return;
+
+                if (introTimer <= diff)
+                {
+                    switch (introStep)
+                    {
+                        case 1:
+                            Talk(SAY_INTRO_1);
+                            introStep++;
+                            introTimer = 13000;
+                            break;
+                        case 2:
+                            Talk(SAY_INTRO_2);
+                            introStep++;
+                            introTimer = 22000;
+                            break;
+                        case 3:
+                            Talk(SAY_INTRO_3);
+                            introStep = 0;
+                            break;
+                        default:
+                            introStep = 0;
+                            break;
+                    }
+                }
+                else
+                {
+                    introTimer -= diff;
+                }
+            }
+
+            void SummonEssenses()
+            {
+                uint8 first = urand(0, 1);
+                uint8 second = first == 1 ? 0 : 1;
+
+                me->CastSpell(spherePos[first].GetPositionX(), spherePos[first].GetPositionY(), spherePos[first].GetPositionZ() + 1.0f, SPELL_SUMMON_ESSENSE_OF_VITA, true);
+                me->CastSpell(spherePos[second].GetPositionX(), spherePos[second].GetPositionY(), spherePos[second].GetPositionZ(), SPELL_SUMMON_ESSENSE_OF_ANIMA, true);
+            }
+
+            void SummonCorruptedEssenses()
+            {
+                std::vector<Position> positions;
+                BuildCorruptedEssensesPositions(positions, centerPos, 50.0f, me->GetPositionZ());
+
+                int i = 0;
+                for (std::vector<Position>::const_iterator itr = positions.begin(); itr != positions.end(); ++itr)
+                {
+                    if (i % 2 == 0)
+                    {
+                        me->SummonCreature(NPC_CORRUPTED_VITA, *itr);
+                    }
+                    else
+                    {
+                        me->SummonCreature(NPC_CORRUPTED_ANIMA, *itr);
+                    }
+
+                    i++;
+                }
+            }
+
+            void BuildCorruptedEssensesPositions(std::vector<Position> &positions, Position const& center, float radius, float z)
+            {
+                float step = M_PI / 20.0f;
+                float angle = 0.0f;
+
+                for (uint8 i = 0; i < 40; angle += step, ++i)
+                {
+                    Position pos;
+                    pos.m_positionX = center.GetPositionX() + radius * cosf(angle);
+                    pos.m_positionY = center.GetPositionY() + radius * sinf(angle);
+                    z = me->GetMap()->GetHeight(pos.m_positionX, pos.m_positionY, z);
+                    pos.m_positionZ = z;
+                    positions.push_back(pos);
+                }
+            }
+
+            bool CheckFatalStrike()
+            {
+                if (phase != PHASE_VITA)
+                    return false;
+
+                if (me->GetPower(POWER_MANA) < 100)
+                    return false;
+
+                if (me->GetCurrentSpell(CURRENT_MELEE_SPELL))
+                    return false;
+
+                if (!talkMurderousStrike)
+                {
+                    talkMurderousStrike = true;
+                    Talk(SAY_MURDEROUS);
+                }
+
+                DoCastVictim(SPELL_FATAL_STRIKE);
+
+                return true;
+            }
+
+            bool CheckMurderousStrike()
+            {
+                if (phase != PHASE_ANIMA)
+                    return false;
+
+                if (me->GetPower(POWER_MANA) < 100)
+                    return false;
+
+                DoCastVictim(SPELL_MURDEROUS_STRIKE);
+
+                return true;
+            }
+
+            void ApplyVita()
+            {
+                if (!talkVitaDone)
+                {
+                    talkVitaDone = true;
+                    Talk(SAY_VITA);
+                }
+
+                CancelAnima();
+
+                events.ScheduleEvent(EVENT_UNSTABLE_VITA, 2000);
+                events.ScheduleEvent(EVENT_CRACKLING_STALKER, 10000);
+
+                DoCast(SPELL_UNLEASHED_VITA);
+                
+                me->AddAura(SPELL_IMBUED_WITH_VITA, me);
+                me->AddAura(SPELL_LINGERING_ENERGIES, me);
+            }
+
+            void CancelVita()
+            {
+                instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_VITA_SENSITIVITY);
+                me->RemoveAura(SPELL_IMBUED_WITH_VITA);
+                events.CancelEvent(EVENT_UNSTABLE_VITA);
+                events.CancelEvent(EVENT_CRACKLING_STALKER);
+            }
+
+            void ApplyAnima()
+            {
+                if (!talkAnimaDone)
+                {
+                    talkAnimaDone = true;
+                    Talk(SAY_ANIMA);
+                }
+
+                CancelVita();
+                
+                events.ScheduleEvent(EVENT_UNSTABLE_ANIMA, 2000);
+                events.ScheduleEvent(EVENT_SANGUINE_HORROR, 10000);
+
+                DoCast(SPELL_UNLEASHED_ANIMA);
+                me->AddAura(SPELL_IMBUED_WITH_ANIMA, me);
+                me->AddAura(SPELL_LINGERING_ENERGIES, me);
+            }
+
+            void CancelAnima()
+            {
+                instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_ANIMA_SENSITIVITY);
+                me->RemoveAura(SPELL_IMBUED_WITH_ANIMA);
+                events.CancelEvent(EVENT_UNSTABLE_ANIMA);
+                events.CancelEvent(EVENT_SANGUINE_HORROR);
+            }
+
+            bool CheckLastPhase()
+            {
+                if (phase == PHASE_LAST)
+                    return false;
+
+                if (me->GetHealthPct() > 40.0f)
+                    return false;
+
+                phase = PHASE_LAST;
+
+                Talk(SAY_PHASE_2);
+
+                me->SetPower(POWER_MANA, 0);
+                events.CancelEvent(EVENT_CREATION);
+                CancelVita();
+                CancelAnima();
+                me->SetReactState(REACT_PASSIVE);
+                me->AttackStop();
+
+                me->NearTeleportTo(centerPos);
+
+                events.ScheduleEvent(EVENT_LAST_PHASE, 1000);
+
+                return true;
+            }
+
+            void EndEncounter()
+            {
+                if (isCompleted)
+                    return;
+
+                isCompleted = true;
+
+                events.Reset();
+                summons.DespawnAll();
+
+                me->setFaction(35);
+                me->RemoveAllAuras();
+
+                me->AttackStop();
+                me->InterruptNonMeleeSpells(true);
+                me->CombatStop(true);
+
+                instance->SetBossState(DATA_RA_DEN, DONE);
+
+                instance->DoModifyPlayerCurrencies(396, 4000);
+
+                SpawnLoot();
+
+                me->DespawnOrUnsummon(5000);
+            }
+
+            void SpawnLoot()
+            {
+                switch (GetDifficulty())
+                {
+                    case MAN10_HEROIC_DIFFICULTY:
+                        instance->DoRespawnGameObject(instance->GetData64(DATA_CACHE_OF_STORMS_10_HEROIC), DAY);
+                        break;
+                    case MAN25_HEROIC_DIFFICULTY:
+                        instance->DoRespawnGameObject(instance->GetData64(DATA_CACHE_OF_STORMS_25_HEROIC), DAY);
+                        break;
+                }
+            }
+        };
+};
+
+class npc_ra_den_essense_of_vita_anima : public CreatureScript
+{
+    public:
+        npc_ra_den_essense_of_vita_anima() : CreatureScript("npc_ra_den_essense_of_vita_anima") { }
+
+        CreatureAI* GetAI(Creature* p_Creature) const
+        {
+            return new npc_ra_den_essense_of_vita_animaAI(p_Creature);
+        }
+
+        struct npc_ra_den_essense_of_vita_animaAI : public ScriptedAI
+        {
+            npc_ra_den_essense_of_vita_animaAI(Creature* p_Creature) : ScriptedAI(p_Creature)
+            {
+                ApplyAllImmunities(true);
+
+                me->SetReactState(REACT_PASSIVE);
+                me->SetSpeed(MOVE_RUN, 0.5f);
+
+                if (me->GetEntry() == NPC_ESSENSE_OF_VITA)
+                {
+                    //me->SetCanFly(true);
+                    //me->SetDisableGravity(true);
+                    me->SetFloatValue(UNIT_FIELD_HOVERHEIGHT, 2.0f);
+                    me->SetHover(true);
+                }
+            }
+
+            void Reset()
+            {
+            }
+
+            void IsSummonedBy(Unit* owner)
+            {
+                events.ScheduleEvent(EVENT_ESSENSE_MOVE, 1000);
+                events.ScheduleEvent(EVENT_ESSENSE_UPDATE, 500);
+            }
+
+            void JustDied(Unit* who)
+            {
+
+            }
+
+            void UpdateAI(const uint32 diff)
+            {
                 events.Update(diff);
 
                 if (uint32 eventId = events.ExecuteEvent())
                 {
                     switch (eventId)
                     {
-                    case EVENT_MATERIALS_OF_CREATION:
-                        DoCast(me, SPELL_MATERIALS_OF_CREATION);
-                        events.RescheduleEvent(EVENT_MATERIALS_OF_CREATION, 35000);
-                        break;
-                    case EVENT_SUMMON:
-                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 60.0f, true))
-                        {
-                            if (me->HasAura(SPELL_IMBUED_WITH_VITA))
-                                DoCast(target, SPELL_S_CRACKLING_STALKER);
-                            else if (me->HasAura(SPELL_IMBUED_WITH_ANIMA))
-                                DoCast(target, SPELL_S_SANGUINE_HORROR);
-                        }
-                        events.RescheduleEvent(EVENT_SUMMON, 41000);
-                        break;
-                    case EVENT_RUIN_BOLT:
-                        if (me->getVictim() && !me->IsWithinMeleeRange(me->getVictim()))
-                            DoCast(me->getVictim(), SPELL_RUIN_BOLT);
-                        events.RescheduleEvent(EVENT_RUIN_BOLT, 3000);
-                        break;
-                    }
-                }
-                DoMeleeAttackIfReady();
-            }
-        };
-
-        CreatureAI* GetAI(Creature* creature) const
-        {
-            return new boss_ra_denAI(creature);
-        }
-};
-
-void CallRaDenAndUseSphere(InstanceScript* instance, Creature* caller, uint32 callerEntry, bool died)
-{
-    if (instance && caller)
-    {
-        if (caller->ToTempSummon())
-        {
-            if (Unit* raden = caller->ToTempSummon()->GetSummoner())
-            {
-                if (raden->isAlive())
-                {
-                    if (died)
-                    {
-                        switch (callerEntry)
-                        {
-                        case NPC_CORRUPTED_ANIMA:
-                            if (Creature* cv = caller->GetCreature(*caller, instance->GetGuidData(NPC_CORRUPTED_VITA)))
+                        case EVENT_ESSENSE_MOVE:
+                            if (Creature* pRaden = GetRaden())
                             {
-                                if (cv->isAlive())
-                                {
-                                    caller->DespawnOrUnsummon();
-                                    cv->DespawnOrUnsummon();
-                                    raden->ToCreature()->AI()->DoAction(ACTION_EVENTS_RESET);
-                                    raden->AddAura(SPELL_IMBUED_WITH_VITA, raden);
-                                }
+                                ApplyDrawOnRaden(pRaden);
+                                me->GetMotionMaster()->MoveFollow(pRaden, 0.0f, 0.0f);
                             }
                             break;
-                        case NPC_CORRUPTED_VITA:
-                            if (Creature* ca = caller->GetCreature(*caller, instance->GetGuidData(NPC_CORRUPTED_ANIMA)))
+                        case EVENT_ESSENSE_UPDATE:
+                            if (CheckForRadenDistance())
                             {
-                                if (ca->isAlive())
-                                {
-                                    caller->DespawnOrUnsummon();
-                                    ca->DespawnOrUnsummon();
-                                    raden->ToCreature()->AI()->DoAction(ACTION_EVENTS_RESET_2);
-                                    raden->AddAura(SPELL_IMBUED_WITH_ANIMA, raden);
-                                }
+                                ApplyVitaOrAnimaOnRaden();
+                                me->DespawnOrUnsummon();
                             }
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        switch (callerEntry)
-                        {
-                        case NPC_CORRUPTED_ANIMA:
-                            caller->DespawnOrUnsummon();
-                            raden->ToCreature()->AI()->DoAction(ACTION_EVENTS_RESET_2);
-                            raden->AddAura(SPELL_IMBUED_WITH_ANIMA, raden);
-                            break;
-                        case NPC_CORRUPTED_VITA:
-                            caller->DespawnOrUnsummon();
-                            raden->ToCreature()->AI()->DoAction(ACTION_EVENTS_RESET);
-                            raden->AddAura(SPELL_IMBUED_WITH_VITA, raden);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-//69957, 69958
-class npc_corrupted_sphere : public CreatureScript
-{
-    public:
-        npc_corrupted_sphere() : CreatureScript("npc_corrupted_sphere") {}
-
-        struct npc_corrupted_sphereAI : public ScriptedAI
-        {
-            npc_corrupted_sphereAI(Creature* creature) : ScriptedAI(creature)
-            {
-                pInstance = creature->GetInstanceScript();
-                me->SetReactState(REACT_PASSIVE);
-                me->SetCanFly(true);
-                me->SetDisableGravity(true);
-            }
-
-            InstanceScript* pInstance;
-            EventMap events;
-            float newx, lastx, newy, lasty;
-
-            void Reset()
-            {
-                newx, lastx, newy, lasty = 0;
-                events.RescheduleEvent(EVENT_MOVING, 1000);
-            }
-
-            void DamageTaken(Unit* attacker, uint32 &damage, DamageEffectType dmgType)
-            {
-                if (damage >= me->GetHealth())
-                {
-                    if (pInstance)
-                        CallRaDenAndUseSphere(pInstance, me, me->GetEntry(), true);
-                }
-            }
-            
-            void MoveToRaDen()
-            {
-                if (me->ToTempSummon() && pInstance)
-                {
-                    if (Unit* raden = me->ToTempSummon()->GetSummoner())
-                    {
-                        if (raden->isAlive())
-                        {
-                            if (me->GetDistance(raden) <= 5.0f)
-                                CallRaDenAndUseSphere(pInstance, me, me->GetEntry(), false);
                             else
                             {
-                                float x, y, z;
-                                raden->GetPosition(x, y, z);
-                                newx = x;
-                                newy = y;
-                                if (newx != lastx || newy != lasty)
-                                {
-                                    me->GetMotionMaster()->Clear(false);
-                                    switch (me->GetEntry())
-                                    {
-                                    case NPC_CORRUPTED_ANIMA:
-                                        me->GetMotionMaster()->MoveCharge(newx, newy, z + 2.0f, 6.0f);
-                                        break;
-                                    case NPC_CORRUPTED_VITA:
-                                        me->GetMotionMaster()->MoveCharge(newx, newy, z + 7.0f, 6.0f);
-                                        break;
-                                    }
-                                }
-                                lastx = newx;
-                                lasty = newy;
-                                events.RescheduleEvent(EVENT_MOVING, 1000);
+                                events.ScheduleEvent(EVENT_ESSENSE_UPDATE, 500);
                             }
-                        }
+                            break;
                     }
                 }
             }
-            
-            void UpdateAI(uint32 diff)
-            {
-                events.Update(diff);
 
-                if (uint32 eventId = events.ExecuteEvent())
+        private:
+
+            Creature* GetRaden()
+            {
+                InstanceScript* pInstance = me->GetInstanceScript();
+                if (!pInstance)
+                    return NULL;
+
+                return pInstance->instance->GetCreature(pInstance->GetData64(DATA_RA_DEN));
+            }
+
+            void ApplyDrawOnRaden(Unit* target)
+            {
+                if (me->GetEntry() == NPC_ESSENSE_OF_VITA)
                 {
-                    if (eventId == EVENT_MOVING)
-                        MoveToRaDen();
+                    DoCast(target, SPELL_DRAW_VITA);
+                    me->ClearUnitState(UNIT_STATE_CASTING);
+                }
+                else if (me->GetEntry() == NPC_ESSENSE_OF_ANIMA)
+                {
+                    DoCast(target, SPELL_DRAW_ANIMA);
+                    me->ClearUnitState(UNIT_STATE_CASTING);
                 }
             }
-        };
 
-        CreatureAI* GetAI(Creature* creature) const
-        {
-            return new npc_corrupted_sphereAI(creature);
-        }
-};
-
-//69871
-class npc_sanguine_horror : public CreatureScript
-{
-    public:
-        npc_sanguine_horror() : CreatureScript("npc_sanguine_horror") {}
-
-        struct npc_sanguine_horrorAI : public ScriptedAI
-        {
-            npc_sanguine_horrorAI(Creature* creature) : ScriptedAI(creature)
+            bool CheckForRadenDistance()
             {
-                pInstance = creature->GetInstanceScript();
-                me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_REMOVE_CLIENT_CONTROL);
-            }
-
-            InstanceScript* pInstance;
-            EventMap events;
-
-            void Reset()
-            {
-                events.Reset();
-                if (Player* pl = me->FindNearestPlayer(100.0f, true))
-                    AttackStart(pl);
-            }
-
-            void EnterCombat(Unit* who)
-            {
-                DoZoneInCombat(me, 100.0f);
-                events.RescheduleEvent(EVENT_SANGUINE_VOLLEY, 3000);
-            }
-
-            void UpdateAI(uint32 diff)
-            {
-                if (!UpdateVictim() || me->HasUnitState(UNIT_STATE_CASTING))
-                    return;
-
-                events.Update(diff);
-
-                if (uint32 eventId = events.ExecuteEvent())
+                if (Creature* pRaden = GetRaden())
                 {
-                    if (eventId == EVENT_SANGUINE_VOLLEY)
+                    if (me->GetDistance(pRaden) <= 1.0f)
                     {
-                        if (me->getVictim() && !me->IsWithinMeleeRange(me->getVictim()))
-                            DoCast(me, SPELL_SANGUINE_VOLLEY);
-                        events.RescheduleEvent(EVENT_SANGUINE_VOLLEY, 3000);
+                        return true;
                     }
                 }
-                DoMeleeAttackIfReady();
+                return false;
+            }
+
+            void ApplyVitaOrAnimaOnRaden()
+            {
+                if (Creature* pRaden = GetRaden())
+                {
+                    if (me->GetEntry() == NPC_ESSENSE_OF_VITA)
+                    {
+                        pRaden->AI()->DoAction(ACTION_VITA);
+                    }
+                    else if (me->GetEntry() == NPC_ESSENSE_OF_ANIMA)
+                    {
+                        pRaden->AI()->DoAction(ACTION_ANIMA);
+                    }
+                }
             }
         };
-
-        CreatureAI* GetAI(Creature* creature) const
-        {
-            return new npc_sanguine_horrorAI(creature);
-        }
 };
 
-//69872
-class npc_crackling_stalker : public CreatureScript
+class npc_ra_den_corrupted_vita_anima : public CreatureScript
 {
     public:
-        npc_crackling_stalker() : CreatureScript("npc_crackling_stalker") {}
+        npc_ra_den_corrupted_vita_anima() : CreatureScript("npc_ra_den_corrupted_vita_anima") { }
 
-        struct npc_crackling_stalkerAI : public ScriptedAI
+        CreatureAI* GetAI(Creature* p_Creature) const
         {
-            npc_crackling_stalkerAI(Creature* creature) : ScriptedAI(creature)
+            return new npc_ra_den_corrupted_vita_animaAI(p_Creature);
+        }
+
+        struct npc_ra_den_corrupted_vita_animaAI : public ScriptedAI
+        {
+            npc_ra_den_corrupted_vita_animaAI(Creature* p_Creature) : ScriptedAI(p_Creature)
             {
-                pInstance = creature->GetInstanceScript();
+                ApplyAllImmunities(true);
+
+                me->SetReactState(REACT_PASSIVE);
+                me->SetSpeed(MOVE_RUN, 0.5f);
+
+                me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_IMMUNE_TO_PC);
+
+                if (me->GetEntry() == NPC_CORRUPTED_VITA)
+                {
+                    //me->SetCanFly(true);
+                    //me->SetDisableGravity(true);
+                    me->SetFloatValue(UNIT_FIELD_HOVERHEIGHT, 2.0f);
+                    me->SetHover(true);
+                }
+
+                isActive = false;
             }
 
-            InstanceScript* pInstance;
-            EventMap events;
-            bool done;
+            uint32 GetData(uint32 type)
+            {
+                if (type == DATA_CORRUPTED_ESSENSE_ACTIVE)
+                    return isActive ? 1 : 0;
+
+                return 0;
+            }
+
+            void DoAction(const int32 action)
+            {
+                if (action == ACTION_CORRUPTED_ESSENSE_MOVE)
+                {
+                    isActive = true;
+
+                    me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_IMMUNE_TO_PC);
+
+                    if (Creature* pRaden = GetRaden())
+                    {
+                        me->GetMotionMaster()->MoveFollow(pRaden, 0.0f, 0.0f);
+                        events.ScheduleEvent(EVENT_ESSENSE_UPDATE, 500);
+                    }
+                }
+            }
+
+            void JustDied(Unit* who)
+            {
+                events.Reset();
+
+                me->StopMoving();
+                me->GetMotionMaster()->MovementExpired(false);
+
+                if (me->GetEntry() == NPC_CORRUPTED_VITA)
+                {
+                    if (Player* target = me->FindNearestPlayer(100.0f, true))
+                    {
+                        DoCast(target, SPELL_CORRUPTED_VITA_DMG, true);
+                    }
+                }
+                else if (me->GetEntry() == NPC_CORRUPTED_ANIMA)
+                {
+                    DoCastAOE(SPELL_TWISTED_ANIMA, true);
+                }
+            }
+
+            void UpdateAI(const uint32 diff)
+            {
+                events.Update(diff);
+
+                if (uint32 eventId = events.ExecuteEvent())
+                {
+                    switch (eventId)
+                    {
+                        case EVENT_ESSENSE_UPDATE:
+                            if (CheckForRadenDistance())
+                            {
+                                ApplyVitaOrAnimaOnRaden();
+                                me->DespawnOrUnsummon();
+                            }
+                            else
+                            {
+                                events.ScheduleEvent(EVENT_ESSENSE_UPDATE, 500);
+                            }
+                            break;
+                    }
+                }
+            }
+        private:
+
+            bool isActive;
+
+        private:
+
+            Creature* GetRaden()
+            {
+                InstanceScript* pInstance = me->GetInstanceScript();
+                if (!pInstance)
+                    return NULL;
+
+                return pInstance->instance->GetCreature(pInstance->GetData64(DATA_RA_DEN));
+            }
+
+            bool CheckForRadenDistance()
+            {
+                if (Creature* pRaden = GetRaden())
+                {
+                    if (me->GetDistance(pRaden) <= 1.0f)
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            void ApplyVitaOrAnimaOnRaden()
+            {
+                if (Creature* pRaden = GetRaden())
+                {
+                    if (me->GetEntry() == NPC_CORRUPTED_VITA)
+                    {
+                        pRaden->AI()->DoAction(ACTION_CORRUPTED_VITA);
+                    }
+                    else if (me->GetEntry() == NPC_CORRUPTED_ANIMA)
+                    {
+                        pRaden->AI()->DoAction(ACTION_CORRUPTED_ANIMA);
+                    }
+                }
+            }
+        };
+};
+
+class npc_ra_den_crackling_stalker : public CreatureScript
+{
+    public:
+        npc_ra_den_crackling_stalker() : CreatureScript("npc_ra_den_crackling_stalker") { }
+
+        CreatureAI* GetAI(Creature* p_Creature) const
+        {
+            return new npc_ra_den_crackling_stalkerAI(p_Creature);
+        }
+
+        struct npc_ra_den_crackling_stalkerAI : public ScriptedAI
+        {
+            npc_ra_den_crackling_stalkerAI(Creature* p_Creature) : ScriptedAI(p_Creature)
+            {
+                ApplyAllImmunities(true);
+
+                me->SetReactState(REACT_PASSIVE);
+            }
 
             void Reset()
             {
                 events.Reset();
-                done = false;
-                if (Player* pl = me->FindNearestPlayer(100.0f, true))
-                    AttackStart(pl);
             }
 
-            void EnterCombat(Unit* who)
+            void IsSummonedBy(Unit* owner)
             {
-                DoZoneInCombat(me, 100.0f);
-                events.RescheduleEvent(EVENT_CRACKLE, 10000);
+                events.ScheduleEvent(EVENT_MOVE, 1500);
             }
 
-            void DamageTaken(Unit* attacker, uint32 &damage, DamageEffectType dmgType)
+            void JustDied(Unit* who)
             {
-                if (damage >= me->GetHealth() && !done)
-                {
-                    done = true;
-                    DoCast(me, SPELL_CAUTERIZING_FLARE);
-                }
+                DoCastAOE(SPELL_CAUTERIZING_FLARE);
+
+                me->DespawnOrUnsummon(1000);
             }
 
-            void UpdateAI(uint32 diff)
+            void UpdateAI(const uint32 diff)
             {
                 if (!UpdateVictim())
                     return;
 
                 events.Update(diff);
 
-                if (uint32 eventId = events.ExecuteEvent())
-                {
-                    if (eventId == EVENT_CRACKLE)
-                    {
-                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 30.0f, true))
-                            DoCast(target, SPELL_CRACKLE);
-                        events.RescheduleEvent(EVENT_CRACKLE, 15000);
-                    }
-                }
-                DoMeleeAttackIfReady();
-            }
-        };
-
-        CreatureAI* GetAI(Creature* creature) const
-        {
-            return new npc_crackling_stalkerAI(creature);
-        }
-};
-
-//138321
-class spell_material_of_creation : public SpellScriptLoader
-{
-    public:
-        spell_material_of_creation() : SpellScriptLoader("spell_material_of_creation") { }
-        
-        class spell_material_of_creation_SpellScript : public SpellScript
-        {
-            PrepareSpellScript(spell_material_of_creation_SpellScript);
-            
-            void OnAfterCast()
-            {
-                if (GetCaster() && GetCaster()->ToCreature())
-                {
-                    uint8 pos = urand(0, 1);
-                    float x, x2, y, y2;
-                    switch (pos)
-                    {
-                    case 0:
-                        GetCaster()->GetNearPoint2D(x, y, 40.0f, 1.570796326795f); 
-                        GetCaster()->GetNearPoint2D(x2, y2, 40.0f, M_PI + 1.570796326795f);
-                        GetCaster()->SummonCreature(NPC_CORRUPTED_ANIMA, x, y, GetCaster()->GetPositionZ() + 2.0f);
-                        GetCaster()->SummonCreature(NPC_CORRUPTED_VITA, x2, y2, GetCaster()->GetPositionZ() + 7.0f);
-                        break;
-                    case 1:
-                        GetCaster()->GetNearPoint2D(x, y, 40.0f, 0.0f); 
-                        GetCaster()->GetNearPoint2D(x2, y2, 40.0f, M_PI);
-                        GetCaster()->SummonCreature(NPC_CORRUPTED_ANIMA, x, y, GetCaster()->GetPositionZ() + 2.0f);
-                        GetCaster()->SummonCreature(NPC_CORRUPTED_VITA, x2, y2, GetCaster()->GetPositionZ() + 7.0f);
-                        break;
-                    }
-                }
-            }
-
-            void Register()
-            {
-                AfterCast += SpellCastFn(spell_material_of_creation_SpellScript::OnAfterCast);
-            }
-        };
-
-        SpellScript* GetSpellScript() const
-        {
-            return new spell_material_of_creation_SpellScript();
-        }
-};
-
-enum SSpells
-{
-    //Palladin                
-    SPELL_SHIELD_OF_THE_RIGHTEOUS  = 132403,
-    //Warrior
-    SPELL_SHIELD_BLOCK             = 132404,
-    //Druid
-    SPELL_SAVAGE_DEFENSE           = 132402,
-    //Monk
-    SPELL_SHUFFLE                  = 115307,
-    //Death Knight
-    SPELL_BLOOD_SHIELD             = 77535,
-};
-
-uint32 SafeSpells[5] = 
-{
-    SPELL_SHIELD_OF_THE_RIGHTEOUS,
-    SPELL_SHIELD_BLOCK,
-    SPELL_SAVAGE_DEFENSE,
-    SPELL_SHUFFLE,
-    SPELL_BLOOD_SHIELD,      
-};
-
-//138334
-class spell_fatal_strike : public SpellScriptLoader
-{
-    public:
-        spell_fatal_strike() : SpellScriptLoader("spell_fatal_strike") { }
-
-        class spell_fatal_strike_SpellScript : public SpellScript
-        {
-            PrepareSpellScript(spell_fatal_strike_SpellScript);
-
-            void DealDamage()
-            {
-                if (!GetCaster() || !GetHitUnit())
+                if (me->HasUnitState(UNIT_STATE_CASTING))
                     return;
 
-                for (uint8 n = 0; n <= 4; n++)
+                if (uint32 eventId = events.ExecuteEvent())
                 {
-                    if (GetHitUnit()->HasAura(SafeSpells[n]))
+                    switch (eventId)
                     {
-                        SetHitDamage(500000);
-                        return;
+                        case EVENT_MOVE:
+                            me->SetReactState(REACT_AGGRESSIVE);
+                            events.ScheduleEvent(EVENT_CRACKLE, urand(8000, 10000));
+                            break;
+                        case EVENT_CRACKLE:
+                            DoCastVictim(SPELL_CRACKLE);
+                            events.ScheduleEvent(EVENT_CRACKLE, urand(15000, 20000));
+                            break;
                     }
                 }
-                GetCaster()->Kill(GetHitUnit(), true);
+            }
+
+        private:
+
+            Creature* GetRaden()
+            {
+                InstanceScript* pInstance = me->GetInstanceScript();
+                if (!pInstance)
+                    return NULL;
+
+                return pInstance->instance->GetCreature(pInstance->GetData64(DATA_RA_DEN));
+            }
+
+            void ApplyLingeringEnergiesFromRaden()
+            {
+                if (Creature* pRaden = GetRaden())
+                {
+                    if (Aura* aur = pRaden->GetAura(SPELL_LINGERING_ENERGIES))
+                    {
+                        uint8 stacks = aur->GetStackAmount();
+
+                        if (Aura* aur = me->AddAura(SPELL_LINGERING_ENERGIES, me))
+                        {
+                            aur->SetStackAmount(stacks);
+                        }
+                    }
+                }
+            }
+        };
+};
+
+class npc_ra_den_sanguine_horror : public CreatureScript
+{
+    public:
+        npc_ra_den_sanguine_horror() : CreatureScript("npc_ra_den_sanguine_horror") { }
+
+        CreatureAI* GetAI(Creature* p_Creature) const
+        {
+            return new npc_ra_den_sanguine_horrorAI(p_Creature);
+        }
+
+        struct npc_ra_den_sanguine_horrorAI : public Scripted_NoMovementAI
+        {
+            npc_ra_den_sanguine_horrorAI(Creature* p_Creature) : Scripted_NoMovementAI(p_Creature)
+            {
+                ApplyAllImmunities(true);
+
+                me->SetReactState(REACT_PASSIVE);
+            }
+
+            void Reset()
+            {
+                events.Reset();
+            }
+
+            void IsSummonedBy(Unit* owner)
+            {
+                events.ScheduleEvent(EVENT_MOVE, 1500);
+
+                ApplyLingeringEnergiesFromRaden();
+            }
+
+            void JustDied(Unit* who)
+            {
+                me->DespawnOrUnsummon(1000);
+            }
+
+            void UpdateAI(const uint32 diff)
+            {
+                if (!UpdateVictim())
+                    return;
+
+                events.Update(diff);
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
+
+                if (uint32 eventId = events.ExecuteEvent())
+                {
+                    switch (eventId)
+                    {
+                        case EVENT_MOVE:
+                            me->SetReactState(REACT_AGGRESSIVE);
+                            events.ScheduleEvent(EVENT_SANGUINE_VOLLEY, 4000);
+                            break;
+                        case EVENT_SANGUINE_VOLLEY:
+                            if (!me->IsWithinMeleeRange(me->getVictim()))
+                            {
+                                DoCastAOE(SPELL_SANGUINE_VOLLEY);
+                            }
+                            events.ScheduleEvent(EVENT_SANGUINE_VOLLEY, 3000);
+                            break;
+                    }
+                }
+            }
+
+        private:
+
+            Creature* GetRaden()
+            {
+                InstanceScript* pInstance = me->GetInstanceScript();
+                if (!pInstance)
+                    return NULL;
+
+                return pInstance->instance->GetCreature(pInstance->GetData64(DATA_RA_DEN));
+            }
+
+            void ApplyLingeringEnergiesFromRaden()
+            {
+                if (Creature* pRaden = GetRaden())
+                {
+                    if (Aura* aur = pRaden->GetAura(SPELL_LINGERING_ENERGIES))
+                    {
+                        uint8 stacks = aur->GetStackAmount();
+
+                        if (Aura* aur = me->AddAura(SPELL_LINGERING_ENERGIES, me))
+                        {
+                            aur->SetStackAmount(stacks);
+                        }
+                    }
+                }
+            }
+        };
+};
+
+class spell_ra_den_materials_of_creation: public SpellScriptLoader
+{
+    public:
+        spell_ra_den_materials_of_creation() : SpellScriptLoader("spell_ra_den_materials_of_creation") { }
+
+        class spell_ra_den_materials_of_creation_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_ra_den_materials_of_creation_SpellScript);
+
+            void HandleAfterCast()
+            {
+                if (!GetCaster())
+                    return;
+
+                if (Creature* pRaden = GetCaster()->ToCreature())
+                {
+                    pRaden->AI()->DoAction(ACTION_CREATION);
+                }
             }
 
             void Register()
             {
-                OnHit += SpellHitFn(spell_fatal_strike_SpellScript::DealDamage);
+                OnCast += SpellCastFn(spell_ra_den_materials_of_creation_SpellScript::HandleAfterCast);
             }
         };
 
         SpellScript* GetSpellScript() const
         {
-            return new spell_fatal_strike_SpellScript();
+            return new spell_ra_den_materials_of_creation_SpellScript();
         }
 };
 
-//138333
-class spell_murderous_strike : public SpellScriptLoader
+class spell_ra_den_fatal_strike: public SpellScriptLoader
 {
     public:
-        spell_murderous_strike() : SpellScriptLoader("spell_murderous_strike") { }
+        spell_ra_den_fatal_strike() : SpellScriptLoader("spell_ra_den_fatal_strike") { }
 
-        class spell_murderous_strike_AuraScript : public AuraScript
+        class spell_ra_den_fatal_strike_SpellScript : public SpellScript
         {
-            PrepareAuraScript(spell_murderous_strike_AuraScript);
+            PrepareSpellScript(spell_ra_den_fatal_strike_SpellScript);
 
-            void HandleTick(AuraEffect const* aurEff, float &amount, Unit* target)
+            void HandleDamage(SpellEffIndex effIndex)
             {
-                if (GetCaster() && GetCaster()->ToCreature())
-                    amount = GetCaster()->ToCreature()->AI()->GetData(DATA_SEND_DMG);
-            }
+                if (!GetHitUnit())
+                    return;
 
-            void Register()
-            {
-                DoEffectChangeTickDamage += AuraEffectChangeTickDamageFn(spell_murderous_strike_AuraScript::HandleTick, EFFECT_1, SPELL_AURA_PERIODIC_DAMAGE);
-            }
-        };
-
-        AuraScript* GetAuraScript() const
-        {
-            return new spell_murderous_strike_AuraScript();
-        }
-};
-
-//138329
-class spell_unleashed_anima : public SpellScriptLoader
-{
-    public:
-        spell_unleashed_anima() : SpellScriptLoader("spell_unleashed_anima") { }
-
-        class spell_unleashed_anima_AuraScript : public AuraScript
-        {
-            PrepareAuraScript(spell_unleashed_anima_AuraScript);
-            
-            void HandlePeriodicTick(AuraEffect const * /*aurEff*/)
-            {
-                if (GetTarget())
+                if (Player* player = GetHitUnit()->ToPlayer())
                 {
-                    if (GetTarget()->GetMap()->GetId() == 1098)
+                    switch (player->GetSpecializationId(player->GetActiveSpec()))
                     {
-                        if (Creature* rd = GetTarget()->FindNearestCreature(NPC_RA_DEN, 100, true))
-                        {
-                            if (rd->isInCombat())
-                                return;
-                        }
+                        case SPEC_PALADIN_PROTECTION:
+                            if (player->HasAura(132403))
+                                PreventHitEffect(effIndex);
+                            break;
+                        case SPEC_WARRIOR_PROTECTION:
+                            if (player->HasAura(132404))
+                                PreventHitEffect(effIndex);
+                            break;
+                        case SPEC_DRUID_BEAR:
+                            if (player->HasAura(132402))
+                                PreventHitEffect(effIndex);
+                            break;
+                        case SPEC_DK_BLOOD:
+                            if (player->HasAura(77535))
+                                PreventHitEffect(effIndex);
+                            break;
+                        case SPEC_MONK_BREWMASTER:
+                            if (player->HasAura(115307))
+                                PreventHitEffect(effIndex);
+                            break;
                     }
-                    GetTarget()->RemoveAurasDueToSpell(SPELL_UNLEASHED_ANIMA);
                 }
             }
 
             void Register()
             {
-                OnEffectPeriodic += AuraEffectPeriodicFn(spell_unleashed_anima_AuraScript::HandlePeriodicTick, EFFECT_0, SPELL_AURA_PERIODIC_DAMAGE);
+                OnEffectHitTarget += SpellEffectFn(spell_ra_den_fatal_strike_SpellScript::HandleDamage, EFFECT_1, SPELL_EFFECT_INSTAKILL);
+            }
+        };
+
+        SpellScript* GetSpellScript() const
+        {
+            return new spell_ra_den_fatal_strike_SpellScript();
+        }
+};
+
+class spell_ra_den_unstable_vita_aura : public SpellScriptLoader
+{
+    public:
+        spell_ra_den_unstable_vita_aura() : SpellScriptLoader("spell_ra_den_unstable_vita_aura") { }
+        
+        class spell_ra_den_unstable_vita_aura_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_ra_den_unstable_vita_aura_SpellScript);
+
+            void FilterTargets(std::list<WorldObject*> &targets)
+            {
+                if (!GetCaster())
+                    return;
+
+                targets.clear();
+
+                Creature* pRaden = GetCaster()->ToCreature();
+                if (!pRaden)
+                    return;
+
+                Unit* target = pRaden->AI()->SelectTarget(SELECT_TARGET_RANDOM, 1, 0.0f, true);
+                if (!target)
+                    Unit* target = pRaden->AI()->SelectTarget(SELECT_TARGET_RANDOM, 0, 0.0f, true);
+                
+                if (target)
+                    targets.push_back(target);
+            }
+
+            void Register()
+            {
+                if (m_scriptSpellId == SPELL_UNSTABLE_VITA)
+                {
+                    OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_ra_den_unstable_vita_aura_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_SRC_AREA_ENEMY);
+                }
+            }
+        };
+
+        class spell_ra_den_unstable_vita_aura_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_ra_den_unstable_vita_aura_AuraScript);
+
+            void HandleTick(AuraEffect const* aurEff)
+            {
+                if (!GetUnitOwner())
+                    return;
+
+                Player* player = GetUnitOwner()->ToPlayer();
+                if (!player)
+                    return;
+
+                InstanceScript* pInstance = player->GetInstanceScript();
+                if (!pInstance)
+                    return;
+
+                Creature* pRaden = pInstance->instance->GetCreature(pInstance->GetData64(DATA_RA_DEN));
+                if (!pRaden)
+                    return;
+
+                std::list<Player*> players;
+
+                pRaden->GetPlayerListInGrid(players, 60.0f);
+
+                players.remove(player);
+                if (players.size() < 1)
+                    return;
+
+                players.sort(JadeCore::DistanceOrderPred(player));
+
+                std::list<Player*>::reverse_iterator ritr = players.rbegin();
+
+                Player* target = *ritr;
+
+                if (target->GetGUID() == player->GetGUID())
+                    return;
+
+                player->AddAura(SPELL_UNSTABLE_VITA_ALLY, target);
+                player->CastSpell(target, SPELL_UNSTABLE_VITA_DUMMY, true);
+                player->CastSpell(target, SPELL_UNSTABLE_VITA_DMG, true, NULL, NULL, pRaden->GetGUID());
+            }
+
+            void HandleRemove(AuraEffect const* aurEff, AuraEffectHandleModes mode)
+            {
+                if (!GetUnitOwner())
+                    return;
+
+                GetUnitOwner()->AddAura(SPELL_VITA_SENSITIVITY, GetUnitOwner());
+            }
+
+            void Register()
+            {
+                OnEffectPeriodic += AuraEffectPeriodicFn(spell_ra_den_unstable_vita_aura_AuraScript::HandleTick, EFFECT_0, SPELL_AURA_PERIODIC_DUMMY);
+                AfterEffectRemove += AuraEffectRemoveFn(spell_ra_den_unstable_vita_aura_AuraScript::HandleRemove, EFFECT_0, SPELL_AURA_PERIODIC_DUMMY, AURA_EFFECT_HANDLE_REAL);
+            }
+        };
+
+        SpellScript* GetSpellScript() const
+        {
+            return new spell_ra_den_unstable_vita_aura_SpellScript();
+        }
+
+        AuraScript* GetAuraScript() const
+        {
+            return new spell_ra_den_unstable_vita_aura_AuraScript();
+        }
+};
+
+class spell_ra_den_unstable_vita_dmg: public SpellScriptLoader
+{
+    public:
+        spell_ra_den_unstable_vita_dmg() : SpellScriptLoader("spell_ra_den_unstable_vita_dmg") { }
+
+        class spell_ra_den_unstable_vita_dmg_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_ra_den_unstable_vita_dmg_SpellScript);
+
+            void HandleKill(SpellEffIndex effIndex)
+            {
+                if (!GetHitUnit())
+                    return;
+
+                if (!GetHitUnit()->HasAura(SPELL_VITA_SENSITIVITY))
+                {
+                    PreventHitDefaultEffect(effIndex);
+                }
+            }
+
+            void Register()
+            {
+                OnEffectHitTarget += SpellEffectFn(spell_ra_den_unstable_vita_dmg_SpellScript::HandleKill, EFFECT_1, SPELL_EFFECT_INSTAKILL);
+            }
+        };
+
+        SpellScript* GetSpellScript() const
+        {
+            return new spell_ra_den_unstable_vita_dmg_SpellScript();
+        }
+};
+
+class spell_ra_den_murderous_strike: public SpellScriptLoader
+{
+    public:
+        spell_ra_den_murderous_strike() : SpellScriptLoader("spell_ra_den_murderous_strike") { }
+
+        class spell_ra_den_murderous_strike_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_ra_den_murderous_strike_AuraScript);
+
+            bool CalculateAmount(AuraEffect const* /*aurEff*/, int32 & amount, bool& /*canBeRecalculated*/)
+            {
+                if (!GetUnitOwner())
+                    return false;
+
+                amount = GetUnitOwner()->CountPctFromCurHealth(20);
+                return true;
+            }
+
+            void Register()
+            {
+                DoEffectCalcAmount += AuraEffectCalcAmountFn(spell_ra_den_murderous_strike_AuraScript::CalculateAmount, EFFECT_1, SPELL_AURA_PERIODIC_DAMAGE);
             }
         };
 
         AuraScript* GetAuraScript() const
         {
-            return new spell_unleashed_anima_AuraScript();
+            return new spell_ra_den_murderous_strike_AuraScript();
         }
 };
+
+class spell_ra_den_unstable_anima_aura : public SpellScriptLoader
+{
+    public:
+        spell_ra_den_unstable_anima_aura() : SpellScriptLoader("spell_ra_den_unstable_anima_aura") { }
+
+        class spell_ra_den_unstable_anima_aura_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_ra_den_unstable_anima_aura_SpellScript);
+
+            void FilterTargets(std::list<WorldObject*> &targets)
+            {
+                if (!GetCaster())
+                    return;
+
+                targets.clear();
+
+                Creature* pRaden = GetCaster()->ToCreature();
+                if (!pRaden)
+                    return;
+
+                Unit* target = pRaden->AI()->SelectTarget(SELECT_TARGET_RANDOM, 1, 0.0f, true);
+                if (!target)
+                    Unit* target = pRaden->AI()->SelectTarget(SELECT_TARGET_RANDOM, 0, 0.0f, true);
+                
+                if (target)
+                    targets.push_back(target);
+            }
+
+            void Register()
+            {
+                OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_ra_den_unstable_anima_aura_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_SRC_AREA_ENEMY);
+            }
+        };
+
+        class spell_ra_den_unstable_anima_aura_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_ra_den_unstable_anima_aura_AuraScript);
+
+            void HandleTick(AuraEffect const* aurEff)
+            {
+                if (!GetUnitOwner())
+                    return;
+
+                InstanceScript* pInstance = GetUnitOwner()->GetInstanceScript();
+                if (!pInstance)
+                    return;
+
+                Creature* pRaden = pInstance->instance->GetCreature(pInstance->GetData64(DATA_RA_DEN));
+                if (!pRaden)
+                    return;
+
+                GetUnitOwner()->CastSpell(GetUnitOwner(), SPELL_UNSTABLE_ANIMA_DMG, true, NULL, NULL, pRaden->GetGUID());
+            }
+
+            void Register()
+            {
+                OnEffectPeriodic += AuraEffectPeriodicFn(spell_ra_den_unstable_anima_aura_AuraScript::HandleTick, EFFECT_0, SPELL_AURA_PERIODIC_DUMMY);
+            }
+        };
+
+        SpellScript* GetSpellScript() const
+        {
+            return new spell_ra_den_unstable_anima_aura_SpellScript();
+        }
+
+        AuraScript* GetAuraScript() const
+        {
+            return new spell_ra_den_unstable_anima_aura_AuraScript();
+        }
+};
+
+
+class spell_ra_den_unstable_anima_dmg: public SpellScriptLoader
+{
+    public:
+        spell_ra_den_unstable_anima_dmg() : SpellScriptLoader("spell_ra_den_unstable_anima_dmg") { }
+
+        class spell_ra_den_unstable_anima_dmg_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_ra_den_unstable_anima_dmg_SpellScript);
+
+            void HandleKill(SpellEffIndex effIndex)
+            {
+                if (!GetHitUnit())
+                    return;
+
+                if (!GetHitUnit()->HasAura(SPELL_ANIMA_SENSITIVITY))
+                {
+                    PreventHitDefaultEffect(effIndex);
+
+                    GetHitUnit()->AddAura(SPELL_ANIMA_SENSITIVITY, GetHitUnit());
+                }
+            }
+
+            void Register()
+            {
+                OnEffectHitTarget += SpellEffectFn(spell_ra_den_unstable_anima_dmg_SpellScript::HandleKill, EFFECT_1, SPELL_EFFECT_INSTAKILL);
+            }
+
+        };
+
+        SpellScript* GetSpellScript() const
+        {
+            return new spell_ra_den_unstable_anima_dmg_SpellScript();
+        }
+};
+
+class spell_ra_den_call_essence : public SpellScriptLoader
+{
+    public:
+        spell_ra_den_call_essence() : SpellScriptLoader("spell_ra_den_call_essence") { }
+        
+        class spell_ra_den_call_essence_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_ra_den_call_essence_SpellScript);
+
+            void FilterTargets(std::list<WorldObject*> &targets)
+            {
+                if (!GetCaster())
+                    return;
+
+                targets.clear();
+
+                std::list<Creature*> creatures;
+                GetCaster()->GetCreatureListWithEntryInGrid(creatures, NPC_CORRUPTED_VITA, 200.0f); // TODO: adjuste searche range
+                GetCaster()->GetCreatureListWithEntryInGridAppend(creatures, NPC_CORRUPTED_ANIMA, 200.0f); // TODO: adjuste searche range
+
+                for (std::list<Creature*>::iterator itr = creatures.begin(); itr != creatures.end();)
+                {
+                    if ((*itr)->AI()->GetData(DATA_CORRUPTED_ESSENSE_ACTIVE))
+                    {
+                        itr = creatures.erase(itr);
+                    }
+                    else
+                    {
+                        ++itr;
+                    }
+                }
+
+                targets.push_back(JadeCore::Containers::SelectRandomContainerElement(creatures));
+            }
+
+            void HandleScript(SpellEffIndex effIndex)
+            {
+                if (!GetHitUnit())
+                    return;
+
+                if (Creature* pEssense = GetHitUnit()->ToCreature())
+                {
+                    pEssense->AI()->DoAction(ACTION_CORRUPTED_ESSENSE_MOVE);
+                }
+            }
+
+
+            void Register()
+            {
+                OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_ra_den_call_essence_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_SRC_AREA_ENTRY);
+                OnEffectHitTarget += SpellEffectFn(spell_ra_den_call_essence_SpellScript::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
+            }
+        };
+
+        SpellScript* GetSpellScript() const
+        {
+            return new spell_ra_den_call_essence_SpellScript();
+        }
+};
+
 
 void AddSC_boss_ra_den()
 {
-    new boss_ra_den();
-    new npc_corrupted_sphere();
-    new npc_sanguine_horror();
-    new npc_crackling_stalker();
-    new spell_material_of_creation();
-    new spell_fatal_strike();
-    new spell_murderous_strike();
-    new spell_unleashed_anima();
+    new boss_ra_den();                          // 69473
+    new npc_ra_den_essense_of_vita_anima();     // 69870 69869
+    new npc_ra_den_corrupted_vita_anima();      // 69958 69957
+    new npc_ra_den_crackling_stalker();         // 69872
+    new npc_ra_den_sanguine_horror();           // 69871
+
+    new spell_ra_den_materials_of_creation();   // 138321
+    new spell_ra_den_fatal_strike();            // 138334
+    new spell_ra_den_unstable_vita_aura();      // 138297 138308
+    new spell_ra_den_unstable_vita_dmg();       // 138370
+    new spell_ra_den_murderous_strike();        // 138333
+    new spell_ra_den_unstable_anima_aura();     // 138288
+    new spell_ra_den_unstable_anima_dmg();      // 138295
+    new spell_ra_den_call_essence();            // 139040
 }

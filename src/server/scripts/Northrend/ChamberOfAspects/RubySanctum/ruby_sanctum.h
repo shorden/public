@@ -1,9 +1,12 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -23,6 +26,7 @@
 #include "Creature.h"
 #include "GameObjectAI.h"
 
+#define RSScriptName "instance_ruby_sanctum"
 uint32 const EncounterCount = 4;
 
 Position const HalionControllerSpawnPos = {3156.037f, 533.2656f, 72.97205f, 0.0f};
@@ -116,28 +120,36 @@ enum GameObjectsIds
     GO_BURNING_TREE_4                       = 203037,
 };
 
+enum WorldStatesRS
+{
+    WORLDSTATE_CORPOREALITY_MATERIAL = 5049,
+    WORLDSTATE_CORPOREALITY_TWILIGHT = 5050,
+    WORLDSTATE_CORPOREALITY_TOGGLE   = 5051,
+};
+
 enum InstanceSpell
 {
     SPELL_BERSERK                       = 26662,
 };
 
 template<class AI>
-CreatureAI* GetInstanceAI(Creature* creature)
+CreatureAI* GetRubySanctumAI(Creature* creature)
 {
     if (InstanceMap* instance = creature->GetMap()->ToInstanceMap())
         if (instance->GetInstanceScript())
-            if (instance->GetScriptId() == sObjectMgr->GetScriptId("instance_ruby_sanctum"))
+            if (instance->GetScriptId() == sObjectMgr->GetScriptId(RSScriptName))
                 return new AI(creature);
     return NULL;
 }
 
 template<class AI>
-GameObjectAI* GetInstanceAI(GameObject* go)
+GameObjectAI* GetRubySanctumAI(GameObject* go)
 {
     if (InstanceMap* instance = go->GetMap()->ToInstanceMap())
         if (instance->GetInstanceScript())
-            if (instance->GetScriptId() == sObjectMgr->GetScriptId("instance_ruby_sanctum"))
+            if (instance->GetScriptId() == sObjectMgr->GetScriptId(RSScriptName))
                 return new AI(go);
+
     return NULL;
 }
 

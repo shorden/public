@@ -1,8 +1,12 @@
-/*==============
-    uwow.biz
-==============*/
+//////////////////////////////////////////////////////////////////////////////
+///
+///  MILLENIUM-STUDIO
+///  Copyright 2015 Millenium-studio SARL
+///  All Rights Reserved.
+///
+////////////////////////////////////////////////////////////////////////////////
 
-#include "shadopan_monastery.h"
+#include "shadopan_monastery.hpp"
 
 enum eSpells
 {
@@ -13,91 +17,100 @@ enum eSpells
     SPELL_ENRAGE                = 130196,
     
     SPELL_ICE_TRAP              = 110610,
-    SPELL_EXPLOSION             = 106966
+    SPELL_EXPLOSION             = 106966,
 };
 
 enum eEvents
 {
+    // Gu
     EVENT_SMOKE_BLADES          = 1,
     EVENT_SHA_SPIKE             = 2,
-    EVENT_DISORIENTING_SMASH    = 3
+    EVENT_DISORIENTING_SMASH    = 3,
 };
 
-struct boss_sha_of_violence : public BossAI
+class boss_sha_of_violence : public CreatureScript
 {
-    explicit boss_sha_of_violence(Creature* creature) : BossAI(creature, DATA_SHA_VIOLENCE) {}
+    public:
+        boss_sha_of_violence() : CreatureScript("boss_sha_of_violence") {}
 
-    bool enrageDone;
-
-    void Reset() override
-    {
-        _Reset();
-        enrageDone = false;
-        summons.DespawnAll();
-    }
-
-    void EnterCombat(Unit* /*who*/) override
-    {
-        if (instance)
-            instance->SetBossState(DATA_SHA_VIOLENCE, IN_PROGRESS);
-
-        events.RescheduleEvent(EVENT_SMOKE_BLADES, urand(25000, 35000));
-        events.RescheduleEvent(EVENT_SHA_SPIKE, urand(10000, 20000));
-        events.RescheduleEvent(EVENT_DISORIENTING_SMASH, urand(20000, 30000));
-    }
-
-    void JustSummoned(Creature* summon) override
-    {
-        summons.Summon(summon);
-        summon->CastSpell(summon, SPELL_ICE_TRAP, true);
-    }
-
-    void DamageTaken(Unit* /*attacker*/, uint32& damage, DamageEffectType /*dmgType*/) override
-    {
-        if (!enrageDone && me->HealthBelowPctDamaged(20, damage))
+        struct boss_sha_of_violenceAI : public BossAI
         {
-            DoCast(me, SPELL_ENRAGE, true);
-            enrageDone = true;
-        }
-    }
+            boss_sha_of_violenceAI(Creature* creature) : BossAI(creature, DATA_SHA_VIOLENCE)
+            {
+                pInstance = creature->GetInstanceScript();
+            }
 
-    void JustDied(Unit* /*killer*/) override
-    {
-        summons.DespawnAll();
-        _JustDied();
-    }
+            InstanceScript* pInstance;
+            bool enrageDone;
 
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
+            void Reset()
+            {
+                _Reset();
+                enrageDone = false;
+                
+                events.ScheduleEvent(EVENT_SMOKE_BLADES,        urand(25000, 35000));
+                events.ScheduleEvent(EVENT_SHA_SPIKE,           urand(10000, 20000));
+                events.ScheduleEvent(EVENT_DISORIENTING_SMASH,  urand(20000, 30000));
+            }
 
-        events.Update(diff);
+            void JustReachedHome()
+            {
+                pInstance->SetBossState(DATA_SHA_VIOLENCE, FAIL);
+                summons.DespawnAll();
+            }
 
-        switch (events.ExecuteEvent())
+            void JustSummoned(Creature* summon)
+            {
+                summons.Summon(summon);
+                summon->CastSpell(summon, SPELL_ICE_TRAP, true);
+            }
+
+            void DamageTaken(Unit* attacker, uint32& damage)
+            {
+                if (!enrageDone && me->HealthBelowPctDamaged(20, damage))
+                    me->CastSpell(me, SPELL_ENRAGE, true);
+            }
+
+            void UpdateAI(const uint32 diff)
+            {
+                if (!UpdateVictim())
+                    return;
+
+                events.Update(diff);
+
+                switch(events.ExecuteEvent())
+                {
+                    case EVENT_SMOKE_BLADES:
+                        me->CastSpell(me, SPELL_SMOKE_BLADES, false);
+                        events.ScheduleEvent(EVENT_SMOKE_BLADES,        urand(25000, 35000));
+                        break;
+                    case EVENT_SHA_SPIKE:
+                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0, true))
+                            me->CastSpell(target, SPELL_SHA_SPIKE, false);
+                        
+                        events.ScheduleEvent(EVENT_SHA_SPIKE,           urand(10000, 20000));
+                        break;
+                    case EVENT_DISORIENTING_SMASH:
+                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0, true))
+                            me->CastSpell(target, SPELL_DISORIENTING_SMASH, false);
+                        
+                        events.ScheduleEvent(EVENT_DISORIENTING_SMASH,  urand(20000, 30000));
+                        break;
+                    default:
+                        break;
+                }
+
+                DoMeleeAttackIfReady();
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const
         {
-        case EVENT_SMOKE_BLADES:
-            DoCast(SPELL_SMOKE_BLADES);
-            events.RescheduleEvent(EVENT_SMOKE_BLADES, urand(25000, 35000));
-            break;
-        case EVENT_SHA_SPIKE:
-            if (auto target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100.0f, true))
-                DoCast(target, SPELL_SHA_SPIKE, false);
-
-            events.RescheduleEvent(EVENT_SHA_SPIKE, urand(10000, 20000));
-            break;
-        case EVENT_DISORIENTING_SMASH:
-            if (auto target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100.0f, true))
-                DoCast(target, SPELL_DISORIENTING_SMASH, false);
-
-            events.RescheduleEvent(EVENT_DISORIENTING_SMASH, urand(20000, 30000));
-            break;
+            return new boss_sha_of_violenceAI(creature);
         }
-        DoMeleeAttackIfReady();
-    }
 };
 
 void AddSC_boss_sha_of_violence()
 {
-    RegisterCreatureAI(boss_sha_of_violence);
+    new boss_sha_of_violence();
 }

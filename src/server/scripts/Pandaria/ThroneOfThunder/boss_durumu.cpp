@@ -1,2319 +1,1623 @@
-/*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
- * option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program. If not, see <http://www.gnu.org/licenses/>.
- */
+#include "throne_of_thunder.hpp"
 
-#include "throne_of_thunder.h"
+// 137674
+
+enum ScriptTexts
+{
+    SAY_AGGRO               = 0,
+    SAY_BERSERK             = 1,
+    SAY_DEATH               = 2,
+    SAY_INTRO               = 3,
+    SAY_KILL                = 4,
+    SAY_WIPE                = 5,
+    SAY_DESINTEGRATION_BEAM = 6,
+    SAY_COLORBIND           = 7,
+    SAY_LINGERING_GAZE      = 8,
+    SAY_HARD_STARE          = 9,
+    SAY_COLORBIND_YELL      = 10,
+};
 
 enum eSpells
 {
-    SPELL_GAZE                    = 134029,
-    SPELL_HARD_STARE              = 133765,
-    SPELL_OBLITERATE              = 137747,
-    SPELL_LINGERING_GAZE          = 138467,
-    SPELL_LINGERING_GAZE_TR_M     = 133792, //Create AT
-    SPELL_LINGERING_GAZE_DMG      = 134040,
-    SPELL_LINGERING_GAZE_TARGET   = 134626,
-    SPELL_ARTERIAL_CUT            = 133768,
-    SPELL_FORCE_OF_WILL_KNOCK_B   = 136413,
-    SPELL_FORCE_OF_WILL_DUMMY     = 136932,
-    SPELL_DURUMU_EYE_TRAIL_ORANGE = 141006,
-    SPELL_DURUMU_EYE_TRAIL_RED    = 141008,
-    SPELL_DURUMU_EYE_TRAIL_BLUE   = 141009,
-    SPELL_DURUMU_EYE_TRAIL_YELLOW = 141010,
-    SPELL_BRIGHT_LIGHT_DURUMU     = 136121,
-    SPELL_LIFE_DRAIN_DUMMY        = 133795,
-    SPELL_LIFE_DRAIN_WARNING      = 140866,
-    SPELL_LIFE_DRAIN_STUN         = 137727,
-    SPELL_LIFE_DRAIN_DMG          = 133798,
-    SPELL_LIFE_DRAIN_HEAL         = 133807,
+    SPELL_HARD_STARE                     = 133765,
+    SPELL_SERIOUS_WOUND                  = 133767,
+    SPELL_ARTETIAL_CUT                   = 133768,
 
-    //Red
-    SPELL_INFRARED_LIGHT_P_T_AURA = 133731, //player target aura
-    SPELL_INFRARED_LIGHT_C_T_AURA = 136120, //creature target aura
-    SPELL_INFRARED_LIGHT_BEAM     = 134123, //channel beam
-    SPELL_INFRARED_LIGHT_CONE     = 133734, //channel cone
-    SPELL_INFRARED_LIGHT_CONE_DMG = 133732,
-    SPELL_INFRARED_LIGHT_EXPLOSE  = 133733,
-    SPELL_BURNING_EYE_FOUND       = 137002,
-    SPELL_RED_FOG_INVISIBILITY    = 136116,
-    SPELL_SUMMON_RED_FOG          = 136128,
+    SPELL_GAZE                           = 134029,
 
-    //Blue
-    SPELL_BLUE_RAY_P_T_AURA       = 133675, //player target aura
-    SPELL_BLUE_RAY_C_T_AURA       = 136119, //creature target aura
-    SPELL_BLUE_RAY_BEAM           = 134122, //channel beam
-    SPELL_BLUE_RAY_CONE           = 133672, //channel cone
-    SPELL_BLUE_RAY_CONE_DMG       = 133677,
-    SPELL_BLUE_RAY_EXPLOSE        = 133678,
-    SPELL_COLD_EYE_FOUND          = 137054,
-    SPELL_BLUE_FOG_INVISIBILITY   = 136118,
-    SPELL_SUMMON_BLUE_FOG         = 136130,
+    SPELL_FORCE_OF_WILL                  = 136932,
+    SPELL_FORCE_OF_WILL_KNOCK_BACK       = 136413,
 
-    //Yellow
-    SPELL_BRIGHT_LIGHT_P_T_AURA   = 133737, //player target  aura
-    SPELL_BRIGHT_LIGHT_C_T_AURA   = 136121, //creature target aura
-    SPELL_BRIGHT_LIGHT_BEAM       = 134124, //channel beam
-    SPELL_BRIGHT_LIGHT_CONE       = 133740, //channel cone
-    SPELL_BRIGHT_LIGHT_CONE_DMG   = 133738,
-    SPELL_BRIGHT_LIGHT_EXPLOSE    = 133739,
-    SPELL_YELLOW_FOG_INVISIBILITY = 136117,
+    SPELL_LINGERING_GAZE                 = 138467, // Script Effect
+    SPELL_LINGERING_GAZE_TARGET          = 134626,
+    SPELL_LINGERING_GAZE_MISSILE         = 133792,
+    SPELL_LINGERING_GAZE_AREA_TRIGGER    = 133793,
+    SPELL_LINGERING_GAZE_AURA            = 134040,
+    SPELL_LINGERING_GAZE_DMG             = 140495,
 
-    //Crimson Fog
-    SPELL_CAUSTIC_SPIKE           = 136154, //While revealed
-    SPELL_CRIMSON_BLOOM           = 136122,
 
-    //Azure Fog
-    SPELL_ICY_GRASP               = 136177,
-    SPELL_ICY_GRASP_AURA          = 136179,
-    SPELL_FLASH_FREEZE            = 136124, //explose them die
+    SPELL_LIFE_DRAIN                     = 133795, // main spell
+    SPELL_LIFE_DRAIN_AURA                = 133796, // on caster
+    SPELL_LIFE_DRAIN_DMG                 = 133798, // damage
+    SPELL_LIFE_DRAIN_HEAL                = 133807,
+    SPELL_LIFE_DRAIN_STUN                = 137727,
 
-    //Disentegration Phase
-    SPELL_MIND_DAGGERS_AURA       = 139108,
-    SPELL_MIND_DAGGERS_DMG        = 139107,
-    SPELL_DISINTEGRATION_LASER    = 133776,
-    SPELL_DISINTEGRATION_LASER_AT = 133778,
-    SPELL_DISINTEGRATION_LASER_P  = 134169, //Prepare
-    SPELL_DISINTEGRATION_LASER_S  = 133775, //Summon eyebeam target
-    SPELL_MAZE_STARTS_HERE        = 140911,
-    SPELL_DURUMU_SPAWN            = 139089,
-    SPELL_MAZE_COLLECTED          = 140911,
+    // Second Phase
+    SPELL_BRIGHT_LIGHT_AURA              = 133737,
+    SPELL_BRIGHT_LIGHT_LINK              = 134124, // Yellow link between caster/target
+    SPELL_BRIGHT_LIGHT                   = 133740,
+    SPELL_BRIGHT_LIGHT_DMG_1             = 133738,
+    SPELL_BRIGHT_LIGHT_DMG_2             = 133739,
 
-    //Thunder King Raid - Durumu - Whole Room Maze - Whole Slice
-    SPELL_TKR_WHOLE_SLICE_X_1     = 136553,
+    SPELL_INFRARED_LIGHT_AURA            = 133731,
+    SPELL_INFRARED_LIGHT_LINK            = 134123, // Red link between caster/target
+    SPELL_INFRARED_LIGHT                 = 133734,
+    SPELL_INFRARED_LIGHT_DMG_1           = 133732,
+    SPELL_INFRARED_LIGHT_DMG_2           = 133733,
+    
+    SPELL_BLUE_RAYS_AURA                 = 133675,
+    SPELL_BLUE_RAYS_LINK                 = 134122, // Blue link between caster/target
+    SPELL_BLUE_RAYS                      = 133672,
+    SPELL_BLUE_RAYS_DMG_1                = 133677,
+    SPELL_BLUE_RAYS_DMG_2                = 133678, // 136119
 
-    //Whole Room Slice
-    SPELL_WHOLE_ROOM_SLICE_1      = 136232,
-    SPELL_WHOLE_ROOM_SLICE_2      = 136233,
-    SPELL_WHOLE_ROOM_SLICE_3      = 136234,
-    SPELL_WHOLE_ROOM_SLICE_4      = 136235,
-    SPELL_WHOLE_ROOM_SLICE_5      = 136236,
-    SPELL_WHOLE_ROOM_SLICE_6      = 136237,
-    SPELL_WHOLE_ROOM_SLICE_7      = 136238,
-    SPELL_WHOLE_ROOM_SLICE_8      = 136239,
-    SPELL_WHOLE_ROOM_SLICE_9      = 136240,
-    SPELL_WHOLE_ROOM_SLICE_10     = 136241,
-    SPELL_WHOLE_ROOM_SLICE_11     = 136242,
-    SPELL_WHOLE_ROOM_SLICE_12     = 136243,
-    SPELL_WHOLE_ROOM_SLICE_13     = 136244,
+    SPELL_RED_FOG_INVISIBILITY           = 136116,
+    SPELL_YELLOW_FOG_INVISIBILITY        = 136117,
+    SPELL_BLUE_FOG_INVISIBILITY          = 136118,
+
+    SPELL_SUMMON_FOG_BEAST_RED           = 136128,
+    SPELL_SUMMON_FOG_BEAST_BLUE          = 136130,
+    SPELL_SUMMON_FOG_BEAST_YELLOW        = 136129,
+
+    // Color adds spells
+    SPELL_AMBER_ARMOR                    = 136174, // Amber Fog
+    SPELL_BURST_OF_AMBER                 = 136123, // Amber Fog
+    SPELL_AMBER_RETAILIATION             = 136175, // Amber Fog
+
+    SPELL_CAUSTIC_SPIKE                  = 136154, // Crimson Fog
+    SPELL_CRIMSON_BLOOM                  = 136122, // Crimson Fog
+
+    SPELL_ICY_GRASP                      = 136177, // Azure Fog
+    SPELL_FLASH_FREEZE                   = 136124,  // Azure Fog
+
+    // Third Phase
+    SPELL_SUMMON_EYEBEAM_TARGET          = 133775, // Target of 134169
+    SPELL_DISINTEGRATION_BEAM_PRECAST    = 134169,
+    SPELL_DISINTEGRATION_BEAM            = 133776,
+
+        // Unk visual, seems to be not used for the maze
+    SPELL_NEAR_CONE_SLICE                 = 134751, // Visual near from the caster
+    SPELL_NEAR_MID_CONE_SLICE             = 134752, // Visual near-mid from the caster
+    SPELL_MID_CONE_SLICE                  = 134753, // Visual mid from the caster
+    SPELL_MID_FAR_CONE_SLICE              = 134754, // Visual mid-far from the caster
+    SPELL_FAR_CONE_SLICE                  = 134814, // Visual far from the caster
+
+    // Those cumulated spells form a cone covering the whole platform, every visual lasts for 12 seconds.
+    SPELL_WHOLE_ROOM_SLICE_ONE            = 136232, // 4 Visual dark balls in front of the caster / dist from caster : 0.0f->1.61f          = 1.61f
+    SPELL_WHOLE_ROOM_SLICE_TWO            = 136233, // Visual farther than the precedent one      / dist from caster : 1.6f->7.21f          = 5.61f
+    SPELL_WHOLE_ROOM_SLICE_THREE          = 136234, // Visual farther than the precedent one      / dist from caster : 7.21f->11.443f       = 4.233f
+    SPELL_WHOLE_ROOM_SLICE_FOUR           = 136235, // Visual farther than the precedent one      / dist from caster : 11.443f->16.859f     = 5.416f
+    SPELL_WHOLE_ROOM_SLICE_FIVE           = 136236, // Visual farther than the precedent one      / dist from caster : 16.859f->21.94f      = 5.081f
+    SPELL_WHOLE_ROOM_SLICE_SIX            = 136237, // Visual farther than the precedent one      / dist from caster : 21.94f->26.504f      = 4.564f
+    SPELL_WHOLE_ROOM_SLICE_SEVEN          = 136238, // Visual farther than the precedent one      / dist from caster : 26.504f->32.24f      = 5.736f
+    SPELL_WHOLE_ROOM_SLICE_EIGHT          = 136239, // Visual farther than the precedent one      / dist from caster : 32.24f->37.896f      = 5.656f
+    SPELL_WHOLE_ROOM_SLICE_NINE           = 136240, // Visual farther than the precedent one      / dist from caster : 37.896f->43.273f     = 5.378f
+    SPELL_WHOLE_ROOM_SLICE_TEN            = 136241, // Visual farther than the precedent one      / dist from caster : 43.273f->47.631f     = 4.358f
+    SPELL_WHOLE_ROOM_SLICE_ELEVEN         = 136242, // Visual farther than the precedent one      / dist from caster : 47.631f->52.853f     = 5.222f
+    SPELL_WHOLE_ROOM_SLICE_TWELVE         = 136243, // Visual farther than the precedent one      / dist from caster : 52.853f->58.051f     = 5.198f
+    SPELL_WHOLE_ROOM_SLICE_THIRTEEN       = 136244, // Visual farther than the precedent one      / dist from caster : 58.051f->62.973f     = 4.922f
+
+    // Each spell forms a cone covering the whole platform, with +3k MS duration for each spellId incrementation.
+    // Maybe be launched from the 10th to the 1st to form the whole labyrinth
+    SPELL_WHOLE_ROOM_MAZE_ONE_X           = 136553, // Whole dark cone visual (M_PI / 6) (duration = 12500 MS)
+    SPELL_WHOLE_ROOM_MAZE_TWO_X           = 136554, // Whole dark cone visual (M_PI / 6) (duration = 15500 MS)
+    SPELL_WHOLE_ROOM_MAZE_THREE_X         = 136555, // Whole dark cone visual (M_PI / 6) (duration = 18500 MS)
+    SPELL_WHOLE_ROOM_MAZE_FOUR_X          = 136556, // Whole dark cone visual (M_PI / 6) (duration = 21500 MS)
+    SPELL_WHOLE_ROOM_MAZE_FIVE_X          = 136557, // Whole dark cone visual (M_PI / 6) (duration = 24500 MS)
+    SPELL_WHOLE_ROOM_MAZE_SIX_X           = 136558, // Whole dark cone visual (M_PI / 6) (duration = 27500 MS)
+    SPELL_WHOLE_ROOM_MAZE_SEVEN_X         = 136559, // Whole dark cone visual (M_PI / 6) (duration = 30500 MS)
+    SPELL_WHOLE_ROOM_MAZE_EIGHT_X         = 136560, // Whole dark cone visual (M_PI / 6) (duration = 33500 MS)
+    SPELL_WHOLE_ROOM_MAZE_NINE_X          = 136561, // Whole dark cone visual (M_PI / 6) (duration = 36500 MS)
+    SPELL_WHOLE_ROOM_MAZE_TEN_X           = 136562, // Whole dark cone visual (M_PI / 6) (duration = 39500 MS)
+
+    SPELL_MAZE_PERIODIC_AURA_DAMAGE       = 140502,
+
+    SPELL_MIND_DAGGERS                   = 139107,
 };
 
-enum sEvents
+enum Adds
 {
-    //Normal phase
-    EVENT_HARD_STARE = 1,
-    EVENT_LINGERING_GAZE_PREPARE,
-    EVENT_LINGERING_GAZE,
-    EVENT_FORCE_OF_WILL_PREPARE,
+    NPC_APPARAISING_EYE             = 67858,
+    NPC_HUNGRY_EYE                  = 67859,
+    NPC_CROSS_EYE                   = 67857,
+    NPC_MIND_S_EYE                  = 67875,
+    NPC_YELLOW_EYE                  = 67856,
+    NPC_RED_EYE                     = 67855,
+    NPC_BLUE_EYE                    = 67854,
+    NPC_AZURE_FOG                   = 69052,
+    NPC_AMBER_FOG                   = 69051,
+    NPC_CRIMSON_FOG                 = 69050,
+    NPC_EYEBEAM_TARGET              = 67882,
+};
+
+enum Events
+{
+    EVENT_HARD_STARE                     = 1,
+    EVENT_GAZE,
     EVENT_FORCE_OF_WILL,
-
-    EVENT_PREPARE_TO_MIST,
-    EVENT_CREATE_MIST,
-    EVENT_ADVANCE_PHASE,
-    //
-
-    EVENT_MOVE_TO_POINT,
-    EVENT_START_MOVE,
-    EVENT_RESTART_MOVING,
-    EVENT_COLORBLIND,
-    EVENT_PREPARE_BEAM,
-    EVENT_CREATE_CONE,
-    EVENT_SEARCHER,
-    //Fog events
-    EVENT_CAUSTIC_SPIKE,
-    EVENT_DISINTEGRATION_BEAM,
-    EVENT_DISINTEGRATION_BEAM_P,
-    EVENT_OPEN_WAY_IN_MIST,
-    EVENT_CLOSE_SAFE_ZONE_IN_MIST,
-
-    //After Disintegration phase
-    EVENT_LIFE_DRAIN_PREPARE,
+    EVENT_FORCE_OF_WILL_KNOCK_BACK,
+    EVENT_LINGERING_GAZE,
     EVENT_LIFE_DRAIN,
-    EVENT_LIFE_DRAIN_LAUNCH,
+    EVENT_SECOND_PHASE,
+    EVENT_SECOND_PHASE_BEGIN,
+    EVENT_CHECK_ADD,
+    EVENT_DISINTEGRATION_BEAM,
+    EVENT_DISINTEGRATION_BEAM_1,
+    EVENT_DISINTEGRATION_BEAM_2,
+    EVENT_MIND_DAGGERS,
+    EVENT_DISINTEGRATION_BEAM_END,
 };
 
-enum sActions
+enum Actions
 {
-    ACTION_LINGERING_GAZE = 1,
-    ACTION_CREATE_CONE,
-    ACTION_IN_CONE,
-    ACTION_NOT_IN_CONE,
-    ACTION_LAUNCH_ROTATE,
+    ACTION_ADD_REVEALED                  = 1,
+    ACTION_ADD_HIDE,
+    ACTION_CRIMSON_FOG_DIED,
+    ACTION_AZURE_FOG_DIED,
+    ACTION_AMBER_FOG_DIED,
+    ACTION_SECOND_PHASE_BEGIN,
+    ACTION_DISINTEGRATION_BEAM,
 };
 
-enum Phase
+enum ePhases
 {
-    PHASE_NULL,
-    PHASE_NORMAL,
-    PHASE_COLORBLIND,
-    PHASE_DISINTEGRATION_BEAM,
-    PHASE_ADVANCE,
+    PHASE_NORMAL_PHASE                   = 1,
+    PHASE_COLORBLIND_PHASE               = 2,
+    PHASE_DISINTEGRATION_BEAM_PHASE      = 3
 };
 
-uint32 colorblindeyelist[3] =
+const Position addsPos[3] = 
 {
-    NPC_RED_EYE,
-    NPC_BLUE_EYE,
-    NPC_YELLOW_EYE,
+    {5903.19f, 4546.09f, -6.17f, 3.5f},
+    {5865.86f, 4525.75f, -6.17f, 4.1f},
+    {5881.32f, 4483.26f, -6.17f, 5.6f}
 };
 
-Position Durumucenterpos = { 5895.52f, 4512.58f, -6.27f };
-Position Eyebeamtargetpos = { 5965.542f, 4512.609f, -2.433161f };
-
-enum CreatureText
+const Position beamPos[16] = 
 {
-    SAY_ENTERCOMBAT          = 1, //Узрите силу Бездны!                                    35336
-    SAY_KILL_PLAYER          = 2, //Наблюдайте за своей смертью.                           35345
-    SAY_FORCE_OF_WILL        = 3, //Я слежу за вами…                                       35344
-    SAY_COLORBLIND           = 4, //Туманы хранят много секретов, если знать, где искать…  35343
-    SAY_DISINTEGRATION_START = 5, //Смотрите под ноги…                                     35342
-    SAY_DIE                  = 6, //Бездна зовёт меня…                                     35338
+    {5959.319336f, 4499.680176f, -6.17f, 4.360798f},
+    {5949.012695f, 4475.765137f, -6.17f, 4.122565f},
+    {5931.737305f, 4458.432129f, -6.17f, 3.542241f},
+    {5908.529297f, 4449.585938f, -6.17f, 3.334546f},
+    {5882.817383f, 4449.294922f, -6.17f, 2.989405f},
+    {5858.623535f, 4459.425293f, -6.17f, 2.555693f},
+    {5841.645020f, 4476.826172f, -6.17f, 2.149466f},
+    {5832.558105f, 4499.017090f, -6.17f, 1.715748f},
+    {5831.775391f, 4526.116211f, -6.17f, 1.278977f},
+    {5841.450684f, 4548.466309f, -6.17f, 1.016303f},
+    {5859.814453f, 4566.952637f, -6.17f, 0.738359f},
+    {5882.262207f, 4575.937012f, -6.17f, 0.286319f},
+    {5908.115234f, 4576.000000f, -6.17f, 6.175498f},
+    {5931.536621f, 4566.873535f, -6.17f, 5.735681f},
+    {5949.432617f, 4548.770996f, -6.17f, 5.418036f},
+    {5959.154785f, 4524.815918f, -6.17f, 5.036244f}
 };
 
-Position triggerspawnpos[12] =
+const uint32 mazeCreateSpells[10] = 
 {
-    //minimap - north -> west                                            // From center
-    { 5897.926f, 4514.828f, -6.277899f, 0.000000f }, // 0                // 0
-    { 5897.926f, 4514.828f, -6.277899f, 0.523598f }, // 1    maze right  // 1
-    { 5897.926f, 4514.828f, -6.277899f, 1.047198f }, // 2                // 2
-
-    { 5897.926f, 4514.828f, -6.277899f, 1.570796f }, // 3
-    { 5897.926f, 4514.828f, -6.277899f, 2.094395f }, // 4
-    { 5897.926f, 4514.828f, -6.277899f, 2.617994f }, // 5
-
-    { 5897.926f, 4514.828f, -6.277899f, 3.141593f }, // 6
-    { 5897.926f, 4514.828f, -6.277899f, 3.665191f }, // 7
-    { 5897.926f, 4514.828f, -6.277899f, 4.188790f }, // 8
-
-    { 5897.926f, 4514.828f, -6.277899f, 4.712389f }, // 9                // 2
-    { 5897.926f, 4514.828f, -6.277899f, 5.235987f }, // 10   maze left   // 1
-    { 5897.926f, 4514.828f, -6.277899f, 5.759586f }, // 11               // 0
+    SPELL_WHOLE_ROOM_MAZE_ONE_X,
+    SPELL_WHOLE_ROOM_MAZE_TWO_X,
+    SPELL_WHOLE_ROOM_MAZE_THREE_X,
+    SPELL_WHOLE_ROOM_MAZE_FOUR_X,
+    SPELL_WHOLE_ROOM_MAZE_FIVE_X,
+    SPELL_WHOLE_ROOM_MAZE_SIX_X,
+    SPELL_WHOLE_ROOM_MAZE_SEVEN_X,
+    SPELL_WHOLE_ROOM_MAZE_EIGHT_X,
+    SPELL_WHOLE_ROOM_MAZE_NINE_X,
+    SPELL_WHOLE_ROOM_MAZE_TEN_X
 };
 
-uint32 wholeroomslice[11] =
+const uint32 mazeSpells[13] = 
 {
-    SPELL_WHOLE_ROOM_SLICE_3,
-    SPELL_WHOLE_ROOM_SLICE_4,
-    SPELL_WHOLE_ROOM_SLICE_5,
-    SPELL_WHOLE_ROOM_SLICE_6,
-    SPELL_WHOLE_ROOM_SLICE_7,
-    SPELL_WHOLE_ROOM_SLICE_8,
-    SPELL_WHOLE_ROOM_SLICE_9,
-    SPELL_WHOLE_ROOM_SLICE_10,
-    SPELL_WHOLE_ROOM_SLICE_11,
-    SPELL_WHOLE_ROOM_SLICE_12,
-    SPELL_WHOLE_ROOM_SLICE_13,
+    SPELL_WHOLE_ROOM_SLICE_ONE,
+    SPELL_WHOLE_ROOM_SLICE_TWO,
+    SPELL_WHOLE_ROOM_SLICE_THREE,
+    SPELL_WHOLE_ROOM_SLICE_FOUR,
+    SPELL_WHOLE_ROOM_SLICE_FIVE,
+    SPELL_WHOLE_ROOM_SLICE_SIX,
+    SPELL_WHOLE_ROOM_SLICE_SEVEN,
+    SPELL_WHOLE_ROOM_SLICE_EIGHT,
+    SPELL_WHOLE_ROOM_SLICE_NINE,
+    SPELL_WHOLE_ROOM_SLICE_TEN,
+    SPELL_WHOLE_ROOM_SLICE_ELEVEN,
+    SPELL_WHOLE_ROOM_SLICE_TWELVE,
+    SPELL_WHOLE_ROOM_SLICE_THIRTEEN
 };
 
-class _TankFilter
+
+class MazeBuilder
 {
-public:
-    bool operator()(WorldObject* unit)
-    {
-        if (Player* target = unit->ToPlayer())
-            if (!target->isInTankSpec())
-                return false;
-        return true;
-    }
-};
+    public:
 
-class VictimFilter
-{
-public:
-    VictimFilter(ObjectGuid victimguid) : _victimguid(victimguid){}
-
-    bool operator()(WorldObject* unit)
-    {
-        if (unit->GetGUID() == _victimguid)
-            return true;
-        return false;
-    }
-private:
-    ObjectGuid _victimguid;
-};
-
-class LingeringGazeFilter
-{
-public:
-    bool operator()(WorldObject* unit)
-    {
-        if (Player* player = unit->ToPlayer())
-            if (player->HasAura(SPELL_LINGERING_GAZE_TARGET))
-                return false;
-        return true;
-    }
-};
-
-class boss_durumu : public CreatureScript
-{
-public:
-    boss_durumu() : CreatureScript("boss_durumu") {}
-
-    struct boss_durumuAI : public BossAI
-    {
-        boss_durumuAI(Creature* creature) : BossAI(creature, DATA_DURUMU)
+        MazeBuilder(Unit* caster) : m_Caster(caster) 
         {
-            instance = creature->GetInstanceScript();
-            me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_REMOVE_CLIENT_CONTROL);
-            DoCast(me, SPELL_DURUMU_SPAWN, true);
-        }
-        InstanceScript* instance;
-        Phase phase;
-        uint32 checkvictim;
-        ObjectGuid eyebeamtargetGuid;
-        uint32 enragetimer;
-        bool rotatedirection;
-        GuidVector crosseyelist;
-        uint8 lastmiststage;
-        uint8 nextmiststage;
-        uint8 way;   //first safe line in mist
-        uint8 way2;  //second safe line on mist
+            updateTimer = 1000;
+            currentSegment = 0;
+            m_CurrentStage = STAGE_DISABLED;
 
-        void Reset()
-        {
-            _Reset();
-            phase = PHASE_NULL;
-            checkvictim = 0;
-            enragetimer = 0;
-            eyebeamtargetGuid.Clear();
-            rotatedirection = false;
-            crosseyelist.clear();
-            RemoveDebuffFromPlayers();
-            me->SetReactState(REACT_DEFENSIVE);
-            me->RemoveAurasDueToSpell(SPELL_MIND_DAGGERS_AURA);
-            me->RemoveAurasDueToSpell(SPELL_BRIGHT_LIGHT_DURUMU);
-            me->RemoveAurasDueToSpell(SPELL_DISINTEGRATION_LASER_AT);
-            instance->SetData(DATA_CLEAR_CRIMSON_FOG_LIST, 0);
-            instance->DoUpdateWorldState(WorldStates::WORLD_STATE_ALIVE_FOG_COUNT, 0);
-        }
-
-        void KilledUnit(Unit* unit)
-        {
-            if (unit->ToPlayer())
-                Talk(SAY_KILL_PLAYER);
-        }
-
-        uint32 GetData(uint32 type) const
-        {
-            if (type == DATA_GET_DURUMU_ROTATE_DIRECTION)
-                return uint32(rotatedirection);
-            return 0;
-        }
-
-        float GetFogAngle(uint8 pos)
-        {
-            switch (pos)
+            for (uint8 i = 0; i < 10; ++i)
             {
-            case 0:
-            {
-                float mod = float(urand(0, 1));
-                float mod2 = !mod ? float(urand(0, 9)) / 10 : float(urand(0, 3)) / 10;
-                return mod + mod2;
-            }
-            case 1:
-            {
-                float mod = float(urand(1, 2));
-                float mod2 = mod == 1 ? float(urand(6, 9)) / 10 : float(urand(0, 9)) / 10;
-                return mod + mod2;
-            }
-            case 2:
-            {
-                float mod = float(urand(3, 4));
-                float mod2 = mod == 3 ? float(urand(2, 9)) / 10 : float(urand(0, 3)) / 10;
-                return mod + mod2;
-            }
-            case 3:
-            {
-                float mod = float(urand(4, 5));
-                float mod2 = mod == 4 ? float(urand(6, 9)) / 10 : float(urand(0, 9)) / 10;
-                return mod + mod2;
-            }
-            default:
-                return 0;
+                segments[i].areaTriggerGUID = 0;
+                segments[i].segmentId = -1;
+                segments[i].created = false;
             }
         }
 
-        void SummonFogs()
+        void Start()
         {
-            float x, y;
-            float ang = 0;
-            uint32 summonspellentry = 0;
-            uint8 bluefog = urand(0, 3);
-            for (uint8 n = 0; n < 4; n++)
-            {
-                ang = GetFogAngle(n);
-                summonspellentry = bluefog == n ? SPELL_SUMMON_BLUE_FOG : SPELL_SUMMON_RED_FOG;
-                me->GetNearPoint2D(x, y, 12.0f, ang);
-                me->CastSpell(x, y, -6.27f, summonspellentry, true);
-            }
+            updateTimer = 1000;
+            currentSegment = 0;
+            m_CurrentStage = STAGE_PREPARE;
         }
 
-        void RemoveDebuffFromPlayers()
+        void Stop()
         {
-            instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_INFRARED_LIGHT_BEAM);
-            instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_BLUE_RAY_BEAM);
-            instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_BRIGHT_LIGHT_BEAM);
-            instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_INFRARED_LIGHT_CONE_DMG);
-            instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_BLUE_RAY_CONE_DMG);
-            instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_BRIGHT_LIGHT_CONE_DMG);
-            instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_INFRARED_LIGHT_P_T_AURA);
-            instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_BLUE_RAY_P_T_AURA);
-            instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_BRIGHT_LIGHT_P_T_AURA);
+            updateTimer = 1000;
+            currentSegment = 0;
+            m_CurrentStage = STAGE_DISABLED;
         }
 
-        void EnterCombat(Unit* who)
+        void ClearMaze()
         {
-            _EnterCombat();
-            phase = PHASE_NORMAL;
-            Talk(SAY_ENTERCOMBAT);
-            checkvictim = 3000;
-            enragetimer = 600000;
-            events.RescheduleEvent(EVENT_HARD_STARE, 12000);
-            events.RescheduleEvent(EVENT_LINGERING_GAZE_PREPARE, 13000);
-            events.RescheduleEvent(EVENT_FORCE_OF_WILL_PREPARE, 30000);
-            events.RescheduleEvent(EVENT_COLORBLIND, 42000);
+            m_Caster->RemoveAreaTrigger(SPELL_WHOLE_ROOM_MAZE_TEN_X);
 
-            //test events
-            //events.RescheduleEvent(EVENT_DISINTEGRATION_BEAM_P, 5000);
+            for (uint8 i = 0; i < 13; ++i)
+                m_Caster->RemoveAreaTrigger(mazeSpells[i]);
         }
 
-        void SetData(uint32 type, uint32 data)
+        void Update(const uint32 diff)
         {
-            uint32 explosespell = 0;
-            switch (type)
-            {
-            case SPELL_INFRARED_LIGHT_CONE_DMG:
-                explosespell = SPELL_INFRARED_LIGHT_EXPLOSE;
-                break;
-            case SPELL_BLUE_RAY_CONE_DMG:
-                explosespell = SPELL_BLUE_RAY_EXPLOSE;
-                break;
-            case SPELL_BRIGHT_LIGHT_CONE_DMG:
-                explosespell = SPELL_BRIGHT_LIGHT_EXPLOSE;
-                break;
-            }
-            DoCast(me, explosespell, true);
-        }
-
-        void DoAction(int32 const action)
-        {
-            switch (action)
-            {
-            case ACTION_COLORBLIND_PHASE_DONE:
-                summons.DespawnEntry(NPC_RED_EYE);
-                summons.DespawnEntry(NPC_BLUE_EYE);
-                summons.DespawnEntry(NPC_YELLOW_EYE);
-                summons.DespawnEntry(NPC_RED_EYEBEAM_TARGET);
-                summons.DespawnEntry(NPC_BLUE_EYEBEAM_TARGET);
-                summons.DespawnEntry(NPC_YELLOW_EYEBEAM_TARGET);
-                summons.DespawnEntry(NPC_CRIMSON_FOG);
-                summons.DespawnEntry(NPC_AZURE_FOG);
-                RemoveDebuffFromPlayers();
-                phase = PHASE_NORMAL;
-                me->RemoveAurasDueToSpell(SPELL_BRIGHT_LIGHT_DURUMU);
-                events.RescheduleEvent(EVENT_HARD_STARE, 12000);
-                events.RescheduleEvent(EVENT_LINGERING_GAZE, 4000);
-                events.RescheduleEvent(EVENT_FORCE_OF_WILL, 8000);
-                events.RescheduleEvent(EVENT_COLORBLIND, 65000);
-                //events.RescheduleEvent(EVENT_DISINTEGRATION_BEAM, 65000); not ready
-                break;
-            case ACTION_LAUNCH_ROTATE:
-                lastmiststage = 0;
-                nextmiststage = 1;
-                way = urand(3, 6);
-                way2 = urand(8, 10);
-                events.RescheduleEvent(EVENT_OPEN_WAY_IN_MIST, 2000);
-                break;
-            }
-        }
-
-        void JustDied(Unit* /*killer*/)
-        {
-            Talk(SAY_DIE);
-            RemoveDebuffFromPlayers();
-            instance->DoUpdateWorldState(WorldStates::WORLD_STATE_ALIVE_FOG_COUNT, 0);
-            _JustDied();
-        }
-
-        void UpdateAI(uint32 diff)
-        {
-            if (!UpdateVictim())
+            if (m_CurrentStage == STAGE_DISABLED)
                 return;
 
-            if (checkvictim)
+            if (m_CurrentStage == STAGE_PREPARE)
             {
-                if (checkvictim <= diff)
+                if (updateTimer <= diff)
                 {
-                    if (me->getVictim() && !me->IsWithinMeleeRange(me->getVictim()))
+                    updateTimer = 1000;
+
+                    CreatePreSegment(currentSegment);
+
+                    currentSegment++;
+
+                    // don't create big segment at last
+                    if (currentSegment >= 9)
                     {
-                        if (me->GetDistance(me->getVictim()) < 60.0f)
-                            DoCastAOE(SPELL_GAZE);
-                        else
-                            EnterEvadeMode();
+                        CreateMazeSegment(currentSegment, 8, false);
+
+                        currentSegment = 0;
+                        updateTimer = 8000;
+                        m_CurrentStage = STAGE_MAZE;
                     }
-                    checkvictim = 3000;
                 }
                 else
-                    checkvictim -= diff;
-            }
-
-            if (enragetimer)
-            {
-                if (enragetimer <= diff)
                 {
-                    enragetimer = 0;
-                    DoCastAOE(SPELL_OBLITERATE);
+                    updateTimer -= diff;
+                }
+            }
+            else if (m_CurrentStage == STAGE_MAZE)
+            {
+                if (updateTimer <= diff)
+                {
+                    updateTimer = 3000;
+
+                    CreateMazeSegment(currentSegment, 8, true);
+
+                    currentSegment++;
+
+                    if (currentSegment >= 10)
+                    {
+                        currentSegment = 0;
+                    }
                 }
                 else
-                    enragetimer -= diff;
+                {
+                    updateTimer -= diff;
+                }
             }
+        }
 
-            events.Update(diff);
+    private:
 
-            if (me->HasUnitState(UNIT_STATE_CASTING) && phase != PHASE_DISINTEGRATION_BEAM)
+        enum Stages
+        {
+            STAGE_DISABLED  = 0,
+            STAGE_PREPARE,
+            STAGE_MAZE,
+        };
+
+        struct MazeSegment
+        {
+            uint64 areaTriggerGUID;
+            int8 segmentId;
+            bool created;
+        };
+
+    private:
+
+        Unit* m_Caster;
+        uint32 updateTimer;
+        uint8 currentSegment;
+        Stages m_CurrentStage;
+        MazeSegment segments[10];
+
+    private:
+
+        void CreatePreSegment(uint8 segment)
+        {
+            if (segment < 0 || segment >= 10)
                 return;
 
-            if (uint32 eventId = events.ExecuteEvent())
+            // keep original orientation
+            float o = m_Caster->GetOrientation();
+
+            m_Caster->SetOrientation((2.0f * M_PI / 10.0f) * segment);
+            m_Caster->CastSpell(m_Caster, mazeCreateSpells[segment], true);
+
+            // restore orientation
+            m_Caster->SetOrientation(o);
+        }
+
+        void CreateMazeSegment(uint8 segment, uint8 skip, bool restorePrevSegment)
+        {
+            if (segment < 0 || segment >= 10)
+                return;
+
+            // keep original orientation
+            float o = m_Caster->GetOrientation();
+
+            m_Caster->SetOrientation((2.0f * M_PI / 10.0f) * segment);
+            m_Caster->RemoveAreaTrigger(mazeCreateSpells[segment]);
+            for (uint8 i = 0; i < 13; ++i)
             {
-                switch (eventId)
+                if (i == skip)
+                    continue;
+
+                m_Caster->CastSpell(m_Caster, mazeSpells[i], true);
+            }
+
+            if (restorePrevSegment)
+            {
+                uint8 prevSegment = segment == 0 ? 9 : segment - 1;
+
+                m_Caster->SetOrientation((2.0f * M_PI / 10.0f) * prevSegment);
+                m_Caster->CastSpell(m_Caster, mazeCreateSpells[prevSegment], true);
+            }
+
+            // restore orientation
+            m_Caster->SetOrientation(o);
+        }
+};
+
+
+// Durumu the forgotten - 68036
+class boss_durumu_the_forgotten : public CreatureScript
+{
+    public:
+        boss_durumu_the_forgotten() : CreatureScript("boss_durumu_the_forgotten") { }
+
+        CreatureAI* GetAI(Creature* p_Creature) const
+        {
+            return new boss_durumu_the_forgottenAI(p_Creature);
+        }
+
+        struct boss_durumu_the_forgottenAI : public BossAI
+        {
+            boss_durumu_the_forgottenAI(Creature* p_Creature) : BossAI(p_Creature, DATA_DURUMU_THE_FORGOTTEN), mazeBuilder(me)
+            {
+                ApplyAllImmunities(true);
+
+                me->setActive(true);
+
+                //me->SetCanFly(true);
+                me->SetDisableGravity(true);
+
+                me->SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, 20.0f);
+                me->SetFloatValue(UNIT_FIELD_COMBATREACH, 20.0f);
+
+                introDone = false;
+                crimsonFogsCount = 0;
+                eyebeamTargetGUID = 0;
+            }
+
+            uint8 m_Phase;
+
+            void Reset()
+            {
+                _Reset();
+
+                me->RemoveAllAreasTrigger();
+
+                mazeBuilder.ClearMaze();
+                mazeBuilder.Stop();
+
+                instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_BRIGHT_LIGHT_DMG_1);
+                instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_INFRARED_LIGHT_DMG_1);
+                instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_BLUE_RAYS_DMG_1);
+
+                m_Phase = 0;
+                firstHardStare = false;
+                firstGaze = false;
+                forceWillOrientation = 0.0f;
+                crimsonFogsCount = 0;
+                eyebeamTargetGUID = 0;
+                
+                coloredEyes.clear();
+
+                instance->SendEncounterUnit(ENCOUNTER_FRAME_DISENGAGE, me);
+            }
+
+            void MoveInLineOfSight(Unit* who)
+            {
+                if (!who)
+                    return;
+
+                if (!introDone && me->GetDistance(who) < 100.0f)
                 {
-                //Normal and Advance phase
-                case EVENT_HARD_STARE:
-                    if (me->getVictim())
-                        DoCast(me->getVictim(), SPELL_HARD_STARE);
-                    events.RescheduleEvent(EVENT_HARD_STARE, 12000);
-                    break;
-                case EVENT_FORCE_OF_WILL_PREPARE:
-                {
-                    float x, y;
-                    float mod = urand(0, 6);
-                    float ang = mod <= 5 ? mod + float(urand(1, 9)) / 10 : mod;
-                    me->GetNearPoint2D(x, y, -15.0f, ang);
-                    me->SummonCreature(NPC_MIND_EYE, x, y, -2.0f, 0.0f);
-                    events.RescheduleEvent(EVENT_FORCE_OF_WILL, 5000);
-                    break;
+                    introDone = true;
+                    Talk(SAY_INTRO);
                 }
-                case EVENT_FORCE_OF_WILL:
-                    Talk(SAY_FORCE_OF_WILL);
-                    if (Unit* target = SelectTarget(SELECT_TARGET_FARTHEST, 0, 80.0f, true))
-                        if (Creature* mindeye = me->FindNearestCreature(NPC_MIND_EYE, 50.0f, true))
-                            mindeye->AI()->SetGUID(target->GetGUID(), 1);
-                    events.RescheduleEvent(EVENT_FORCE_OF_WILL, 18000);
-                    break;
-                case EVENT_LINGERING_GAZE_PREPARE:
+
+                BossAI::MoveInLineOfSight(who);
+            }
+
+            void AttackStart(Unit* who)
+            {
+                if (!who)
+                    return;
+
+                if (me->Attack(who, true))
+                    DoStartNoMovement(who);
+            }
+
+            void EnterCombat(Unit* /*p_Attacker*/)
+            {
+                m_Phase = PHASE_NORMAL_PHASE;
+
+                // First phase
+                events.ScheduleEvent(EVENT_HARD_STARE, 5000); // Boss first standard spell
+                events.ScheduleEvent(EVENT_GAZE, 4000);
+                events.ScheduleEvent(EVENT_FORCE_OF_WILL, 33500); // Boss second standard spell
+                events.ScheduleEvent(EVENT_LINGERING_GAZE, 15500); // Bos third standard spell
+                events.ScheduleEvent(EVENT_LIFE_DRAIN, 25000); // Boss fourth standard spell
+
+                events.ScheduleEvent(EVENT_SECOND_PHASE, 40000);
+                events.ScheduleEvent(EVENT_DISINTEGRATION_BEAM, 135000);
+
+                Talk(SAY_AGGRO);
+
+                DoZoneInCombat();
+                instance->SetBossState(DATA_DURUMU_THE_FORGOTTEN, IN_PROGRESS);
+                instance->SendEncounterUnit(ENCOUNTER_FRAME_DISENGAGE, me);
+            }
+
+            void EnterEvadeMode()
+            {
+                instance->SendEncounterUnit(ENCOUNTER_FRAME_DISENGAGE, me);
+
+                BossAI::EnterEvadeMode();
+            }
+
+            void JustDied(Unit* /*p_Killer*/)
+            {
+                Talk(SAY_DEATH);
+
+                _JustDied();
+
+                me->RemoveAllAreasTrigger();
+
+                mazeBuilder.ClearMaze();
+                mazeBuilder.Stop();
+
+                instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_BRIGHT_LIGHT_DMG_1);
+                instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_INFRARED_LIGHT_DMG_1);
+                instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_BLUE_RAYS_DMG_1);
+
+                instance->SendEncounterUnit(ENCOUNTER_FRAME_DISENGAGE, me);
+            }
+
+            void DoAction(const int32 action)
+            {
+                if (action == ACTION_CRIMSON_FOG_DIED)
                 {
-                    float x, y;
-                    float mod = urand(0, 6);
-                    float ang = mod <= 5 ? mod + float(urand(1, 9)) / 10 : mod;
-                    me->GetNearPoint2D(x, y, -15.0f, ang);
-                    me->SummonCreature(NPC_APPRAISING_EYE, x, y, 2.46f, 0.0f);
-                    events.RescheduleEvent(EVENT_LINGERING_GAZE, 5000);
-                    break;
-                }
-                case EVENT_LINGERING_GAZE:
-                {
-                    uint8 maxnum = me->GetMap()->Is25ManRaid() ? 5 : 2;
-                    uint8 num = 0;
-                    std::list<Player*>pllist;
-                    pllist.clear();
-                    GetPlayerListInGrid(pllist, me, 100.0f);
-                    if (!pllist.empty())
+                    crimsonFogsCount--;
+
+                    if (crimsonFogsCount == 0)
                     {
-                        pllist.remove_if(_TankFilter());
-                        if (!pllist.empty())
-                        {
-                            for (std::list<Player*>::const_iterator itr = pllist.begin(); itr != pllist.end(); itr++)
+                        summons.DespawnEntry(NPC_RED_EYE);
+                        summons.DespawnEntry(NPC_BLUE_EYE);
+                        summons.DespawnEntry(NPC_YELLOW_EYE);
+
+                        summons.DespawnEntry(NPC_CRIMSON_FOG);
+                        summons.DespawnEntry(NPC_AMBER_FOG);
+                        summons.DespawnEntry(NPC_AZURE_FOG);
+                    }
+                }
+            }
+
+            void JustSummoned(Creature* summon)
+            {
+                if (summon->GetEntry() == NPC_EYEBEAM_TARGET)
+                {
+                    eyebeamTargetGUID = summon->GetGUID();
+                }
+
+                BossAI::JustSummoned(summon);
+            }
+
+            void UpdateAI(const uint32 p_Diff)
+            {
+                if (!UpdateVictim())
+                    return;
+
+                events.Update(p_Diff);
+
+                mazeBuilder.Update(p_Diff);
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
+
+                if (uint32 eventId = events.ExecuteEvent())
+                {
+                    switch (eventId)
+                    {
+                        case EVENT_HARD_STARE:
+                            if (!firstHardStare)
                             {
-                                DoCast(*itr, SPELL_LINGERING_GAZE_TARGET, true);
-                                num++;
-                                if (num >= maxnum)
-                                    break;
+                                firstHardStare = true;
+                                Talk(SAY_HARD_STARE);
                             }
-                        }
-                    }
-                    if (Creature* appraisingeye = me->FindNearestCreature(NPC_APPRAISING_EYE, 50.0f, true))
-                        appraisingeye->AI()->DoAction(ACTION_LINGERING_GAZE);
-                    events.RescheduleEvent(EVENT_LINGERING_GAZE, 35000);
-                    break;
-                }
-                case EVENT_LIFE_DRAIN_PREPARE:
-                {
-                    Creature* hungryeye = me->FindNearestCreature(NPC_HUNGRY_EYE, 100.0f, true);
-                    if (!hungryeye)
-                    {
-                        float x, y;
-                        float mod = urand(0, 6);
-                        float ang = mod <= 5 ? mod + float(urand(1, 9)) / 10 : mod;
-                        me->GetNearPoint2D(x, y, -15.0f, ang);
-                        me->SummonCreature(NPC_HUNGRY_EYE, x, y, 1.0f, 0.0f);
-                    }
-                    events.RescheduleEvent(EVENT_LIFE_DRAIN, 5000);
-                    break;
-                }
-                case EVENT_LIFE_DRAIN:
-                    if (Creature* hungryeye = me->FindNearestCreature(NPC_HUNGRY_EYE, 50.0f, true))
-                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100.0f, true))
-                            hungryeye->AI()->SetGUID(target->GetGUID(), 1);
-                    break;
-                //Colorblind phase
-                case EVENT_COLORBLIND:
-                {
-                    events.CancelEvent(EVENT_FORCE_OF_WILL);
-                    me->InterruptNonMeleeSpells(true);
-                    phase = PHASE_COLORBLIND;
-                    Talk(SAY_COLORBLIND);
-                    std::list<Player*> pllist;
-                    GetPlayerListInGrid(pllist, me, 150.0f);
-                    if (!pllist.empty())
-                    {
-                        if (pllist.size() == 1) //WOD or Legion solo kill
-                        {
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 150.0f, true))
-                                for (uint8 n = 0; n < 3; n++)
-                                    if (Creature* colorblindeye = me->SummonCreature(colorblindeyelist[n], Durumucenterpos))
-                                        colorblindeye->AI()->SetGUID(target->GetGUID(), 1);
-                        }
-                        else if (pllist.size() == 2)
-                        {
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 1, 150.0f, true))
-                                for (uint8 n = 0; n < 3; n++)
-                                    if (Creature* colorblindeye = me->SummonCreature(colorblindeyelist[n], Durumucenterpos))
-                                        colorblindeye->AI()->SetGUID(target->GetGUID(), 1);
-                        }
-                        else if (pllist.size() == 3)
-                        {
-                            Trinity::Containers::RandomResizeList(pllist, 1);
-                            for (uint8 n = 0; n < 3; n++)
-                                if (Creature* colorblindeye = me->SummonCreature(colorblindeyelist[n], Durumucenterpos))
-                                    for (auto const& player : pllist)
-                                        colorblindeye->AI()->SetGUID(player->GetGUID(), 1);
-                        }
-                        else if (pllist.size() >= 4)
-                        {
-                            uint8 index = 0;
-                            ObjectGuid victimGuid = me->getVictim() ? me->getVictim()->GetGUID() : ObjectGuid::Empty;
-                            pllist.remove_if(VictimFilter(victimGuid));
-                            for (std::list<Player*>::const_iterator itr = pllist.begin(); itr != pllist.end(); itr++)
+                            DoCastVictim(SPELL_HARD_STARE);
+                            events.ScheduleEvent(EVENT_HARD_STARE, 12000);
+                            break;
+                        case EVENT_GAZE:
+                            if (me->getVictim() && !me->IsWithinMeleeRange(me->getVictim()))
                             {
-                                if (Creature* colorblindeye = me->SummonCreature(colorblindeyelist[index], Durumucenterpos))
+                                DoCastAOE(SPELL_GAZE);
+                            }
+                            events.ScheduleEvent(EVENT_GAZE, 2000);
+                            break;
+                        case EVENT_FORCE_OF_WILL:
+                        {
+                            Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 1, 0.0f, true);
+                            if (!target)
+                                target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.0f, true);
+                            if (target)
+                            {
+                                if (Creature* pEye = me->SummonCreature(NPC_MIND_S_EYE, *me, TEMPSUMMON_TIMED_DESPAWN, 7000))
                                 {
-                                    index++;
-                                    colorblindeye->AI()->SetGUID((*itr)->GetGUID(), 1);
-                                    if (index >= 3)
-                                        break;
+                                    forceWillOrientation = pEye->GetAngle(target);
+                                    pEye->SetOrientation(forceWillOrientation);
+                                    pEye->AI()->SetFloatData(0, forceWillOrientation);
+
+                                    pEye->CastSpell(target, SPELL_FORCE_OF_WILL);
                                 }
                             }
+                            events.ScheduleEvent(EVENT_FORCE_OF_WILL_KNOCK_BACK, 3000);
+                            events.ScheduleEvent(EVENT_FORCE_OF_WILL, 20000);
+                            break;
                         }
+                        case EVENT_FORCE_OF_WILL_KNOCK_BACK:
+                            if (Creature* pEye = me->FindNearestCreature(NPC_MIND_S_EYE, 10.0f))
+                            {
+                                pEye->SetOrientation(forceWillOrientation);
+                                pEye->CastSpell(pEye, SPELL_FORCE_OF_WILL_KNOCK_BACK);
+                            }
+                            break;
+                        case EVENT_LINGERING_GAZE:
+                            if (!firstGaze)
+                            {
+                                firstGaze = true;
+                                Talk(SAY_LINGERING_GAZE);
+                            }
+                            DoCast(me, SPELL_LINGERING_GAZE);
+                            events.ScheduleEvent(EVENT_LINGERING_GAZE, 46000);
+                            break;
+                        case EVENT_LIFE_DRAIN:
+                        {
+                            Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 1, 0.0f, true);
+                            if (!target)
+                                target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.0f, true);
+                            if (target)
+                            {
+                                if (Creature* pEye = me->SummonCreature(NPC_HUNGRY_EYE, me->GetPositionX() + 1.0f, me->GetPositionY() + 1.0f, me->GetPositionZ() + 1.0f, 0.0f, TEMPSUMMON_TIMED_DESPAWN, 17000))
+                                {
+                                    pEye->SetOrientation(pEye->GetAngle(target));
+                                    pEye->AI()->SetGUID(target->GetGUID());
+                                    pEye->AddAura(SPELL_LIFE_DRAIN_STUN, target);
+                                    pEye->CastSpell(target, SPELL_LIFE_DRAIN);
+                                }
+                            }
+
+                            events.ScheduleEvent(EVENT_LIFE_DRAIN, 20000);
+                            break;
+                        }
+                        case EVENT_SECOND_PHASE:
+                        {
+                            Talk(SAY_COLORBIND);
+                            Talk(SAY_COLORBIND_YELL);
+
+                            events.CancelEvent(EVENT_LIFE_DRAIN);
+                            events.CancelEvent(EVENT_FORCE_OF_WILL_KNOCK_BACK);
+                            events.CancelEvent(EVENT_FORCE_OF_WILL);
+                            
+                            std::list<Unit*> targets;
+                            SelectTargetList(targets, 25, SELECT_TARGET_RANDOM, 0.0f, true);
+                            
+                            if (targets.empty())
+                            {
+                                EnterEvadeMode();
+                                return;
+                            }
+                            
+                            if (targets.size() > 3)
+                                targets.remove(me->getVictim());
+
+                            JadeCore::Containers::RandomResizeList(targets, 3);
+
+                            CreateColorEyesForTargets(targets);
+
+                            SpawnAdds();
+
+                            events.ScheduleEvent(EVENT_SECOND_PHASE_BEGIN, 11000);
+                            break;
+                        }
+                        case EVENT_SECOND_PHASE_BEGIN:
+                        {
+                            
+                            for (std::set<uint64>::const_iterator itr = coloredEyes.begin(); itr != coloredEyes.end(); ++itr)
+                            {
+                                if (Creature* pEye = me->GetCreature(*me, (*itr)))
+                                {
+                                    pEye->AI()->DoAction(ACTION_SECOND_PHASE_BEGIN);
+                                }
+                            }
+                            break;
+                        }
+                        case EVENT_DISINTEGRATION_BEAM:
+
+                            Talk(SAY_DESINTEGRATION_BEAM);
+
+                            events.CancelEvent(EVENT_LINGERING_GAZE);
+                            events.CancelEvent(EVENT_GAZE);
+                            events.CancelEvent(EVENT_HARD_STARE);
+                            events.CancelEvent(EVENT_LIFE_DRAIN);
+                            events.CancelEvent(EVENT_FORCE_OF_WILL_KNOCK_BACK);
+                            events.CancelEvent(EVENT_FORCE_OF_WILL);
+
+                            me->SetOrientation(me->GetAngle(&(beamPos[0])));
+
+                            me->CastSpell(beamPos[0].GetPositionX(), beamPos[0].GetPositionY(), beamPos[0].GetPositionZ(), SPELL_SUMMON_EYEBEAM_TARGET, true);
+
+                            DoCast(me, SPELL_DISINTEGRATION_BEAM_PRECAST);
+
+                            events.ScheduleEvent(EVENT_DISINTEGRATION_BEAM_1, 16000);
+                            break;
+                        case EVENT_DISINTEGRATION_BEAM_1:
+
+                            if (Creature* pBeam = instance->instance->GetCreature(eyebeamTargetGUID))
+                            {
+                                DoCast(pBeam, SPELL_DISINTEGRATION_BEAM);
+
+                                pBeam->SetSpeed(MOVE_RUN, 2.0f, true);
+
+                                Movement::MoveSplineInit init(*pBeam);
+
+                                FillBeamPath(init.Path());
+                                init.SetCyclic();
+                                init.SetWalk(false);
+                                init.SetVelocity(2.0f);
+                                init.Launch();
+
+                                pBeam->AI()->DoAction(ACTION_DISINTEGRATION_BEAM);
+                            }
+
+                            events.ScheduleEvent(EVENT_DISINTEGRATION_BEAM_END, 55000);
+                            break;
+                        case EVENT_DISINTEGRATION_BEAM_END:
+
+                            summons.DespawnEntry(NPC_EYEBEAM_TARGET);
+
+                            mazeBuilder.Stop();
+                            mazeBuilder.ClearMaze();
+
+                            events.ScheduleEvent(EVENT_LINGERING_GAZE, 17000);
+                            events.ScheduleEvent(EVENT_GAZE, 3000);
+                            events.ScheduleEvent(EVENT_HARD_STARE, urand(5000, 8000));
+                            events.ScheduleEvent(EVENT_LIFE_DRAIN, urand(20000, 25000));
+                            events.ScheduleEvent(EVENT_FORCE_OF_WILL, 19000);
+
+                            events.ScheduleEvent(EVENT_SECOND_PHASE, 39000);
+                            events.ScheduleEvent(EVENT_DISINTEGRATION_BEAM, 136000);
+
+                            break;
+                        default:
+                            break;
                     }
-                    instance->DoUpdateWorldState(WorldStates::WORLD_STATE_ALIVE_FOG_COUNT, 1);
-                    instance->DoUpdateWorldState(WorldStates::WORLD_STATE_ALIVE_FOG_COUNT, 3);
-                    SummonFogs();
-                    break;
                 }
-                //Disintegration beam phase
-                case EVENT_DISINTEGRATION_BEAM_P:
-                    phase = PHASE_DISINTEGRATION_BEAM;
-                    events.Reset();
-                    me->InterruptNonMeleeSpells(true);
-                    me->StopAttack();
-                    Talk(SAY_DISINTEGRATION_START);
-                    if (Creature* eyebeamtarget = me->SummonCreature(NPC_EYEBEAM_TARGET_DURUMU, Eyebeamtargetpos, TEMPSUMMON_TIMED_DESPAWN, 54000))
-                    {
-                        me->SetFacingToObject(eyebeamtarget);
-                        eyebeamtargetGuid = eyebeamtarget->GetGUID();
-                    }
-                    crosseyelist.clear();
-                    events.RescheduleEvent(EVENT_DISINTEGRATION_BEAM, 250);
-                    events.RescheduleEvent(EVENT_ADVANCE_PHASE, 55000);
-                    break;
-                case EVENT_DISINTEGRATION_BEAM:
-                    if (Creature* eyebeamtarget = me->GetCreature(*me, eyebeamtargetGuid))
-                        DoCast(eyebeamtarget, SPELL_DISINTEGRATION_LASER_P);
-                    DoCast(me, SPELL_MIND_DAGGERS_AURA);
-                    rotatedirection = bool(urand(0, 1));
-                    events.RescheduleEvent(EVENT_PREPARE_TO_MIST, 6000);
-                    break;
-                case EVENT_PREPARE_TO_MIST:
+
+                DoMeleeAttackIfReady();
+            }
+
+        private:
+
+            bool introDone;
+            bool firstHardStare;
+            bool firstGaze;
+            float forceWillOrientation;
+            std::set<uint64> coloredEyes;
+            uint8 crimsonFogsCount;
+            uint64 eyebeamTargetGUID;
+
+            MazeBuilder mazeBuilder;
+
+        private:
+
+            void CreateColorEyesForTargets(std::list<Unit*> &targets)
+            {
+                Unit* redTarget = targets.front();
+                targets.pop_front();
+                            
+                Unit* blueTarget = NULL;
+                if (!targets.empty())
                 {
-                    switch (rotatedirection)
-                    {
-                    case 0:       //left
-                        for (uint8 b = 11; b > 8; b--)
-                        {
-                            if (Creature* lce = me->SummonCreature(NPC_CROSS_EYE, triggerspawnpos[b]))
-                            {
-                                crosseyelist.push_back(lce->GetGUID());
-                                lce->CastSpell(lce, SPELL_MAZE_COLLECTED);
-                            }
-                        }
-                        break;
-                    case 1:       //right
-                        for (uint8 n = 0; n < 3; n++)
-                        {
-                            if (Creature* rce = me->SummonCreature(NPC_CROSS_EYE, triggerspawnpos[n]))
-                            {
-                                crosseyelist.push_back(rce->GetGUID());
-                                rce->CastSpell(rce, SPELL_MAZE_COLLECTED);
-                            }
-                        }
-                        break;
-                    }
-                    events.RescheduleEvent(EVENT_CREATE_MIST, 2000);
-                    break;
+                    blueTarget = targets.front();
+                    targets.pop_front();
                 }
-                case EVENT_CREATE_MIST:
+                            
+                Unit* yellowTarget = NULL;
+                if (!targets.empty())
                 {
-                    std::list<Creature*>swaplist;
-                    swaplist.clear();
-
-                    switch (rotatedirection)
-                    {
-                    case 0:
-                        for (uint8 b = 0; b < 9; b++)
-                        {
-                            if (Creature* lce = me->SummonCreature(NPC_CROSS_EYE, triggerspawnpos[b]))
-                            {
-                                swaplist.push_back(lce);
-                                lce->AI()->SetData(DATA_CREATE_MIST, 1000 + b * 650);
-                            }
-                        }
-                        if (!swaplist.empty())
-                        {
-                            swaplist.reverse();
-                            for (std::list<Creature*>::const_iterator itr = swaplist.begin(); itr != swaplist.end(); itr++)
-                                crosseyelist.push_back((*itr)->GetGUID());
-                        }
-                        break;
-                    case 1:
-                        for (uint8 n = 11; n > 2; n--)
-                        {
-                            if (Creature* rce = me->SummonCreature(NPC_CROSS_EYE, triggerspawnpos[n]))
-                            {
-                                swaplist.push_back(rce);
-                                rce->AI()->SetData(DATA_CREATE_MIST, 1000 + (11 - n) * 650);
-                            }
-                        }
-                        if (!swaplist.empty())
-                        {
-                            swaplist.reverse();
-                            for (std::list<Creature*>::const_iterator itr = swaplist.begin(); itr != swaplist.end(); itr++)
-                                crosseyelist.push_back((*itr)->GetGUID());
-                        }
-                        break;
-                    }
-                    break;
+                    yellowTarget = targets.front();
                 }
-                case EVENT_OPEN_WAY_IN_MIST:
+
+                if (redTarget)
                 {
-                    if (nextmiststage > 2 && nextmiststage <= 11)
+                    if (Creature* pEye = me->SummonCreature(NPC_RED_EYE, *me))
                     {
-                        if (Creature* nextcrosseye = me->GetCreature(*me, crosseyelist[nextmiststage]))
-                        {
-                            if (AreaTrigger* at = nextcrosseye->GetAreaObject(SPELL_TKR_WHOLE_SLICE_X_1))
-                                at->RemoveFromWorld();
-
-                            for (uint8 n = 0; n < 11; n++)
-                                if (n != way && n != way2)
-                                    nextcrosseye->CastSpell(nextcrosseye, wholeroomslice[n]);
-                        }
+                        coloredEyes.insert(pEye->GetGUID());
+                        pEye->AI()->SetGUID(redTarget->GetGUID());
+                        pEye->CastSpell(redTarget, SPELL_INFRARED_LIGHT_LINK);
                     }
-
-                    if (nextmiststage > 11)
-                        return;
-
-                    uint32 timer = 0; //timer - open way in mist
-                    uint32 data = 0;  //timer - close safe zone
-                    switch (rotatedirection)
-                    {
-                    case 0:      //left
-                        timer = nextmiststage <= 3 ? 2000 : 4000;
-                        data = nextmiststage <= 3 ? 4000 : 7000;
-                        break;
-                    case 1:      //right
-                        timer = nextmiststage <= 3 ? 1000 : 4000;
-                        data = nextmiststage < 3 ? 2500 : 5500;
-                        break;
-                    }
-                    events.RescheduleEvent(EVENT_OPEN_WAY_IN_MIST, timer);
-                    if (Creature* lastcrosseye = me->GetCreature(*me, crosseyelist[lastmiststage]))
-                        lastcrosseye->AI()->SetData(DATA_CLOSE_SAFE_ZONE_IN_MIST, data);
-                    nextmiststage++;
-                    lastmiststage++;
-                    break;
                 }
-                case EVENT_ADVANCE_PHASE:
-                    phase = PHASE_ADVANCE;
-                    me->SetReactState(REACT_AGGRESSIVE);
-                    summons.DespawnEntry(NPC_CROSS_EYE);
-                    events.RescheduleEvent(EVENT_HARD_STARE, 12000);
-                    events.RescheduleEvent(EVENT_LIFE_DRAIN_PREPARE, 13000);
-                    events.RescheduleEvent(EVENT_LINGERING_GAZE, 15000);
-                    events.RescheduleEvent(EVENT_FORCE_OF_WILL, 35000);
-                    events.RescheduleEvent(EVENT_COLORBLIND, 42000);
-                    break;
+
+                if (blueTarget)
+                {
+                    if (Creature* pEye = me->SummonCreature(NPC_BLUE_EYE, *me))
+                    {
+                        coloredEyes.insert(pEye->GetGUID());
+                        pEye->AI()->SetGUID(blueTarget->GetGUID());
+                        pEye->CastSpell(blueTarget, SPELL_BLUE_RAYS_LINK);
+                    }
+                }
+
+                if (yellowTarget)
+                {
+                    if (Creature* pEye = me->SummonCreature(NPC_YELLOW_EYE, *me))
+                    {
+                        coloredEyes.insert(pEye->GetGUID());
+                        pEye->AI()->SetGUID(yellowTarget->GetGUID());
+                        pEye->CastSpell(yellowTarget, SPELL_BRIGHT_LIGHT_LINK);
+                    }
                 }
             }
-            DoMeleeAttackIfReady();
-        }
-    };
 
-    CreatureAI* GetAI(Creature* creature) const
-    {
-        return new boss_durumuAI(creature);
-    }
+            void SpawnAdds()
+            {
+                me->CastSpell(addsPos[0].GetPositionX(), addsPos[0].GetPositionY(), addsPos[0].GetPositionZ(), SPELL_SUMMON_FOG_BEAST_RED, true);
+                me->CastSpell(addsPos[1].GetPositionX(), addsPos[1].GetPositionY(), addsPos[1].GetPositionZ(), SPELL_SUMMON_FOG_BEAST_RED, true);
+                me->CastSpell(addsPos[2].GetPositionX(), addsPos[2].GetPositionY(), addsPos[2].GetPositionZ(), SPELL_SUMMON_FOG_BEAST_RED, true);
+                //me->CastSpell(addsPos[1].GetPositionX(), addsPos[1].GetPositionY(), addsPos[1].GetPositionZ(), SPELL_SUMMON_FOG_BEAST_BLUE, true);
+                //me->CastSpell(addsPos[2].GetPositionX(), addsPos[2].GetPositionY(), addsPos[2].GetPositionZ(), SPELL_SUMMON_FOG_BEAST_YELLOW, true);
+
+                crimsonFogsCount = 3;
+            }
+
+            void FillBeamPath(Movement::PointsArray& path)
+            {
+                for (uint8 i = 0; i < 16; ++i)
+                {
+                    G3D::Vector3 point;
+                    point.x = beamPos[i].GetPositionX();
+                    point.y = beamPos[i].GetPositionY();
+                    point.z = beamPos[i].GetPositionZ();
+                    path.push_back(point);
+                }
+            }
+
+        };
 };
 
-//67858
-class npc_appraising_eye : public CreatureScript
+// Hungry Eye - 67859 (Add for the spell DRAIN LIFE, coming from first phase)
+class npc_durumu_the_forgotten_hungry_eye : public CreatureScript
 {
-public:
-    npc_appraising_eye() : CreatureScript("npc_appraising_eye") {}
+    public:
+        npc_durumu_the_forgotten_hungry_eye() : CreatureScript("npc_durumu_the_forgotten_hungry_eye") { }
 
-    struct npc_appraising_eyeAI : public ScriptedAI
-    {
-        npc_appraising_eyeAI(Creature* creature) : ScriptedAI(creature)
+        CreatureAI* GetAI(Creature* p_Creature) const
         {
-            pInstance = creature->GetInstanceScript();
-            me->SetReactState(REACT_PASSIVE);
-        }
-        InstanceScript* pInstance;
-        EventMap events;
-        uint8 direction;
-
-        void Reset()
-        {
-            direction = urand(0, 1);
-            DoZoneInCombat(me, 100.0f);
-            DoCast(me, SPELL_DURUMU_EYE_TRAIL_ORANGE, true);
-            events.RescheduleEvent(EVENT_START_MOVE, 250);
+            return new npc_durumu_the_forgotten_hungry_eyeAI(p_Creature);
         }
 
-        void EnterCombat(Unit* who){}
-
-        void EnterEvadeMode(){}
-
-        void DamageTaken(Unit* attacker, uint32 &damage, DamageEffectType dmgType)
+        struct npc_durumu_the_forgotten_hungry_eyeAI : public ScriptedAI
         {
-            if (damage >= me->GetHealth())
-                damage = 0;
-        }
-
-        void DoAction(int32 const action)
-        {
-            if (action == ACTION_LINGERING_GAZE)
+            npc_durumu_the_forgotten_hungry_eyeAI(Creature* p_Creature) : ScriptedAI(p_Creature)
             {
-                events.Reset();
-                me->GetMotionMaster()->Clear(false);
-                DoCast(me, SPELL_LINGERING_GAZE);
-                events.RescheduleEvent(EVENT_START_MOVE, 4000);
+                me->SetReactState(REACT_PASSIVE);
+                me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_IMMUNE_TO_PC);
+                
+                targetGuid = 0;
             }
-        }
 
-        float GetNewAngle()
-        {
-            if (Creature* durumu = me->GetCreature(*me, pInstance->GetGuidData(NPC_DURUMU)))
-            {
-                if (direction)
-                    return durumu->GetAngle(me) + 0.5f;
-                else
-                    return durumu->GetAngle(me) - 0.5f;
-            }
-            return 0;
-        }
-
-        void UpdateAI(uint32 diff)
-        {
-            events.Update(diff);
-
-            if (me->HasUnitState(UNIT_STATE_CASTING))
-                return;
-
-            if (uint32 eventId = events.ExecuteEvent())
-            {
-                if (eventId == EVENT_START_MOVE)
-                {
-                    if (Creature* durumu = me->GetCreature(*me, pInstance->GetGuidData(NPC_DURUMU)))
-                    {
-                        float x, y;
-                        float ang = GetNewAngle();
-                        durumu->GetNearPoint2D(x, y, -15.0f, ang);
-                        me->GetMotionMaster()->Clear(false);
-                        me->GetMotionMaster()->MoveCharge(x, y, me->GetPositionZ(), 10.0f, 1);
-                        events.RescheduleEvent(EVENT_START_MOVE, 250);
-                    }
-                }
-            }
-        }
-    };
-
-    CreatureAI* GetAI(Creature* creature) const
-    {
-        return new npc_appraising_eyeAI(creature);
-    }
-};
-
-//67875
-class npc_mind_eye : public CreatureScript
-{
-public:
-    npc_mind_eye() : CreatureScript("npc_mind_eye") {}
-
-    struct npc_mind_eyeAI : public ScriptedAI
-    {
-        npc_mind_eyeAI(Creature* creature) : ScriptedAI(creature)
-        {
-            pInstance = creature->GetInstanceScript();
-            me->SetReactState(REACT_PASSIVE);
-            me->SetCanFly(true);
-            me->SetDisableGravity(true);
-        }
-        InstanceScript* pInstance;
-        EventMap events;
-        uint8 direction;
-
-        void Reset()
-        {
-            direction = urand(0, 1);
-            DoZoneInCombat(me, 100.0f);
-            DoCast(me, SPELL_DURUMU_EYE_TRAIL_BLUE, true);
-            events.RescheduleEvent(EVENT_START_MOVE, 250);
-        }
-
-        void EnterCombat(Unit* who){}
-
-        void EnterEvadeMode(){}
-
-        void DamageTaken(Unit* attacker, uint32 &damage, DamageEffectType dmgType)
-        {
-            if (damage >= me->GetHealth())
-                damage = 0;
-        }
-
-        void SetGUID(ObjectGuid const& guid, int32 /*type*/) override
-        {
-            events.Reset();
-            me->GetMotionMaster()->Clear(false);
-            if (Player* pl = me->GetPlayer(*me, guid))
-            {
-                me->SetFacingToObject(pl);
-                me->CastSpell(pl, SPELL_FORCE_OF_WILL_DUMMY);
-            }
-            events.RescheduleEvent(EVENT_START_MOVE, 4000);
-        }
-
-        float GetNewAngle()
-        {
-            if (Creature* durumu = me->GetCreature(*me, pInstance->GetGuidData(NPC_DURUMU)))
-            {
-                if (direction)
-                    return durumu->GetAngle(me) + 0.5f;
-                else
-                    return durumu->GetAngle(me) - 0.5f;
-            }
-            return 0;
-        }
-
-        void UpdateAI(uint32 diff)
-        {
-            events.Update(diff);
-
-            if (me->HasUnitState(UNIT_STATE_CASTING))
-                return;
-
-            if (uint32 eventId = events.ExecuteEvent())
-            {
-                if (eventId == EVENT_START_MOVE)
-                {
-                    if (Creature* durumu = me->GetCreature(*me, pInstance->GetGuidData(NPC_DURUMU)))
-                    {
-                        float x, y;
-                        float ang = GetNewAngle();
-                        durumu->GetNearPoint2D(x, y, -15.0f, ang);
-                        me->GetMotionMaster()->Clear(false);
-                        me->GetMotionMaster()->MoveCharge(x, y, me->GetPositionZ(), 10.0f, 1);
-                    }
-                    events.RescheduleEvent(EVENT_START_MOVE, 250);
-                }
-            }
-        }
-    };
-
-    CreatureAI* GetAI(Creature* creature) const
-    {
-        return new npc_mind_eyeAI(creature);
-    }
-};
-
-//67859
-class npc_hungry_eye : public CreatureScript
-{
-public:
-    npc_hungry_eye() : CreatureScript("npc_hungry_eye") {}
-
-    struct npc_hungry_eyeAI : public ScriptedAI
-    {
-        npc_hungry_eyeAI(Creature* creature) : ScriptedAI(creature)
-        {
-            pInstance = creature->GetInstanceScript();
-            me->SetReactState(REACT_PASSIVE);
-            me->SetCanFly(true);
-            me->SetDisableGravity(true);
-        }
-        InstanceScript* pInstance;
-        EventMap events;
-        ObjectGuid targetGuid;
-        uint8 direction;
-
-        void Reset()
-        {
-            targetGuid.Clear();
-            direction = urand(0, 1);
-            DoZoneInCombat(me, 100.0f);
-            DoCast(me, SPELL_DURUMU_EYE_TRAIL_YELLOW, true);
-            events.RescheduleEvent(EVENT_START_MOVE, 250);
-        }
-
-        void EnterCombat(Unit* who){}
-
-        void EnterEvadeMode(){}
-
-        void DamageTaken(Unit* attacker, uint32 &damage, DamageEffectType dmgType)
-        {
-            if (damage >= me->GetHealth())
-                damage = 0;
-        }
-
-        void SetGUID(ObjectGuid const& guid, int32 /*type*/) override
-        {
-            events.Reset();
-            me->GetMotionMaster()->Clear(false);
-            if (Player* pl = me->GetPlayer(*me, guid))
+            void SetGUID(uint64 guid, int32 type)
             {
                 targetGuid = guid;
-                me->SetFacingToObject(pl);
-                DoCast(pl, SPELL_LIFE_DRAIN_WARNING, true);
-                events.RescheduleEvent(EVENT_LIFE_DRAIN_LAUNCH, 100);
             }
-        }
 
-        float GetNewAngle()
-        {
-            if (Creature* durumu = me->GetCreature(*me, pInstance->GetGuidData(NPC_DURUMU)))
+            uint64 GetGUID(int32 type)
             {
-                if (direction)
-                    return durumu->GetAngle(me) + 0.5f;
-                else
-                    return durumu->GetAngle(me) - 0.5f;
+                return targetGuid;
             }
-            return 0.0f;
-        }
 
-        void UpdateAI(uint32 diff)
-        {
-            events.Update(diff);
+        private:
 
-            if (me->HasUnitState(UNIT_STATE_CASTING))
-                return;
+            uint64 targetGuid;
 
-            if (uint32 eventId = events.ExecuteEvent())
-            {
-                if (eventId == EVENT_START_MOVE)
-                {
-                    if (Creature* durumu = me->GetCreature(*me, pInstance->GetGuidData(NPC_DURUMU)))
-                    {
-                        float x, y;
-                        float ang = GetNewAngle();
-                        durumu->GetNearPoint2D(x, y, -15.0f, ang);
-                        me->GetMotionMaster()->Clear(false);
-                        me->GetMotionMaster()->MoveCharge(x, y, me->GetPositionZ(), 10.0f, 1);
-                    }
-                    events.RescheduleEvent(EVENT_START_MOVE, 250);
-                }
-                else if (eventId == EVENT_LIFE_DRAIN_LAUNCH)
-                {
-                    if (Player* pl = me->GetPlayer(*me, targetGuid))
-                    {
-                        DoCast(pl, SPELL_LIFE_DRAIN_DUMMY, true);
-                        pl->AddAura(SPELL_LIFE_DRAIN_STUN, pl);
-                    }
-                    events.RescheduleEvent(EVENT_START_MOVE, 16000);
-                }
-            }
-        }
-    };
-
-    CreatureAI* GetAI(Creature* creature) const
-    {
-        return new npc_hungry_eyeAI(creature);
-    }
+        };
 };
 
-//67855, 67854, 67856
-class npc_colorblind_eye : public CreatureScript
+class npc_durumu_the_forgotten_minds_eye : public CreatureScript
 {
-public:
-    npc_colorblind_eye() : CreatureScript("npc_colorblind_eye") { }
+    public:
+        npc_durumu_the_forgotten_minds_eye() : CreatureScript("npc_durumu_the_forgotten_minds_eye") { }
 
-    struct npc_colorblind_eyeAI : public ScriptedAI
-    {
-        npc_colorblind_eyeAI(Creature* pCreature) : ScriptedAI(pCreature)
+        CreatureAI* GetAI(Creature* p_Creature) const
         {
-            instance = pCreature->GetInstanceScript();
-            me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_REMOVE_CLIENT_CONTROL);
-            me->SetReactState(REACT_PASSIVE);
-            me->SetDisplayId(11686);
+            return new npc_durumu_the_forgotten_minds_eyeAI(p_Creature);
         }
 
-        InstanceScript* instance;
-        EventMap events;
-        ObjectGuid targetGuid;
-
-        void Reset(){}
-
-        void DamageTaken(Unit* attacker, uint32 &damage, DamageEffectType dmgType)
+        struct npc_durumu_the_forgotten_minds_eyeAI : public Scripted_NoMovementAI
         {
-            if (damage >= me->GetHealth())
-                damage = 0;
-        }
-
-        void DoAction(int32 const action)
-        {
-            if (action == ACTION_CREATE_CONE)
-                events.RescheduleEvent(EVENT_PREPARE_BEAM, 100);
-        }
-
-        uint32 GetEyeBeamTargetEntry()
-        {
-            switch (me->GetEntry())
+            npc_durumu_the_forgotten_minds_eyeAI(Creature* p_Creature) : Scripted_NoMovementAI(p_Creature)
             {
-            case NPC_RED_EYE:
-                return NPC_RED_EYEBEAM_TARGET;
-            case NPC_BLUE_EYE:
-                return NPC_BLUE_EYEBEAM_TARGET;
-            default:
-                return 0;
+                me->SetReactState(REACT_PASSIVE);
+                me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_IMMUNE_TO_PC);
+            
+                m_Orientation = p_Creature->GetOrientation();
             }
-        }
 
-        uint32 GetBeamSpellEntry()
-        {
-            switch (me->GetEntry())
+            void SetFloatData(uint32 id, float value)
             {
-            case NPC_RED_EYE:
-                return SPELL_INFRARED_LIGHT_BEAM;
-            case NPC_BLUE_EYE:
-                return SPELL_BLUE_RAY_BEAM;
-            case NPC_YELLOW_EYE:
-                return SPELL_BRIGHT_LIGHT_BEAM;
-            default:
-                return 0;
+                m_Orientation = value;
             }
-        }
 
-        uint32 GetConeSpellEntry()
-        {
-            switch (me->GetEntry())
+            float GetFloatData(uint32 id)
             {
-            case NPC_RED_EYE:
-                return SPELL_INFRARED_LIGHT_CONE;
-            case NPC_BLUE_EYE:
-                return SPELL_BLUE_RAY_CONE;
-            case NPC_YELLOW_EYE:
-                return SPELL_BRIGHT_LIGHT_CONE;
-            default:
-                return 0;
+                return m_Orientation;
             }
+
+        private:
+
+            float m_Orientation;
+        };
+};
+
+// Color adds - 69050/69051/69052
+class npc_durumu_the_forgotted_add : public CreatureScript
+{
+    public:
+        npc_durumu_the_forgotted_add() : CreatureScript("npc_durumu_the_forgotted_add") { }
+
+        CreatureAI* GetAI(Creature* p_Creature) const
+        {
+            return new npc_durumu_the_forgotted_addAI(p_Creature);
         }
 
-        uint32 GetLightPlayerAura()
+        struct npc_durumu_the_forgotted_addAI : public Scripted_NoMovementAI
         {
-            switch (me->GetEntry())
+            npc_durumu_the_forgotted_addAI(Creature* p_Creature) : Scripted_NoMovementAI(p_Creature)
             {
-            case NPC_RED_EYE:
-                return SPELL_INFRARED_LIGHT_P_T_AURA;
-            case NPC_BLUE_EYE:
-                return SPELL_BLUE_RAY_P_T_AURA;
-            case NPC_YELLOW_EYE:
-                return SPELL_BRIGHT_LIGHT_P_T_AURA;
-            default:
-                return 0;
+                ApplyAllImmunities(true);
+
+                isRevealed = false;
             }
-        }
 
-        uint32 GetLightFogAura()
-        {
-            switch (me->GetEntry())
+            // For every add, direction is set to the boss, and invisibility aura is added. RED FOG spell is set as not casted.
+            void Reset()
             {
-            case NPC_RED_EYE:
-                return SPELL_INFRARED_LIGHT_C_T_AURA;
-            case NPC_BLUE_EYE:
-                return SPELL_BLUE_RAY_C_T_AURA;
-            case NPC_YELLOW_EYE:
-                return 0;
-            default:
-                return 0;
+                AddInvisibleAura();
             }
-        }
 
-        uint32 GetSearcheFogEntry()
-        {
-            switch (me->GetEntry())
+            void DoAction(const int32 action)
             {
-            case NPC_RED_EYE:
-                return NPC_CRIMSON_FOG;
-            case NPC_BLUE_EYE:
-                return NPC_AZURE_FOG;
-            case NPC_YELLOW_EYE:
-                return 0;
-            default:
-                return 0;
-            }
-        }
-
-        uint32 GetData(uint32 type) const
-        {
-            if (type == DATA_IS_CONE_TARGET_CREATURE)
-            {
-                if (Unit* conetarget = me->GetUnit(*me, targetGuid))
+                if (action == ACTION_ADD_REVEALED)
                 {
-                    if (conetarget->ToCreature())
-                        return 1;
-                    else
-                        return 0;
-                }
-            }
-            return 0;
-        }
-
-        void SetData(uint32 type, uint32 data)
-        {
-            //remove focus cone from trigger, and despawn him
-            if (type == DATA_DESPAWN_CREATURE_CONE_TARGET)
-            {
-                if (Creature* conetarget = me->GetCreature(*me, targetGuid))
-                {
-                    uint32 conespell = GetConeSpellEntry();
-                    conetarget->RemoveAurasDueToSpell(conespell);//for safe
-                    conetarget->DespawnOrUnsummon();
-                }
-            }
-        }
-
-        void SetGUID(ObjectGuid const& guid, int32 id) override
-        {
-            targetGuid = guid;
-            switch (id)
-            {
-            case 1:
-            {
-                uint32 beamspell = GetBeamSpellEntry();
-                if (Player* pl = me->GetPlayer(*me, targetGuid))
-                    DoCast(pl, beamspell, true);
-                break;
-            }
-            //focus cone player died, create cone with trigger
-            case 2:
-                if (Creature* durumu = me->GetCreature(*me, instance->GetGuidData(NPC_DURUMU)))
-                {
-                    if (Player* pl = me->GetPlayer(*me, targetGuid))
+                    if (!isRevealed)
                     {
-                        Position pos;
-                        pl->GetPosition(&pos);
-                        uint32 conespell = GetConeSpellEntry();
-                        uint32 npceyebeamtarget = GetEyeBeamTargetEntry();
-                        if (Creature* conetarget = durumu->SummonCreature(npceyebeamtarget, pos))
-                        {
-                            targetGuid = conetarget->GetGUID();
-                            DoCast(conetarget, conespell, true);
-                        }
+                        isRevealed = true;
+
+                        RemoveInvisibleAura();
                     }
                 }
-                break;
-            //create focus cone on new player
-            case 3:
-            {
-                uint32 conespell = GetConeSpellEntry();
-                if (Player* pl = me->GetPlayer(*me, targetGuid))
-                    DoCast(pl, conespell, true);
-            }
-            break;
-            }
-        }
-
-        void UpdateAI(uint32 diff)
-        {
-            events.Update(diff);
-
-            if (uint32 eventId = events.ExecuteEvent())
-            {
-                switch (eventId)
+                else if (action == ACTION_ADD_HIDE)
                 {
-                case EVENT_PREPARE_BEAM: //this event create for fix rotate lag, before launch cone spell
-                    if (Player* pl = me->GetPlayer(*me, targetGuid))
+                    if (isRevealed)
                     {
-                        me->AddThreat(pl, 50000000.0f);
-                        me->SetReactState(REACT_AGGRESSIVE);
-                        me->Attack(pl, true);
-                    }
-                    events.RescheduleEvent(EVENT_CREATE_CONE, 250);
-                    break;
-                case EVENT_CREATE_CONE:
-                    if (Player* pl = me->GetPlayer(*me, targetGuid))
-                    {
-                        uint32 conespell = GetConeSpellEntry();
-                        if (Player* pl = me->GetPlayer(*me, targetGuid))
-                        {
-                            if (me->GetEntry() == NPC_YELLOW_EYE)
-                            {
-                                float x, y;
-                                float ang = me->GetAngle(pl);
-                                me->GetNearPoint2D(x, y, 64.0f, ang);
-                                if (Creature* durumu = me->GetCreature(*me, instance->GetGuidData(NPC_DURUMU)))
-                                {
-                                    if (Creature* conetarget = durumu->SummonCreature(NPC_YELLOW_EYEBEAM_TARGET, x, y, me->GetPositionZ(), 0.0f))
-                                    {
-                                        durumu->CastSpell(durumu, SPELL_BRIGHT_LIGHT_DURUMU, true); //visual
-                                        DoCast(conetarget, conespell, true);
-                                        conetarget->AI()->SetGUID(me->GetGUID(), 2);
-                                    }
-                                }
-                            }
-                            else
-                                DoCast(pl, conespell, true);
-                        }
-                        events.RescheduleEvent(EVENT_SEARCHER, 1000);
-                    }
-                    break;
-                case EVENT_SEARCHER:
-                {
-                    //Search players in cone
-                    uint32 lightaura = GetLightPlayerAura();
-                    std::list<Player*>pllist;
-                    GetPlayerListInGrid(pllist, me, 100.0f);
-                    if (!pllist.empty())
-                    {
-                        for (std::list<Player*>::const_iterator itr = pllist.begin(); itr != pllist.end(); itr++)
-                        {
-                            if (me->isInFront(*itr, M_PI / 6))
-                            {
-                                if (!(*itr)->HasAura(lightaura))
-                                    (*itr)->CastSpell(*itr, lightaura, true);
-                            }
-                            else
-                                if ((*itr)->HasAura(lightaura))
-                                    (*itr)->RemoveAurasDueToSpell(lightaura);
-                        }
-                    }
-                    //Search fogs in cone
-                    if (me->GetEntry() != NPC_YELLOW_EYE)
-                    {
-                        uint32 _lightaura = GetLightFogAura();
-                        uint32 fogentry = GetSearcheFogEntry();
-                        std::list<Creature*>foglist;
-                        GetCreatureListWithEntryInGrid(foglist, me, fogentry, 150.0f);
-                        if (!foglist.empty())
-                        {
-                            for (std::list<Creature*>::const_iterator Itr = foglist.begin(); Itr != foglist.end(); Itr++)
-                            {
-                                if (me->isInFront(*Itr, M_PI / 6))
-                                {
-                                    if (!(*Itr)->HasAura(_lightaura))
-                                        (*Itr)->CastSpell(*Itr, _lightaura, true);
-                                }
-                                else
-                                    if ((*Itr)->HasAura(_lightaura))
-                                        (*Itr)->RemoveAurasDueToSpell(_lightaura);
-                            }
-                        }
-                    }
-                    events.RescheduleEvent(EVENT_SEARCHER, 1000);
-                }
-                break;
-                }
-            }
-        }
-    };
+                        isRevealed = false;
 
-    CreatureAI* GetAI(Creature* pCreature) const
-    {
-        return new npc_colorblind_eyeAI(pCreature);
-    }
-};
+                        DoCastAOE(SPELL_CRIMSON_BLOOM);
 
-//67851, 67829, 67852
-class npc_colorblind_eye_beam_target : public CreatureScript
-{
-public:
-    npc_colorblind_eye_beam_target() : CreatureScript("npc_colorblind_eye_beam_target") { }
-
-    struct npc_colorblind_eye_beam_targetAI : public ScriptedAI
-    {
-        npc_colorblind_eye_beam_targetAI(Creature* pCreature) : ScriptedAI(pCreature)
-        {
-            me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-            me->SetReactState(REACT_PASSIVE);
-            me->SetDisplayId(11686);
-        }
-        EventMap events;
-        ObjectGuid colorblindeyeGuid;
-
-        void Reset(){}
-
-        void SetGUID(ObjectGuid const& guid, int32 id) override
-        {
-            if (id == 2)
-            {
-                colorblindeyeGuid = guid;
-                events.RescheduleEvent(EVENT_START_MOVE, 1000);
-            }
-        }
-
-        void DamageTaken(Unit* attacker, uint32 &damage, DamageEffectType dmgType)
-        {
-            if (damage >= me->GetHealth())
-                damage = 0;
-        }
-
-        void UpdateAI(uint32 diff)
-        {
-            events.Update(diff);
-
-            if (uint32 eventId = events.ExecuteEvent())
-            {
-                if (eventId == EVENT_START_MOVE)
-                {
-                    if (Creature* colorblindeye = me->GetCreature(*me, colorblindeyeGuid))
-                    {
-                        float x, y;
-                        float ang = colorblindeye->GetAngle(me) - 0.5f;
-                        colorblindeye->GetNearPoint2D(x, y, 64.0f, ang);
-                        me->GetMotionMaster()->Clear(false);
-                        me->GetMotionMaster()->MoveCharge(x, y, me->GetPositionZ(), 5.0f, 1);
-                    }
-                    events.RescheduleEvent(EVENT_START_MOVE, 250);
-                }
-            }
-        }
-    };
-
-    CreatureAI* GetAI(Creature* pCreature) const
-    {
-        return new npc_colorblind_eye_beam_targetAI(pCreature);
-    }
-};
-
-//69050, 69052
-class npc_durumu_fog : public CreatureScript
-{
-public:
-    npc_durumu_fog() : CreatureScript("npc_durumu_fog") {}
-
-    struct npc_durumu_fogAI : public ScriptedAI
-    {
-        npc_durumu_fogAI(Creature* creature) : ScriptedAI(creature)
-        {
-            instance = creature->GetInstanceScript();
-            me->SetReactState(REACT_PASSIVE);
-            me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_REMOVE_CLIENT_CONTROL);
-            explose = false;
-            switch (me->GetEntry())
-            {
-                case NPC_CRIMSON_FOG:
-                    DoCast(me, SPELL_RED_FOG_INVISIBILITY, true);
-                    break;
-                case NPC_AZURE_FOG:
-                    DoCast(me, SPELL_BLUE_FOG_INVISIBILITY, true);
-                    break;
-                default:
-                    break;
-            }
-        }
-        InstanceScript* instance;
-        EventMap events;
-        uint32 invisibilyaura;
-        uint32 foundspell;
-        bool explose;
-
-        void Reset()
-        {
-            switch (me->GetEntry())
-            {
-            case NPC_CRIMSON_FOG:
-                invisibilyaura = SPELL_RED_FOG_INVISIBILITY;
-                foundspell = SPELL_BURNING_EYE_FOUND;
-                break;
-            case NPC_AZURE_FOG:
-                invisibilyaura = SPELL_BLUE_FOG_INVISIBILITY;
-                foundspell = SPELL_COLD_EYE_FOUND;
-                break;
-            default:
-                invisibilyaura = 0;
-                foundspell = 0;
-                break;
-            }
-        }
-
-        void DoAction(int32 const action)
-        {
-            switch (action)
-            {
-            case ACTION_IN_CONE:
-                me->RemoveAurasDueToSpell(invisibilyaura);
-                DoCast(me, foundspell, true);
-                if (me->GetEntry() == NPC_CRIMSON_FOG)
-                    events.RescheduleEvent(EVENT_CAUSTIC_SPIKE, 2000);
-                else if (me->GetEntry() == NPC_AZURE_FOG)
-                    DoCast(me, SPELL_ICY_GRASP_AURA, true);
-                break;
-            case ACTION_NOT_IN_CONE:
-                events.Reset();
-                me->InterruptNonMeleeSpells(true);
-                if (me->GetEntry() == NPC_CRIMSON_FOG)
-                    DoCast(me, SPELL_CRIMSON_BLOOM, true);
-                me->AddAura(invisibilyaura, me);
-                break;
-            }
-        }
-
-        void DamageTaken(Unit* attacker, uint32 &damage, DamageEffectType dmgType)
-        {
-            if (me->GetEntry() != NPC_AZURE_FOG)
-                return;
-
-            if (damage >= me->GetHealth() && !explose)
-            {
-                explose = true;
-                DoCast(me, SPELL_FLASH_FREEZE, true);
-            }
-        }
-
-        void UpdateAI(uint32 diff)
-        {
-            events.Update(diff);
-
-            if (uint32 eventId = events.ExecuteEvent())
-            {
-                if (eventId == EVENT_CAUSTIC_SPIKE)
-                {
-                    DoCastAOE(SPELL_CAUSTIC_SPIKE);
-                    events.RescheduleEvent(EVENT_CAUSTIC_SPIKE, 3000);
-                }
-            }
-        }
-    };
-
-    CreatureAI* GetAI(Creature* creature) const
-    {
-        return new npc_durumu_fogAI(creature);
-    }
-};
-
-//67882
-class npc_durumu_eyebeam_target : public CreatureScript
-{
-public:
-    npc_durumu_eyebeam_target() : CreatureScript("npc_durumu_eyebeam_target") {}
-
-    struct npc_durumu_eyebeam_targetAI : public ScriptedAI
-    {
-        npc_durumu_eyebeam_targetAI(Creature* creature) : ScriptedAI(creature)
-        {
-            pInstance = creature->GetInstanceScript();
-            me->SetDisplayId(11686);
-            me->SetCanFly(true);
-            me->SetDisableGravity(true);
-            me->SetReactState(REACT_PASSIVE);
-            me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-        }
-        InstanceScript* pInstance;
-        EventMap events;
-        bool rotatedirection;
-        float disttodurumu;
-
-        void Reset()
-        {
-            if (Creature* durumu = me->GetCreature(*me, pInstance->GetGuidData(NPC_DURUMU)))
-                disttodurumu = me->GetExactDist2d(durumu) - 20.0f;
-        }
-
-        void DoAction(int32 const action)
-        {
-            if (action == ACTION_LAUNCH_ROTATE)
-            {
-                if (Creature* durumu = me->GetCreature(*me, pInstance->GetGuidData(NPC_DURUMU)))
-                {
-                    durumu->AI()->DoAction(ACTION_LAUNCH_ROTATE);
-                    rotatedirection = durumu->AI()->GetData(DATA_GET_DURUMU_ROTATE_DIRECTION);
-                    events.RescheduleEvent(EVENT_START_MOVE, 100);
-                }
-            }
-        }
-
-        void DamageTaken(Unit* attacker, uint32 &damage, DamageEffectType dmgType)
-        {
-            if (damage >= me->GetHealth())
-                damage = 0;
-        }
-
-        void EnterCombat(Unit* who){}
-
-        void UpdateAI(uint32 diff)
-        {
-            events.Update(diff);
-
-            if (uint32 eventId = events.ExecuteEvent())
-            {
-                if (eventId == EVENT_START_MOVE)
-                {
-                    if (Creature* durumu = me->GetCreature(*me, pInstance->GetGuidData(NPC_DURUMU)))
-                    {
-                        float x, y;
-                        float ang = 0;
-                        if (!rotatedirection)
-                            ang = durumu->GetAngle(me) - 0.5f; //left
-                        else
-                            ang = durumu->GetAngle(me) + 0.5f; //right
-                        durumu->GetNearPoint2D(x, y, disttodurumu, ang);
-                        me->GetMotionMaster()->Clear(false);
-                        me->GetMotionMaster()->MoveJump(x, y, -2.433161f, 10.0f, 0.0f, 1);
-                    }
-                    events.RescheduleEvent(EVENT_START_MOVE, 250);
-                }
-            }
-        }
-    };
-
-    CreatureAI* GetAI(Creature* creature) const
-    {
-        return new npc_durumu_eyebeam_targetAI(creature);
-    }
-};
-
-//67857
-class npc_cross_eye : public CreatureScript
-{
-public:
-    npc_cross_eye() : CreatureScript("npc_cross_eye") { }
-
-    struct npc_cross_eyeAI : public ScriptedAI
-    {
-        npc_cross_eyeAI(Creature* pCreature) : ScriptedAI(pCreature)
-        {
-            instance = pCreature->GetInstanceScript();
-            me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_REMOVE_CLIENT_CONTROL);
-            me->SetReactState(REACT_PASSIVE);
-            me->SetDisplayId(11686);
-            rotatedirection = false;
-        }
-        InstanceScript* instance;
-        EventMap events;
-        bool rotatedirection;
-
-        void Reset()
-        {
-            DoZoneInCombat(me, 100.0f);
-        }
-
-        void EnterCombat(Unit* who){}
-
-        void EnterEvadeMode(){}
-
-        void SetData(uint32 type, uint32 data)
-        {
-            switch (type)
-            {
-            case DATA_CREATE_MIST:
-                if (Creature* durumu = me->GetCreature(*me, instance->GetGuidData(NPC_DURUMU)))
-                {
-                    rotatedirection = durumu->AI()->GetData(DATA_GET_DURUMU_ROTATE_DIRECTION);
-                    events.RescheduleEvent(EVENT_CREATE_MIST, data);
-                }
-                break;
-            case DATA_CLOSE_SAFE_ZONE_IN_MIST:
-                events.RescheduleEvent(EVENT_CLOSE_SAFE_ZONE_IN_MIST, data);
-                break;
-            }
-        }
-
-        void DamageTaken(Unit* attacker, uint32 &damage, DamageEffectType dmgType)
-        {
-            if (damage >= me->GetHealth())
-                damage = 0;
-        }
-
-        void UpdateAI(uint32 diff)
-        {
-            events.Update(diff);
-
-            if (uint32 eventId = events.ExecuteEvent())
-            {
-                switch (eventId)
-                {
-                case EVENT_CREATE_MIST:
-                case EVENT_CLOSE_SAFE_ZONE_IN_MIST:
-                    DoCast(me, SPELL_TKR_WHOLE_SLICE_X_1, true);
-                    break;
-                }
-            }
-        }
-    };
-
-    CreatureAI* GetAI(Creature* pCreature) const
-    {
-        return new npc_cross_eyeAI(pCreature);
-    }
-};
-
-//133768
-class spell_arterial_cut : public SpellScriptLoader
-{
-public:
-    spell_arterial_cut() : SpellScriptLoader("spell_arterial_cut") { }
-
-    class spell_arterial_cut_AuraScript : public AuraScript
-    {
-        PrepareAuraScript(spell_arterial_cut_AuraScript)
-
-        void HandlePeriodicTick(AuraEffect const * /*aurEff*/)
-        {
-            if (GetTarget())
-                if (GetTarget()->GetHealth() == GetTarget()->GetMaxHealth())
-                    GetTarget()->RemoveAurasDueToSpell(SPELL_ARTERIAL_CUT);
-        }
-
-        void Register()
-        {
-            OnEffectPeriodic += AuraEffectPeriodicFn(spell_arterial_cut_AuraScript::HandlePeriodicTick, EFFECT_0, SPELL_AURA_PERIODIC_DAMAGE);
-        }
-    };
-
-    AuraScript* GetAuraScript() const
-    {
-        return new spell_arterial_cut_AuraScript();
-    }
-};
-
-//138467
-class spell_lingering_gaze : public SpellScriptLoader
-{
-public:
-    spell_lingering_gaze() : SpellScriptLoader("spell_lingering_gaze") { }
-
-    class spell_lingering_gaze_SpellScript : public SpellScript
-    {
-        PrepareSpellScript(spell_lingering_gaze_SpellScript);
-
-        void HandleScript(SpellEffIndex effIndex)
-        {
-            if (GetCaster())
-            {
-                std::list<Player*>pllist;
-                pllist.clear();
-                GetPlayerListInGrid(pllist, GetCaster(), 100.0f);
-                if (!pllist.empty())
-                {
-                    pllist.remove_if(LingeringGazeFilter());
-                    if (!pllist.empty())
-                        for (std::list<Player*>::const_iterator itr = pllist.begin(); itr != pllist.end(); itr++)
-                            GetCaster()->CastSpell(*itr, SPELL_LINGERING_GAZE_TR_M);
-                }
-            }
-        }
-
-        void Register()
-        {
-            OnEffectHitTarget += SpellEffectFn(spell_lingering_gaze_SpellScript::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
-        }
-    };
-
-    SpellScript* GetSpellScript() const
-    {
-        return new spell_lingering_gaze_SpellScript();
-    }
-};
-
-//134123, 134122, 134124
-class spell_durumu_color_beam : public SpellScriptLoader
-{
-public:
-    spell_durumu_color_beam() : SpellScriptLoader("spell_durumu_color_beam") { }
-
-    class spell_durumu_color_beam_AuraScript : public AuraScript
-    {
-        PrepareAuraScript(spell_durumu_color_beam_AuraScript);
-
-        void HandleRemove(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
-        {
-            if (GetTargetApplication()->GetRemoveMode() == AURA_REMOVE_BY_EXPIRE)
-                if (GetCaster() && GetCaster()->ToCreature())
-                    GetCaster()->ToCreature()->AI()->DoAction(ACTION_CREATE_CONE);
-        }
-
-        void Register()
-        {
-            OnEffectRemove += AuraEffectRemoveFn(spell_durumu_color_beam_AuraScript::HandleRemove, EFFECT_0, SPELL_AURA_DUMMY, AURA_EFFECT_HANDLE_REAL);
-        }
-    };
-
-    AuraScript* GetAuraScript() const
-    {
-        return new spell_durumu_color_beam_AuraScript();
-    }
-};
-
-//133734, 133672, 133740
-class spell_durumu_color_cone : public SpellScriptLoader
-{
-public:
-    spell_durumu_color_cone() : SpellScriptLoader("spell_durumu_color_cone") { }
-
-    class spell_durumu_color_cone_AuraScript : public AuraScript
-    {
-        PrepareAuraScript(spell_durumu_color_cone_AuraScript);
-
-        void HandleRemove(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
-        {
-            //if focus cone player died, need drop cone zone
-            if (GetTargetApplication()->GetRemoveMode() == AURA_REMOVE_BY_DEATH)
-                if (GetSpellInfo()->Id == SPELL_INFRARED_LIGHT_CONE || GetSpellInfo()->Id == SPELL_BLUE_RAY_CONE)
-                    if (GetTarget() && GetCaster() && GetCaster()->ToCreature())
-                        GetCaster()->ToCreature()->AI()->SetGUID(GetTarget()->GetGUID(), 2);
-        }
-
-        void Register()
-        {
-            OnEffectRemove += AuraEffectRemoveFn(spell_durumu_color_cone_AuraScript::HandleRemove, EFFECT_0, SPELL_AURA_DUMMY, AURA_EFFECT_HANDLE_REAL);
-        }
-    };
-
-    AuraScript* GetAuraScript() const
-    {
-        return new spell_durumu_color_cone_AuraScript();
-    }
-};
-
-//133732, 133677, 133738
-class spell_durumu_color_cone_dmg : public SpellScriptLoader
-{
-public:
-    spell_durumu_color_cone_dmg() : SpellScriptLoader("spell_durumu_color_cone_dmg") { }
-
-    class spell_durumu_color_cone_dmg_SpellScript : public SpellScript
-    {
-        PrepareSpellScript(spell_durumu_color_cone_dmg_SpellScript);
-
-        void FilterTargets(std::list<WorldObject*>& targets)
-        {
-            if (GetCaster() && GetCaster()->ToCreature())
-            {
-                if (targets.empty())
-                {
-                    if (InstanceScript* instance = GetCaster()->GetInstanceScript())
-                        if (Creature* durumu = GetCaster()->GetCreature(*GetCaster(), instance->GetGuidData(NPC_DURUMU)))
-                            durumu->AI()->SetData(GetSpellInfo()->Id, 1);
-                }
-                else
-                {
-                    if (GetSpellInfo()->Id != SPELL_BRIGHT_LIGHT_CONE_DMG)
-                    {
-                        //if focus cone on creature (it means player drop it), who entrance in cone pick up him
-                        if (GetCaster()->ToCreature()->AI()->GetData(DATA_IS_CONE_TARGET_CREATURE))
-                        {
-                            GetCaster()->ToCreature()->AI()->SetData(DATA_DESPAWN_CREATURE_CONE_TARGET, 0);
-                            std::list<WorldObject*>::const_iterator itr = targets.begin();
-                            std::advance(itr, urand(0, targets.size() - 1));
-                            GetCaster()->ToCreature()->AI()->SetGUID((*itr)->GetGUID(), 3);
-                        }
+                        AddInvisibleAura();
                     }
                 }
             }
-        }
 
-        void Register()
-        {
-            OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_durumu_color_cone_dmg_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_CONE_ENEMY_110);
-        }
-    };
-
-    SpellScript* GetSpellScript() const
-    {
-        return new spell_durumu_color_cone_dmg_SpellScript();
-    }
-};
-
-//136120 (red), 136119(blue)
-class spell_durumu_color_creature_aura : public SpellScriptLoader
-{
-public:
-    spell_durumu_color_creature_aura() : SpellScriptLoader("spell_durumu_color_creature_aura") { }
-
-    class spell_durumu_color_creature_aura_AuraScript : public AuraScript
-    {
-        PrepareAuraScript(spell_durumu_color_creature_aura_AuraScript);
-
-        void OnApply(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
-        {
-            if (GetTarget() && GetTarget()->ToCreature())
-                GetTarget()->ToCreature()->AI()->DoAction(ACTION_IN_CONE);
-        }
-
-        void HandleEffectRemove(AuraEffect const * /*aurEff*/, AuraEffectHandleModes mode)
-        {
-            if (GetTarget() && GetTarget()->ToCreature() && GetTargetApplication()->GetRemoveMode() != AURA_REMOVE_BY_DEATH)
-                GetTarget()->ToCreature()->AI()->DoAction(ACTION_NOT_IN_CONE);    
-        }
-
-        void Register()
-        {
-            OnEffectApply += AuraEffectApplyFn(spell_durumu_color_creature_aura_AuraScript::OnApply, EFFECT_0, SPELL_AURA_DUMMY, AURA_EFFECT_HANDLE_REAL);
-            OnEffectRemove += AuraEffectRemoveFn(spell_durumu_color_creature_aura_AuraScript::HandleEffectRemove, EFFECT_0, SPELL_AURA_DUMMY, AURA_EFFECT_HANDLE_REAL);
-        }
-    };
-
-    AuraScript* GetAuraScript() const
-    {
-        return new spell_durumu_color_creature_aura_AuraScript();
-    }
-};
-
-//136154
-class spell_caustic_spike : public SpellScriptLoader
-{
-public:
-    spell_caustic_spike() : SpellScriptLoader("spell_caustic_spike") { }
-
-    class spell_caustic_spike_SpellScript : public SpellScript
-    {
-        PrepareSpellScript(spell_caustic_spike_SpellScript);
-
-        void FilterTargets(std::list<WorldObject*> &targets)
-        {
-            if (targets.size() > 1)
-                targets.resize(1);
-        }
-
-        void Register()
-        {
-            OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_caustic_spike_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_SRC_AREA_ENEMY);
-        }
-    };
-
-    SpellScript* GetSpellScript() const
-    {
-        return new spell_caustic_spike_SpellScript();
-    }
-};
-
-//136179
-class spell_icy_grasp_aura : public SpellScriptLoader
-{
-public:
-    spell_icy_grasp_aura() : SpellScriptLoader("spell_icy_grasp_aura") { }
-
-    class spell_icy_grasp_aura_AuraScript : public AuraScript
-    {
-        PrepareAuraScript(spell_icy_grasp_aura_AuraScript);
-
-        void OnTick(AuraEffect const* aurEff)
-        {
-            if (GetCaster())
-                GetCaster()->CastSpell(GetCaster(), SPELL_ICY_GRASP, true);
-        }
-
-        void Register()
-        {
-            OnEffectPeriodic += AuraEffectPeriodicFn(spell_icy_grasp_aura_AuraScript::OnTick, EFFECT_0, SPELL_AURA_PERIODIC_TRIGGER_SPELL);
-        }
-    };
-
-    AuraScript* GetAuraScript() const
-    {
-        return new spell_icy_grasp_aura_AuraScript();
-    }
-};
-
-class IcyGraspFilter
-{
-public:
-    bool operator()(WorldObject* unit) const
-    {
-        if (Player* pl = unit->ToPlayer())
-            if (pl->HasAura(SPELL_BLUE_RAY_P_T_AURA))
-                return false;
-        return true;
-    }
-};
-
-//136177
-class spell_icy_grasp_dmg : public SpellScriptLoader
-{
-public:
-    spell_icy_grasp_dmg() : SpellScriptLoader("spell_icy_grasp_dmg") { }
-
-    class spell_icy_grasp_dmg_SpellScript : public SpellScript
-    {
-        PrepareSpellScript(spell_icy_grasp_dmg_SpellScript);
-
-        void FilterTargets(std::list<WorldObject*> &targets)
-        {
-            if (!targets.empty())
-                targets.remove_if(IcyGraspFilter());
-        }
-
-        void Register()
-        {
-            OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_icy_grasp_dmg_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_SRC_AREA_ENEMY);
-        }
-    };
-
-    SpellScript* GetSpellScript() const
-    {
-        return new spell_icy_grasp_dmg_SpellScript();
-    }
-};
-
-//139107
-class spell_mind_daggers_dmg : public SpellScriptLoader
-{
-public:
-    spell_mind_daggers_dmg() : SpellScriptLoader("spell_mind_daggers_dmg") { }
-
-    class spell_mind_daggers_dmg_SpellScript : public SpellScript
-    {
-        PrepareSpellScript(spell_mind_daggers_dmg_SpellScript);
-
-        void FilterTargets(std::list<WorldObject*> &targets)
-        {
-            if (GetCaster())
-                if (targets.size() > 10)
-                    targets.resize(10);
-        }
-
-        void Register()
-        {
-            OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_mind_daggers_dmg_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_SRC_AREA_ENTRY);
-        }
-    };
-
-    SpellScript* GetSpellScript() const
-    {
-        return new spell_mind_daggers_dmg_SpellScript();
-    }
-};
-
-//134169
-class spell_disintegration_laser_prepare : public SpellScriptLoader
-{
-public:
-    spell_disintegration_laser_prepare() : SpellScriptLoader("spell_disintegration_laser_prepare") { }
-
-    class spell_disintegration_laser_prepare_AuraScript : public AuraScript
-    {
-        PrepareAuraScript(spell_disintegration_laser_prepare_AuraScript);
-
-        void HandleEffectRemove(AuraEffect const * /*aurEff*/, AuraEffectHandleModes mode)
-        {
-            if (GetTargetApplication()->GetRemoveMode() == AURA_REMOVE_BY_EXPIRE && GetCaster() && GetTarget())
+            void IsSummonedBy(Unit* owner)
             {
-                GetCaster()->CastSpell(GetTarget(), SPELL_DISINTEGRATION_LASER);
-                if (GetTarget() && GetTarget()->ToCreature())
-                    GetTarget()->ToCreature()->AI()->DoAction(ACTION_LAUNCH_ROTATE);
+
             }
-        }
 
-        void Register()
-        {
-            OnEffectRemove += AuraEffectRemoveFn(spell_disintegration_laser_prepare_AuraScript::HandleEffectRemove, EFFECT_0, SPELL_AURA_DUMMY, AURA_EFFECT_HANDLE_REAL);
-        }
-    };
-
-    AuraScript* GetAuraScript() const
-    {
-        return new spell_disintegration_laser_prepare_AuraScript();
-    }
-};
-
-//136318
-class spell_disintegration_laser_dummy : public SpellScriptLoader
-{
-public:
-    spell_disintegration_laser_dummy() : SpellScriptLoader("spell_disintegration_laser_dummy") { }
-
-    class spell_disintegration_laser_dummy_SpellScript : public SpellScript
-    {
-        PrepareSpellScript(spell_disintegration_laser_dummy_SpellScript);
-
-        void DealDamage()
-        {
-            if (GetHitUnit())
+            void JustDied(Unit* killer)
             {
-                if (InstanceScript* instance = GetHitUnit()->GetInstanceScript())
-                {
-                    if (Creature* durumu = GetHitUnit()->GetCreature(*GetHitUnit(), instance->GetGuidData(NPC_DURUMU)))
-                        if (Creature* drumueyetarget = GetHitUnit()->GetCreature(*GetHitUnit(), instance->GetGuidData(NPC_EYEBEAM_TARGET_DURUMU)))
-                            if (GetHitUnit()->IsInBetween(durumu, drumueyetarget, 6.0f))
-                                GetHitUnit()->Kill(GetHitUnit(), true);
-                }
+                SendDied();
             }
-        }
 
-        void Register()
-        {
-            OnHit += SpellHitFn(spell_disintegration_laser_dummy_SpellScript::DealDamage);
-        }
-    };
-
-    SpellScript* GetSpellScript() const
-    {
-        return new spell_disintegration_laser_dummy_SpellScript();
-    }
-};
-
-//136932
-class spell_force_of_will_dummy : public SpellScriptLoader
-{
-public:
-    spell_force_of_will_dummy() : SpellScriptLoader("spell_force_of_will_dummy") { }
-
-    class spell_force_of_will_dummy_AuraScript : public AuraScript
-    {
-        PrepareAuraScript(spell_force_of_will_dummy_AuraScript);
-
-        void HandleRemove(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
-        {
-            if (GetCaster() && GetTargetApplication()->GetRemoveMode() == AURA_REMOVE_BY_EXPIRE)
-                GetCaster()->CastSpell(GetCaster(), SPELL_FORCE_OF_WILL_KNOCK_B, true);
-        }
-
-        void Register()
-        {
-            OnEffectRemove += AuraEffectRemoveFn(spell_force_of_will_dummy_AuraScript::HandleRemove, EFFECT_1, SPELL_AURA_DUMMY, AURA_EFFECT_HANDLE_REAL);
-        }
-    };
-
-    AuraScript* GetAuraScript() const
-    {
-        return new spell_force_of_will_dummy_AuraScript();
-    }
-};
-
-class ForceofWillFilter
-{
-public:
-    ForceofWillFilter(WorldObject* caster) : _caster(caster){}
-
-    bool operator()(WorldObject* unit)
-    {
-        if (_caster->isInFront(unit, M_PI / 6))
-            return false;
-        return true;
-    }
-private:
-    WorldObject* _caster;
-};
-
-//136413
-class spell_force_of_will : public SpellScriptLoader
-{
-public:
-    spell_force_of_will() : SpellScriptLoader("spell_force_of_will") { }
-
-    class spell_force_of_will_SpellScript : public SpellScript
-    {
-        PrepareSpellScript(spell_force_of_will_SpellScript);
-
-        void FilterTargets(std::list<WorldObject*>& targets)
-        {
-            if (GetCaster())
-                targets.remove_if(ForceofWillFilter(GetCaster()));
-        }
-
-        void Register()
-        {
-            OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_force_of_will_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_CONE_ENEMY_104);
-        }
-    };
-
-    SpellScript* GetSpellScript() const
-    {
-        return new spell_force_of_will_SpellScript();
-    }
-};
-
-//133798
-class spell_durumu_life_drain : public SpellScriptLoader
-{
-public:
-    spell_durumu_life_drain() : SpellScriptLoader("spell_durumu_life_drain") { }
-
-    class spell_durumu_life_drain_SpellScript : public SpellScript
-    {
-        PrepareSpellScript(spell_durumu_life_drain_SpellScript);
-
-        void FilterTargets(std::list<WorldObject*>& targets)
-        {
-            if (GetCaster())
+            void UpdateAI(const uint32 diff)
             {
-                targets.clear();
-                ObjectGuid maintargetGuid;
-                std::list<Player*> pllist;
-                pllist.clear();
-                GetPlayerListInGrid(pllist, GetCaster(), 100.0f);
-
-                if (pllist.empty())
+                if (!UpdateVictim())
                     return;
 
-                for (std::list<Player*>::iterator itr = pllist.begin(); itr != pllist.end();)
+                events.Update(diff);
+
+                /*
+                if (uint32 eventId = events.ExecuteEvent())
                 {
-                    if ((*itr)->HasAura(SPELL_LIFE_DRAIN_STUN))
+                    switch (eventId)
                     {
-                        maintargetGuid = (*itr)->GetGUID();
-                        pllist.erase(itr);
+                    }
+                }
+                */
+            }
+
+        private:
+
+            bool isRevealed;
+
+        private:
+
+            void AddInvisibleAura()
+            {
+                switch (me->GetEntry())
+                {
+                    case NPC_CRIMSON_FOG:
+                        me->AddAura(SPELL_RED_FOG_INVISIBILITY, me);
                         break;
-                    }
-                    else
-                        ++itr;
+                    case NPC_AMBER_FOG:
+                        me->AddAura(SPELL_YELLOW_FOG_INVISIBILITY, me);
+                        break;
+                    case NPC_AZURE_FOG:
+                        me->AddAura(SPELL_BLUE_FOG_INVISIBILITY, me);
+                        break;
                 }
+            }
 
-                if (!maintargetGuid)
+            void RemoveInvisibleAura()
+            {
+                switch (me->GetEntry())
+                {
+                    case NPC_CRIMSON_FOG:
+                        me->RemoveAura(SPELL_RED_FOG_INVISIBILITY);
+                        break;
+                    case NPC_AMBER_FOG:
+                        me->RemoveAura(SPELL_YELLOW_FOG_INVISIBILITY);
+                        break;
+                    case NPC_AZURE_FOG:
+                        me->RemoveAura(SPELL_BLUE_FOG_INVISIBILITY);
+                        break;
+                }
+            }
+
+            void SendDied()
+            {
+                InstanceScript* pInstance = me->GetInstanceScript();
+                if (!pInstance)
                     return;
 
-                if (!pllist.empty()) //check if anybody stay between caster and target
+                Creature* pDurumu = pInstance->instance->GetCreature(pInstance->GetData64(DATA_DURUMU_THE_FORGOTTEN));
+                if (!pDurumu)
+                    return;
+
+                switch (me->GetEntry())
                 {
-                    if (Player* mtarget = GetCaster()->GetPlayer(*GetCaster(), maintargetGuid))
-                    {
-                        for (std::list<Player*>::iterator itr = pllist.begin(); itr != pllist.end();)
-                        {
-                            if (!(*itr)->IsInBetween(GetCaster(), mtarget, 3.0f))
-                                pllist.erase(itr++);
-                            else
-                                ++itr;
-                        }
-                    }
+                    case NPC_CRIMSON_FOG:
+                        pDurumu->AI()->DoAction(ACTION_CRIMSON_FOG_DIED);
+                        break;
+                    case NPC_AMBER_FOG:
+                        pDurumu->AI()->DoAction(ACTION_AMBER_FOG_DIED);
+                        break;
+                    case NPC_AZURE_FOG:
+                        pDurumu->AI()->DoAction(ACTION_AZURE_FOG_DIED);
+                        break;
                 }
+            }
 
-                if (pllist.size() > 1)
+        };
+};
+
+// Color Eyes - 67854/67855/67856
+class npc_durumu_the_forgotten_colored_eye : public CreatureScript
+{
+    public:
+        npc_durumu_the_forgotten_colored_eye() : CreatureScript("npc_durumu_the_forgotten_colored_eye") { }
+
+        CreatureAI* GetAI(Creature* p_Creature) const
+        {
+            return new npc_durumu_the_forgotten_colored_eyeAI(p_Creature);
+        }
+
+        struct npc_durumu_the_forgotten_colored_eyeAI : public Scripted_NoMovementAI
+        {
+            npc_durumu_the_forgotten_colored_eyeAI(Creature* p_Creature) : Scripted_NoMovementAI(p_Creature)
+            {
+                me->SetReactState(REACT_PASSIVE);
+                me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_IMMUNE_TO_PC);
+            
+                targetGuid = 0;
+                crimsonFogRevealed = false;
+            }
+
+            void Reset()
+            {
+            }
+
+            void IsSummonedBy(Unit* /*p_Summoner*/)
+            {
+                events.Reset();
+            }
+
+            void DoAction(const int32 action)
+            {
+                if (action == ACTION_SECOND_PHASE_BEGIN)
                 {
-                    ObjectGuid newtargetGuid;
-                    float range = 100; //max spell range
-
-                    for (std::list<Player*>::iterator itr = pllist.begin(); itr != pllist.end(); itr++)
-                        if (GetCaster()->GetExactDist2d((*itr)) < range)
-                            range = GetCaster()->GetExactDist2d((*itr));
-
-                    for (std::list<Player*>::iterator itr = pllist.begin(); itr != pllist.end(); itr++)
-                        if (GetCaster()->GetExactDist2d((*itr)) <= range)
-                            newtargetGuid = (*itr)->GetGUID();
-
-                    if (!newtargetGuid)
+                    Unit* target = me->GetUnit(*me, targetGuid);
+                    if (!target)
                         return;
 
-                    if (Player* target = GetCaster()->GetPlayer(*GetCaster(), newtargetGuid))
-                        targets.push_back(target);
-                }
-                else if (pllist.size() == 1)
-                {
-                    for (std::list<Player*>::iterator itr = pllist.begin(); itr != pllist.end(); itr++)
-                        targets.push_back(*itr);
-                }
-                else if (pllist.empty())
-                {
-                    if (Player* target = GetCaster()->GetPlayer(*GetCaster(), maintargetGuid))
-                        targets.push_back(target);
+                    switch (me->GetEntry())
+                    {
+                        case NPC_YELLOW_EYE:
+                            DoCast(target, SPELL_BRIGHT_LIGHT);
+                            break;
+                        case NPC_BLUE_EYE:
+                            DoCast(target, SPELL_BLUE_RAYS);
+                            break;
+                        case NPC_RED_EYE:
+                            DoCast(target, SPELL_INFRARED_LIGHT);
+                            break;
+                    }
+
+                    events.ScheduleEvent(EVENT_CHECK_ADD, 500);
                 }
             }
-        }
 
-        void DealDamage()
-        {
-            if (GetCaster() && GetHitUnit())
+            void SetGUID(uint64 guid, int32 id)
             {
-                uint32 dmg = GetHitDamage(); //default;
-                if (GetHitUnit()->HasAura(SPELL_LIFE_DRAIN_DMG))
-                {
-                    uint8 stack = GetHitUnit()->GetAura(SPELL_LIFE_DRAIN_DMG)->GetStackAmount();
-                    uint32 mod = GetHitDamage() * 0.6; //increase on 60% from stack
-                    uint32 moddmg = mod*stack;
-                    dmg = dmg + moddmg;
-                    SetHitDamage(dmg);
-                }
-                else
-                    SetHitDamage(dmg);
-
-                uint32 healcount = dmg * 0.25f; //25% from dmg
-                if (InstanceScript* instance = GetCaster()->GetInstanceScript())
-                    if (Creature* durumu = GetCaster()->GetCreature(*GetCaster(), instance->GetGuidData(NPC_DURUMU)))
-                        if (durumu->isAlive())
-                            GetCaster()->CastCustomSpell(SPELL_LIFE_DRAIN_HEAL, SPELLVALUE_BASE_POINT0, healcount, durumu, true);
+                targetGuid = guid;
             }
-        }
 
-        void Register()
-        {
-            OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_durumu_life_drain_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_SRC_AREA_ENEMY);
-            OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_durumu_life_drain_SpellScript::FilterTargets, EFFECT_1, TARGET_UNIT_SRC_AREA_ENEMY);
-            OnHit += SpellHitFn(spell_durumu_life_drain_SpellScript::DealDamage);
-        }
-    };
+            uint64 GetGUID(int32 id)
+            {
+                return targetGuid;
+            }
 
-    SpellScript* GetSpellScript() const
-    {
-        return new spell_durumu_life_drain_SpellScript();
-    }
+            void UpdateAI(const uint32 diff)
+            {
+                events.Update(diff);
+
+                if (uint32 eventId = events.ExecuteEvent())
+                {
+                    switch (eventId)
+                    {
+                        case EVENT_CHECK_ADD:
+
+                            switch (me->GetEntry())
+                            {
+                                //case NPC_YELLOW_EYE:
+                                    //DoCast(target, SPELL_BRIGHT_LIGHT);
+                                    //break;
+                                //case NPC_BLUE_EYE:
+                                    //DoCast(target, SPELL_BLUE_RAYS);
+                                    //break;
+                                case NPC_RED_EYE:
+                                {
+                                    std::list<Creature*> creatures;
+                                    me->GetCreatureListWithEntryInGrid(creatures, NPC_CRIMSON_FOG, 100.0f);
+                                    for (std::list<Creature*>::const_iterator itr = creatures.begin(); itr != creatures.end(); ++itr)
+                                    {
+                                        Creature* pCrimsonFog = (*itr);
+
+                                        if (me->isInFront(pCrimsonFog, M_PI / 7))
+                                        {
+                                            pCrimsonFog->AI()->DoAction(ACTION_ADD_REVEALED);
+                                        }
+                                        else
+                                        {
+                                            pCrimsonFog->AI()->DoAction(ACTION_ADD_HIDE);
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+
+                            events.ScheduleEvent(EVENT_CHECK_ADD, 500);
+
+                            break;
+                    }
+                }
+            }
+
+        private:
+
+            uint64 targetGuid;
+            bool crimsonFogRevealed;
+        };
 };
 
-//8897
-class at_durumu_entrance : public AreaTriggerScript
+class npc_durumu_the_forgotted_eyebeam_target : public CreatureScript
 {
-public:
-    at_durumu_entrance() : AreaTriggerScript("at_durumu_entrance") { }
+    public:
+        npc_durumu_the_forgotted_eyebeam_target() : CreatureScript("npc_durumu_the_forgotted_eyebeam_target") { }
 
-    bool OnTrigger(Player* player, AreaTriggerEntry const* areaTrigger, bool enter)
-    {
-        if (enter)
-            player->RemoveAurasDueToSpell(SPELL_JIKUN_FLY);
-        return true;
-    }
+        CreatureAI* GetAI(Creature* p_Creature) const
+        {
+            return new npc_durumu_the_forgotted_eyebeam_targetAI(p_Creature);
+        }
+
+        struct npc_durumu_the_forgotted_eyebeam_targetAI : public Scripted_NoMovementAI
+        {
+            npc_durumu_the_forgotted_eyebeam_targetAI(Creature* p_Creature) : Scripted_NoMovementAI(p_Creature)
+            {
+                me->SetReactState(REACT_PASSIVE);
+                me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_IMMUNE_TO_PC);
+            }
+
+            void DoAction(const int32 action)
+            {
+                if (action == ACTION_DISINTEGRATION_BEAM)
+                {
+                    //events.ScheduleEvent(EVENT_DISINTEGRATION_BEAM_2, 1000);
+                }
+            }
+
+            void UpdateAI(const uint32 diff)
+            {
+                /*events.Update(diff);
+
+                if (uint32 eventId = events.ExecuteEvent())
+                {
+                    if (eventId == EVENT_DISINTEGRATION_BEAM_2)
+                    {
+                        if (Creature* pDurumu = me->GetCreature(*me, me->GetOwnerGUID()))
+                        {
+                            pDurumu->SetOrientation(pDurumu->GetAngle(me));
+
+                            std::list<Player*> players;
+
+                            me->GetPlayerListInGrid(players, 50.0f);
+
+                            for (std::list<Player*>::iterator itr = players.begin(); itr != players.end(); ++itr)
+                            {
+                                if (pDurumu->HasInLine((*itr), 1.0f))
+                                {
+                                    (*itr)->MonsterSay("ok", LANG_UNIVERSAL, 0);
+                                }
+                            }                        
+                        }
+
+                        me->MonsterSay("check", LANG_UNIVERSAL, 0);
+
+                        events.ScheduleEvent(EVENT_DISINTEGRATION_BEAM_2, 1000);
+                    }
+
+                    
+                }*/
+            }
+
+        private:
+
+        };
+};
+
+// Arterial Cut (aura) - 133768
+class spell_durumu_the_forgotten_arterial_cut: public SpellScriptLoader
+{
+    public:
+        spell_durumu_the_forgotten_arterial_cut() : SpellScriptLoader("spell_durumu_the_forgotten_arterial_cut") { }
+
+        class spell_durumu_the_forgotten_arterial_cut_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_durumu_the_forgotten_arterial_cut_AuraScript);
+
+            void OnTick(AuraEffect const* /*aurEff*/)
+            {
+                if (!GetUnitOwner())
+                    return;
+
+                if (GetUnitOwner()->GetHealth() == GetUnitOwner()->GetMaxHealth())
+                {
+                    Remove();
+                }
+            }
+
+            void Register()
+            {
+                OnEffectPeriodic += AuraEffectPeriodicFn(spell_durumu_the_forgotten_arterial_cut_AuraScript::OnTick, EFFECT_0, SPELL_AURA_PERIODIC_DAMAGE);
+            }
+        };
+
+        AuraScript* GetAuraScript() const
+        {
+            return new spell_durumu_the_forgotten_arterial_cut_AuraScript();
+        }
+};
+
+// Lingering Gaze - 138467
+class spell_durumu_the_forgotten_lingering_gaze: public SpellScriptLoader
+{
+    public:
+        spell_durumu_the_forgotten_lingering_gaze() : SpellScriptLoader("spell_durumu_the_forgotten_lingering_gaze") { }
+
+        class spell_durumu_the_forgotten_lingering_gaze_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_durumu_the_forgotten_lingering_gaze_SpellScript);
+
+            void HandleOnCast()
+            {
+                if (!GetCaster())
+                    return;
+
+                if (Creature* pDurumu = GetCaster()->ToCreature())
+                {
+                    uint8 targetsCount = pDurumu->GetMap()->Is25ManRaid() ? 5 : 2;
+
+                    std::list<Unit*> targets;
+                    pDurumu->AI()->SelectTargetList(targets, 25, SELECT_TARGET_RANDOM, 0.0f, true);
+                    if (targets.size() > targetsCount)
+                    {
+                        targets.remove(pDurumu->getVictim());
+                    }
+
+                    JadeCore::RandomResizeList(targets, targetsCount);
+
+                    for (std::list<Unit*>::const_iterator itr = targets.begin(); itr != targets.end(); ++itr)
+                    {
+                        pDurumu->CastSpell((*itr), SPELL_LINGERING_GAZE_TARGET, true);
+                        pDurumu->CastSpell((*itr), SPELL_LINGERING_GAZE_MISSILE, true);
+                    }
+
+                }
+            }
+
+            void Register()
+            {
+                AfterCast += SpellCastFn(spell_durumu_the_forgotten_lingering_gaze_SpellScript::HandleOnCast);
+            }
+        };
+
+        SpellScript* GetSpellScript() const
+        {
+            return new spell_durumu_the_forgotten_lingering_gaze_SpellScript();
+        }
+};
+
+class spell_durumu_the_forgotten_life_drain_dmg: public SpellScriptLoader
+{
+    public:
+        spell_durumu_the_forgotten_life_drain_dmg() : SpellScriptLoader("spell_durumu_the_forgotten_life_drain_dmg") { }
+
+        class spell_durumu_the_forgotten_life_drain_dmg_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_durumu_the_forgotten_life_drain_dmg_SpellScript);
+
+            void FilterTargets(std::list<WorldObject*>& targets)
+            {
+                if (!GetCaster())
+                    return;
+
+                Creature* pEye = GetCaster()->ToCreature();
+                if (!pEye)
+                    return;
+
+                Unit* target = pEye->GetUnit(*pEye, pEye->AI()->GetGUID());
+                if (!target)
+                    return;
+
+                WorldObject* objTarget = NULL;
+                for (std::list<WorldObject*>::const_iterator itr = targets.begin(); itr != targets.end(); ++itr)
+                    if ((*itr)->IsInBetween(GetCaster(), target, 4.0f))
+                        if (!objTarget || (GetCaster()->GetDistance(objTarget) > GetCaster()->GetDistance((*itr))))
+                            objTarget = (*itr);
+
+                if (!objTarget)
+                    objTarget = target;
+
+                targets.clear();
+                targets.push_back(objTarget);
+            }
+
+            void HandleOnHit(SpellEffIndex effIndex)
+            {
+                if (!GetCaster() || !GetHitUnit())
+                    return;
+
+                float multiplier = 1.f;
+                Aura const* aur = GetHitUnit()->GetAura(SPELL_LIFE_DRAIN_DMG);
+                if (aur)
+                {
+                    multiplier = 1 + (float)aur->GetStackAmount() * 60.0f / 100.0f;
+                }
+
+                int32 damage = GetHitDamage() * multiplier;
+
+                GetCaster()->CastCustomSpell(GetCaster(), SPELL_LIFE_DRAIN_HEAL, &damage, NULL, NULL, NULL, NULL, NULL, true);
+            }
+
+            void Register()
+            {
+                OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_durumu_the_forgotten_life_drain_dmg_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_SRC_AREA_ENEMY);
+                OnEffectHitTarget += SpellEffectFn(spell_durumu_the_forgotten_life_drain_dmg_SpellScript::HandleOnHit, EFFECT_0, SPELL_EFFECT_SCHOOL_DAMAGE);
+            }
+        };
+
+        SpellScript* GetSpellScript() const
+        {
+            return new spell_durumu_the_forgotten_life_drain_dmg_SpellScript();
+        }
+};
+
+class spell_durumu_the_forgotten_force_of_will_dmg: public SpellScriptLoader
+{
+    public:
+        spell_durumu_the_forgotten_force_of_will_dmg() : SpellScriptLoader("spell_durumu_the_forgotten_force_of_will_dmg") { }
+
+        class spell_durumu_the_forgotten_force_of_will_dmg_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_durumu_the_forgotten_force_of_will_dmg_SpellScript);
+
+            void FilterTargets(std::list<WorldObject*>& targets)
+            {
+                if (!GetCaster())
+                    return;
+
+                if (Creature* pEye = GetCaster()->ToCreature())
+                {
+                    GetCaster()->SetOrientation(pEye->AI()->GetFloatData(0));
+
+                    for (std::list<WorldObject*>::iterator itr = targets.begin(); itr != targets.end();)
+                    {
+                        if (!GetCaster()->isInFront((*itr), M_PI / 8))
+                        {
+                            itr = targets.erase(itr);
+                        }
+                        else
+                        {
+                            ++itr;
+                        }
+                    }
+                }
+            }
+
+            void Register()
+            {
+                OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_durumu_the_forgotten_force_of_will_dmg_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_CONE_ENEMY_104);
+            }
+        };
+
+        SpellScript* GetSpellScript() const
+        {
+            return new spell_durumu_the_forgotten_force_of_will_dmg_SpellScript();
+        }
+};
+
+class spell_durumu_the_forgotten_bright_light_dmg: public SpellScriptLoader
+{
+    public:
+        spell_durumu_the_forgotten_bright_light_dmg() : SpellScriptLoader("spell_durumu_the_forgotten_bright_light_dmg") { }
+
+        class spell_durumu_the_forgotten_bright_light_dmg_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_durumu_the_forgotten_bright_light_dmg_SpellScript);
+
+            void FilterTargets(std::list<WorldObject*>& targets)
+            {
+                targets.clear();
+
+                if (!GetCaster())
+                    return;
+
+                Creature* pEye = GetCaster()->ToCreature();
+                if (!pEye)
+                    return;
+
+                Unit* target = pEye->GetUnit(*pEye, pEye->AI()->GetGUID());
+                if (!target)
+                    return;
+
+                pEye->SetOrientation(pEye->GetAngle(target));
+
+                std::list<Player*> players;
+                pEye->GetPlayerListInGrid(players, 100.0f);
+
+                for (std::list<Player*>::iterator itr = players.begin(); itr != players.end(); ++itr)
+                {
+                    if (GetCaster()->isInFront((*itr), M_PI / 7))
+                    {
+                        targets.push_back((*itr));
+                    }
+                }
+            }
+
+            void Register()
+            {
+                OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_durumu_the_forgotten_bright_light_dmg_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_CONE_ENEMY_110);
+            }
+        };
+
+        SpellScript* GetSpellScript() const
+        {
+            return new spell_durumu_the_forgotten_bright_light_dmg_SpellScript();
+        }
+};
+
+class spell_durumu_the_forgotten_infrared_light_dmg: public SpellScriptLoader
+{
+    public:
+        spell_durumu_the_forgotten_infrared_light_dmg() : SpellScriptLoader("spell_durumu_the_forgotten_infrared_light_dmg") { }
+
+        class spell_durumu_the_forgotten_infrared_light_dmg_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_durumu_the_forgotten_infrared_light_dmg_SpellScript);
+
+            void FilterTargets(std::list<WorldObject*>& targets)
+            {
+                targets.clear();
+
+                if (!GetCaster())
+                    return;
+
+                Creature* pEye = GetCaster()->ToCreature();
+                if (!pEye)
+                    return;
+
+                Unit* target = pEye->GetUnit(*pEye, pEye->AI()->GetGUID());
+                if (!target)
+                    return;
+
+                pEye->SetOrientation(pEye->GetAngle(target));
+
+                std::list<Player*> players;
+                pEye->GetPlayerListInGrid(players, 100.0f);
+
+                for (std::list<Player*>::iterator itr = players.begin(); itr != players.end(); ++itr)
+                {
+                    if (GetCaster()->isInFront((*itr), M_PI / 7))
+                    {
+                        targets.push_back((*itr));
+                    }
+                }
+            }
+
+            void Register()
+            {
+                OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_durumu_the_forgotten_infrared_light_dmg_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_CONE_ENEMY_110);
+            }
+        };
+
+        SpellScript* GetSpellScript() const
+        {
+            return new spell_durumu_the_forgotten_infrared_light_dmg_SpellScript();
+        }
+};
+
+class spell_durumu_the_forgotten_blue_rays_dmg: public SpellScriptLoader
+{
+    public:
+        spell_durumu_the_forgotten_blue_rays_dmg() : SpellScriptLoader("spell_durumu_the_forgotten_blue_rays_dmg") { }
+
+        class spell_durumu_the_forgotten_blue_rays_dmg_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_durumu_the_forgotten_blue_rays_dmg_SpellScript);
+
+            void FilterTargets(std::list<WorldObject*>& targets)
+            {
+                targets.clear();
+
+                if (!GetCaster())
+                    return;
+
+                Creature* pEye = GetCaster()->ToCreature();
+                if (!pEye)
+                    return;
+
+                Unit* target = pEye->GetUnit(*pEye, pEye->AI()->GetGUID());
+                if (!target)
+                    return;
+
+                pEye->SetOrientation(pEye->GetAngle(target));
+
+                std::list<Player*> players;
+                pEye->GetPlayerListInGrid(players, 100.0f);
+
+                for (std::list<Player*>::iterator itr = players.begin(); itr != players.end(); ++itr)
+                {
+                    if (GetCaster()->isInFront((*itr), M_PI / 7))
+                    {
+                        targets.push_back((*itr));
+                    }
+                }
+            }
+
+            void Register()
+            {
+                OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_durumu_the_forgotten_blue_rays_dmg_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_CONE_ENEMY_110);
+            }
+        };
+
+        SpellScript* GetSpellScript() const
+        {
+            return new spell_durumu_the_forgotten_blue_rays_dmg_SpellScript();
+        }
+};
+
+class spell_area_durumu_the_forgotten_lingering_gaze : public SpellAreaTriggerScript
+{
+    public:
+        spell_area_durumu_the_forgotten_lingering_gaze() : SpellAreaTriggerScript("spell_area_durumu_the_forgotten_lingering_gaze") {}
+
+        bool OnAddTarget(AreaTrigger* trigger, Unit* target)
+        {
+            if (!trigger->GetCaster())
+                return false;
+
+            trigger->GetCaster()->AddAura(SPELL_LINGERING_GAZE_AURA, target);
+
+            return true;
+        }
+
+        bool OnRemoveTarget(AreaTrigger* trigger, Unit* target)
+        {
+            target->RemoveAura(SPELL_LINGERING_GAZE_AURA);
+
+            return true;
+        }
 };
 
 void AddSC_boss_durumu()
 {
-    new boss_durumu();
-    new npc_appraising_eye();
-    new npc_mind_eye();
-    new npc_hungry_eye();
-    new npc_colorblind_eye();
-    new npc_colorblind_eye_beam_target();
-    new npc_durumu_fog();
-    new npc_durumu_eyebeam_target();
-    new npc_cross_eye();
-    new spell_arterial_cut();
-    new spell_lingering_gaze();
-    new spell_durumu_color_beam();
-    new spell_durumu_color_cone();
-    new spell_durumu_color_cone_dmg();
-    new spell_durumu_color_creature_aura();
-    new spell_caustic_spike();
-    new spell_icy_grasp_aura();
-    new spell_icy_grasp_dmg();
-    new spell_mind_daggers_dmg();
-    new spell_disintegration_laser_prepare();
-    new spell_disintegration_laser_dummy();
-    new spell_force_of_will_dummy();
-    new spell_force_of_will();
-    new spell_durumu_life_drain();
-    new at_durumu_entrance();
+    new boss_durumu_the_forgotten();                        // 68036
+    new npc_durumu_the_forgotten_hungry_eye();
+    new npc_durumu_the_forgotten_minds_eye();
+    new npc_durumu_the_forgotten_colored_eye();
+    new npc_durumu_the_forgotted_add();                     // 69050 69051 69052
+    new npc_durumu_the_forgotted_eyebeam_target();          // 67882
+
+    new spell_durumu_the_forgotten_arterial_cut();
+    new spell_durumu_the_forgotten_lingering_gaze();
+    new spell_durumu_the_forgotten_life_drain_dmg();
+    new spell_durumu_the_forgotten_force_of_will_dmg();     // 136413
+    new spell_durumu_the_forgotten_bright_light_dmg();      // 133738
+    new spell_durumu_the_forgotten_infrared_light_dmg();    // 133732
+    new spell_durumu_the_forgotten_blue_rays_dmg();         // 133677
+
+    new spell_area_durumu_the_forgotten_lingering_gaze();
 }

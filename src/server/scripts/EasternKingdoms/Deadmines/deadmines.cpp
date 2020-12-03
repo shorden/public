@@ -1,87 +1,30 @@
-#include "ScriptedGossip.h"
+/*
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include "ScriptMgr.h"
-#include "InstanceScript.h"
+#include "ScriptedCreature.h"
 #include "deadmines.h"
 #include "Spell.h"
-
-#define GOSSIP_SENDER_DEADMINES_PORT 36
-
-Position deadmines_locs[] = {
-    { -64.1528f, -385.99f, 53.192f, 1.85005f },
-    { -305.321f, -491.292f, 49.232f, 0.488691f },
-    { -201.096f, -606.05f, 19.3022f, 2.74016f },
-    { -129.915f, -788.898f, 17.3409f, 0.366518f },
-};
-
-enum Adds
-{
-    // quest
-    NPC_EDWIN_CANCLEEF_1    = 42697, 
-    NPC_ALLIANCE_ROGUE      = 42700,
-    NPC_VANESSA_VANCLEEF_1  = 42371, // little
-};
-
-class go_defias_cannon : public GameObjectScript
-{
-    public:
-        go_defias_cannon() : GameObjectScript("go_defias_cannon") { }
-
-        bool OnGossipHello(Player* pPlayer, GameObject* pGo)
-        {
-            InstanceScript* instance = pGo->GetInstanceScript();
-            if (!instance)
-                return false;
-            //if (instance->GetData(DATA_CANNON_EVENT) != CANNON_NOT_USED)
-                //return false ;
-
-            instance->SetData(DATA_CANNON_EVENT, CANNON_BLAST_INITIATED);
-            return false;
-        }
-};
-
-class deadmines_teleport : public GameObjectScript
-{
-    public:
-        deadmines_teleport() : GameObjectScript("deadmines_teleport") { }
-
-        bool OnGossipHello(Player* player, GameObject* go)
-        {
-            bool ru = player->GetSession()->GetSessionDbLocaleIndex() == LOCALE_ruRU;
-
-            if (InstanceScript* instance = go->GetInstanceScript())
-            {
-                if (instance->GetBossState(DATA_GLUBTOK) == DONE)
-                    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, ru ? "Teleport to entrance." : "Teleport to entrance.", GOSSIP_SENDER_DEADMINES_PORT, 0);
-
-                if (instance->GetBossState(DATA_ADMIRAL) == DONE)
-                    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, ru ? "Teleport to Ironclad Cove." : "Teleport to Ironclad Cove.", GOSSIP_SENDER_DEADMINES_PORT, 3);
-                else if (instance->GetBossState(DATA_FOEREAPER) == DONE)
-                    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, ru ? "Teleport to The Foundry." : "Teleport to The Foundry.", GOSSIP_SENDER_DEADMINES_PORT, 2);
-                else if (instance->GetBossState(DATA_HELIX) == DONE)
-                    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, ru ? "Teleport to The Mast Room." : "Teleport to The Mast Room.", GOSSIP_SENDER_DEADMINES_PORT, 1);
-            }
-
-            player->SEND_GOSSIP_MENU(player->GetGossipTextId(go), go->GetGUID());
-            return true;
-        }
-
-        bool OnGossipSelect(Player* player, GameObject* /*go*/, uint32 sender, uint32 action)
-        {
-            player->PlayerTalkClass->ClearMenus();
-            player->CLOSE_GOSSIP_MENU();
-
-            if (action >= 4)
-                return false;
-
-            Position loc = deadmines_locs[action];
-            if (!player->isInCombat())
-                player->NearTeleportTo(loc.GetPositionX(), loc.GetPositionY(), loc.GetPositionZ(), loc.GetOrientation(), false);
-            return true;
-        }
-};
+#include "Player.h"
+#include "WorldSession.h"
 
 void AddSC_deadmines()
 {
-    new go_defias_cannon();
-    new deadmines_teleport();
 }

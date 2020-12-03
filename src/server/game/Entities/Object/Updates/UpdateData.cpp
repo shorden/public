@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -20,19 +21,19 @@
 #include "ByteBuffer.h"
 #include "WorldPacket.h"
 #include "UpdateData.h"
+#include "Log.h"
 #include "Opcodes.h"
 #include "World.h"
+#include "zlib.h"
 
-UpdateData::UpdateData(uint16 map) : m_map(map), m_blockCount(0)
-{
-}
+UpdateData::UpdateData(uint16 map) : m_map(map), m_blockCount(0) { }
 
-void UpdateData::AddOutOfRangeGUID(GuidSet& guids)
+void UpdateData::AddOutOfRangeGUID(std::set<uint64>& guids)
 {
     m_outOfRangeGUIDs.insert(guids.begin(), guids.end());
 }
 
-void UpdateData::AddOutOfRangeGUID(ObjectGuid guid)
+void UpdateData::AddOutOfRangeGUID(uint64 guid)
 {
     m_outOfRangeGUIDs.insert(guid);
 }
@@ -48,29 +49,20 @@ bool UpdateData::BuildPacket(WorldPacket* packet)
     ASSERT(packet->empty());                                // shouldn't happen
     packet->Initialize(SMSG_UPDATE_OBJECT, 2 + 4 + (m_outOfRangeGUIDs.empty() ? 0 : 1 + 4 + 9 * m_outOfRangeGUIDs.size()) + m_data.wpos());
 
-    if (!HasData())
-        return false;
-
-    *packet << uint32(m_blockCount);
     *packet << uint16(m_map);
+    *packet << uint32(m_blockCount + (m_outOfRangeGUIDs.empty() ? 0 : 1));
 
-    if (packet->WriteBit(!m_outOfRangeGUIDs.empty()))
+    if (!m_outOfRangeGUIDs.empty())
     {
-        *packet << uint16(m_outOfRangeGUIDs.size());
+        *packet << uint8(UPDATETYPE_OUT_OF_RANGE_OBJECTS);
         *packet << uint32(m_outOfRangeGUIDs.size());
 
-        for (auto const& guid : m_outOfRangeGUIDs)
-            *packet << guid;
+        for (std::set<uint64>::const_iterator i = m_outOfRangeGUIDs.begin(); i != m_outOfRangeGUIDs.end(); ++i)
+            packet->appendPackGUID(*i);
     }
 
-    *packet << uint32(m_data.size());
     packet->append(m_data);
     return true;
-}
-
-bool UpdateData::HasData() const
-{
-    return m_blockCount > 0 || !m_outOfRangeGUIDs.empty();
 }
 
 void UpdateData::Clear()
@@ -80,9 +72,3 @@ void UpdateData::Clear()
     m_blockCount = 0;
     m_map = 0;
 }
-
-GuidSet const& UpdateData::GetOutOfRangeGUIDs() const
-{
-    return m_outOfRangeGUIDs;
-}
-

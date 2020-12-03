@@ -1,10 +1,12 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -16,7 +18,10 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "ScriptMgr.h"
+#include "InstanceScript.h"
 #include "nexus.h"
+#include "Player.h"
 
 #define NUMBER_OF_ENCOUNTERS      4
 
@@ -30,42 +35,45 @@ class instance_nexus : public InstanceMapScript
 public:
     instance_nexus() : InstanceMapScript("instance_nexus", 576) { }
 
-    InstanceScript* GetInstanceScript(InstanceMap* map) const override
+    InstanceScript* GetInstanceScript(InstanceMap* map) const OVERRIDE
     {
         return new instance_nexus_InstanceMapScript(map);
     }
 
     struct instance_nexus_InstanceMapScript : public InstanceScript
     {
-        instance_nexus_InstanceMapScript(Map* map) : InstanceScript(map) {}
+        instance_nexus_InstanceMapScript(Map* map) : InstanceScript(map) { }
 
         uint32 m_auiEncounter[NUMBER_OF_ENCOUNTERS];
 
-        ObjectGuid Anomalus;
-        ObjectGuid Keristrasza;
+        uint64 Anomalus;
+        uint64 Keristrasza;
 
-        ObjectGuid AnomalusContainmentSphere;
-        ObjectGuid OrmoroksContainmentSphere;
-        ObjectGuid TelestrasContainmentSphere;
+        uint64 AnomalusContainmentSphere;
+        uint64 OrmoroksContainmentSphere;
+        uint64 TelestrasContainmentSphere;
 
         std::string strInstData;
 
-        void Initialize() override
+        void Initialize() OVERRIDE
         {
             memset(&m_auiEncounter, 0, sizeof(m_auiEncounter));
 
-            Anomalus.Clear();
-            Keristrasza.Clear();
+            Anomalus = 0;
+            Keristrasza = 0;
+            AnomalusContainmentSphere = 0;
+            OrmoroksContainmentSphere = 0;
+            TelestrasContainmentSphere = 0;
         }
 
-        void OnCreatureCreate(Creature* creature) override
+        void OnCreatureCreate(Creature* creature) OVERRIDE
         {
             Map::PlayerList const &players = instance->GetPlayers();
             uint32 TeamInInstance = 0;
 
             if (!players.isEmpty())
             {
-                if (Player* player = players.begin()->getSource())
+                if (Player* player = players.begin()->GetSource())
                     TeamInInstance = player->GetTeam();
             }
             switch (creature->GetEntry())
@@ -120,7 +128,7 @@ public:
             }
         }
 
-        void OnGameObjectCreate(GameObject* go) override
+        void OnGameObjectCreate(GameObject* go) OVERRIDE
         {
             switch (go->GetEntry())
             {
@@ -148,7 +156,7 @@ public:
             }
         }
 
-        uint32 GetData(uint32 identifier) const override
+        uint32 GetData(uint32 identifier) const OVERRIDE
         {
             switch (identifier)
             {
@@ -160,7 +168,7 @@ public:
             return 0;
         }
 
-        void SetData(uint32 identifier, uint32 data) override
+        void SetData(uint32 identifier, uint32 data) OVERRIDE
         {
             switch (identifier)
             {
@@ -215,7 +223,7 @@ public:
             }
         }
 
-        ObjectGuid GetGuidData(uint32 uiIdentifier) const override
+        uint64 GetData64(uint32 uiIdentifier) const OVERRIDE
         {
             switch (uiIdentifier)
             {
@@ -225,15 +233,15 @@ public:
                 case ORMOROKS_CONTAINMET_SPHERE:    return OrmoroksContainmentSphere;
                 case TELESTRAS_CONTAINMET_SPHERE:   return TelestrasContainmentSphere;
             }
-            return ObjectGuid::Empty;
+            return 0;
         }
 
-        std::string GetSaveData() override
+        std::string GetSaveData() OVERRIDE
         {
             return strInstData;
         }
 
-        void Load(const char *chrIn) override
+        void Load(const char *chrIn) OVERRIDE
         {
             if (!chrIn)
             {
@@ -253,7 +261,6 @@ public:
             OUT_LOAD_INST_DATA_COMPLETE;
         }
     };
-
 };
 
 void AddSC_instance_nexus()

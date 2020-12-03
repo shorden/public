@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -18,6 +19,7 @@
 
 #include "PassiveAI.h"
 #include "Creature.h"
+#include "TemporarySummon.h"
 
 PassiveAI::PassiveAI(Creature* c) : CreatureAI(c) { me->SetReactState(REACT_PASSIVE); }
 PossessedAI::PossessedAI(Creature* c) : CreatureAI(c) { me->SetReactState(REACT_PASSIVE); }
@@ -25,7 +27,7 @@ NullCreatureAI::NullCreatureAI(Creature* c) : CreatureAI(c) { me->SetReactState(
 
 void PassiveAI::UpdateAI(uint32)
 {
-    if (me->isInCombat() && me->getAttackers()->empty())
+    if (me->IsInCombat() && me->getAttackers().empty())
         EnterEvadeMode();
 }
 
@@ -36,9 +38,9 @@ void PossessedAI::AttackStart(Unit* target)
 
 void PossessedAI::UpdateAI(uint32 /*diff*/)
 {
-    if (me->getVictim())
+    if (me->GetVictim())
     {
-        if (!me->IsValidAttackTarget(me->getVictim()))
+        if (!me->IsValidAttackTarget(me->GetVictim()))
             me->AttackStop();
         else
             DoMeleeAttackIfReady();
@@ -54,30 +56,11 @@ void PossessedAI::JustDied(Unit* /*u*/)
 void PossessedAI::KilledUnit(Unit* victim)
 {
     // We killed a creature, disable victim's loot
-    if (victim->IsCreature())
+    if (victim->GetTypeId() == TypeID::TYPEID_UNIT)
         victim->RemoveFlag(OBJECT_FIELD_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
 }
 
-void CritterAI::InitializeAI()
-{
-    if (me->HasFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_FEIGN_DEATH))
-        return;
-
-    me->AddDelayedEvent(2000, [this]
-    {
-        auto movementType = me->GetDefaultMovementType();
-        if (movementType < MAX_DB_MOTION_TYPE && movementType != WAYPOINT_MOTION_TYPE)
-            me->GetMotionMaster()->MoveRandom(urand(30, 50));
-    });
-}
-
-void CritterAI::EnterCombat(Unit * who)
-{
-    if (!me->HasUnitState(UNIT_STATE_FLEEING))
-        me->GetMotionMaster()->MoveFleeing(who);
-}
-
-void CritterAI::DamageTaken(Unit* /*done_by*/, uint32&, DamageEffectType /*dmgType*/)
+void CritterAI::DamageTaken(Unit* /*done_by*/, uint32&)
 {
     if (!me->HasUnitState(UNIT_STATE_FLEEING))
         me->SetControlled(true, UNIT_STATE_FLEEING);
@@ -90,13 +73,8 @@ void CritterAI::EnterEvadeMode()
     CreatureAI::EnterEvadeMode();
 }
 
-void CritterAI::AttackedBy(Unit * who)
-{
-    EnterCombat(who);
-}
-
 void TriggerAI::IsSummonedBy(Unit* summoner)
 {
-    if (me->m_templateSpells[0])
-        me->CastSpell(me, me->m_templateSpells[0], false, nullptr, nullptr, summoner->GetGUID());
+    if (me->m_spells[0])
+        me->CastSpell(me, me->m_spells[0], false, 0, 0, summoner->GetGUID());
 }

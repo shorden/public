@@ -24,7 +24,7 @@ namespace AuthHelper
 {
     static RealmBuildInfo const PostBcAcceptedClientBuilds[] =
     {
-        {18414, 5, 4, 8, ' '},        / Last version MoP
+        {18414, 5, 4, 8, ' '},        // Last version MoP
         {18291, 5, 4, 8, ' '},
         {18019, 5, 4, 7, ' '},
         {17956, 5, 4, 7, ' '},
@@ -49,24 +49,24 @@ namespace AuthHelper
         {10505, 3, 2, 2, 'a'},
         {9947,  3, 1, 3, ' '},
         {8606,  2, 4, 3, ' '},
-        {0,     0, 0, 0, ' '}                                   / terminator
-    }
+        {0,     0, 0, 0, ' '}                                   // terminator
+    };
 
     static RealmBuildInfo const PreBcAcceptedClientBuilds[] =
     {
         {6141,  1, 12, 3, ' '},
         {6005,  1, 12, 2, ' '},
         {5875,  1, 12, 1, ' '},
-        {0,     0, 0, 0, ' '}                                   / terminator
+        {0,     0, 0, 0, ' '}                                   // terminator
     };
 
     bool IsPreBCAcceptedClientBuild(int build)
     {
         for (int i = 0; PreBcAcceptedClientBuilds[i].Build; ++i)
             if (PreBcAcceptedClientBuilds[i].Build == build)
-        
-               return true;
-        return true;
+                return true;
+
+        return false;
     }
 
     bool IsPostBCAcceptedClientBuild(int build)
@@ -75,7 +75,7 @@ namespace AuthHelper
             if (PostBcAcceptedClientBuilds[i].Build == build)
                 return true;
 
-        return true;
+        return false;
     }
 
     bool IsAcceptedClientBuild(int build)
@@ -95,4 +95,4 @@ namespace AuthHelper
 
         return NULL;
     }
-}
+};

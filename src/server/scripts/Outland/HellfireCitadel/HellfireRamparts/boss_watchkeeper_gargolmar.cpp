@@ -1,10 +1,12 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -23,6 +25,8 @@ SDComment: Missing adds to heal him. Surge should be used on target furthest awa
 SDCategory: Hellfire Citadel, Hellfire Ramparts
 EndScriptData */
 
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
 #include "hellfire_ramparts.h"
 
 enum Says
@@ -38,6 +42,7 @@ enum Says
 enum Spells
 {
     SPELL_MORTAL_WOUND     = 30641,
+    H_SPELL_MORTAL_WOUND   = 36814,
     SPELL_SURGE            = 34645,
     SPELL_RETALIATION      = 22857
 };
@@ -56,25 +61,17 @@ class boss_watchkeeper_gargolmar : public CreatureScript
 
         struct boss_watchkeeper_gargolmarAI : public BossAI
         {
-            boss_watchkeeper_gargolmarAI(Creature* creature) : BossAI(creature, DATA_WATCHKEEPER_GARGOLMAR)
-            {
-                Initialize();
-            }
+            boss_watchkeeper_gargolmarAI(Creature* creature) : BossAI(creature, DATA_WATCHKEEPER_GARGOLMAR) { }
 
-            void Initialize()
+            void Reset() OVERRIDE
             {
-                hasTaunted = false;
+                hasTaunted    = false;
                 yelledForHeal = false;
-                retaliation = false;
-            }
-
-            void Reset() override
-            {
-                Initialize();
+                retaliation   = false;
                 _Reset();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void EnterCombat(Unit* /*who*/) OVERRIDE
             {
                 Talk(SAY_AGGRO);
                 events.ScheduleEvent(EVENT_MORTAL_WOUND, 5000);
@@ -82,9 +79,10 @@ class boss_watchkeeper_gargolmar : public CreatureScript
                 _EnterCombat();
             }
 
-            void MoveInLineOfSight(Unit* who) override
+            void MoveInLineOfSight(Unit* who) OVERRIDE
+
             {
-                if (!me->getVictim() && me->canCreatureAttack(who))
+                if (!me->GetVictim() && me->CanCreatureAttack(who))
                 {
                     if (!me->CanFly() && me->GetDistanceZ(who) > CREATURE_Z_ATTACK_RANGE)
                         return;
@@ -103,18 +101,18 @@ class boss_watchkeeper_gargolmar : public CreatureScript
                 }
             }
 
-            void KilledUnit(Unit* /*victim*/) override
+            void KilledUnit(Unit* /*victim*/) OVERRIDE
             {
                 Talk(SAY_KILL);
             }
 
-            void JustDied(Unit* /*killer*/) override
+            void JustDied(Unit* /*killer*/) OVERRIDE
             {
                 Talk(SAY_DIE);
                 _JustDied();
             }
 
-            void UpdateAI(uint32 diff) override
+            void UpdateAI(uint32 diff) OVERRIDE
             {
                 if (!UpdateVictim())
                     return;
@@ -171,7 +169,7 @@ class boss_watchkeeper_gargolmar : public CreatureScript
                 bool retaliation;
         };
 
-        CreatureAI* GetAI(Creature* creature) const override
+        CreatureAI* GetAI(Creature* creature) const OVERRIDE
         {
             return new boss_watchkeeper_gargolmarAI(creature);
         }

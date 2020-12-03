@@ -1,9 +1,12 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -52,141 +55,140 @@ enum DrakosEvents
 
 class boss_drakos : public CreatureScript
 {
-    public:
-        boss_drakos() : CreatureScript("boss_drakos") { }
+public:
+    boss_drakos() : CreatureScript("boss_drakos") { }
 
-        struct boss_drakosAI : public BossAI
+    CreatureAI* GetAI(Creature* creature) const OVERRIDE
+    {
+        return new boss_drakosAI(creature);
+    }
+
+    struct boss_drakosAI : public BossAI
+    {
+        boss_drakosAI(Creature* creature) : BossAI(creature, DATA_DRAKOS_EVENT) { }
+
+        void Reset() OVERRIDE
         {
-            boss_drakosAI(Creature* creature) : BossAI(creature, DATA_DRAKOS) { }
+            _Reset();
 
-            void Reset() override
-            {
-                _Reset();
+            events.ScheduleEvent(EVENT_MAGIC_PULL, 15000);
+            events.ScheduleEvent(EVENT_STOMP, 17000);
+            events.ScheduleEvent(EVENT_BOMB_SUMMON, 2000);
 
-                events.ScheduleEvent(EVENT_MAGIC_PULL, 15000);
-                events.ScheduleEvent(EVENT_STOMP, 17000);
-                events.ScheduleEvent(EVENT_BOMB_SUMMON, 2000);
-
-                postPull = false;
-            }
-
-            void EnterCombat(Unit* /*who*/) override
-            {
-                _EnterCombat();
-                Talk(SAY_AGGRO);
-            }
-
-            void UpdateAI(uint32 diff) override
-            {
-                if (!UpdateVictim())
-                    return;
-
-                events.Update(diff);
-
-                if (me->HasUnitState(UNIT_STATE_CASTING))
-                    return;
-
-                while (uint32 eventId = events.ExecuteEvent())
-                {
-                    switch (eventId)
-                    {
-                        case EVENT_BOMB_SUMMON:
-                            {
-                                Position position;
-                                me->GetPosition(&position);
-
-                                for (uint8 i = 0; i <= (postPull ? 3 : 0); i++)
-                                {
-                                    me->GetRandomNearPosition(position, frand(0.0f, 10.0f));
-                                    me->SummonCreature(NPC_UNSTABLE_SPHERE, position);
-                                }
-                            }
-                            events.ScheduleEvent(EVENT_BOMB_SUMMON, 2000);
-                            break;
-                        case EVENT_MAGIC_PULL:
-                            DoCast(SPELL_MAGIC_PULL);
-                            postPull = true;
-                            events.ScheduleEvent(EVENT_MAGIC_PULL, 15000);
-                            break;
-                        case EVENT_STOMP:
-                            Talk(SAY_STOMP);
-                            DoCast(SPELL_THUNDERING_STOMP);
-                            events.ScheduleEvent(EVENT_STOMP, 17000);
-                            break;
-                        default:
-                            break;
-                    }
-                }
-
-                DoMeleeAttackIfReady();
-            }
-
-            void JustDied(Unit* /*killer*/) override
-            {
-                _JustDied();
-
-                Talk(SAY_DEATH);
-
-                // start achievement timer (kill Eregos within 20 min)
-                instance->DoStartTimedAchievement(CRITERIA_TIMED_TYPE_EVENT2, ACHIEV_TIMED_START_EVENT);
-            }
-
-            void KilledUnit(Unit* /*victim*/) override
-            {
-                Talk(SAY_KILL);
-            }
-
-        private:
-            bool postPull;
-        };
-
-        CreatureAI* GetAI(Creature* creature) const override
-        {
-            return GetInstanceAI<boss_drakosAI>(creature);
+            postPull = false;
         }
+
+        void EnterCombat(Unit* /*who*/) OVERRIDE
+        {
+            _EnterCombat();
+            Talk(SAY_AGGRO);
+        }
+
+        void UpdateAI(uint32 diff) OVERRIDE
+        {
+            //Return since we have no target
+            if (!UpdateVictim())
+                return;
+
+            events.Update(diff);
+
+            if (me->HasUnitState(UNIT_STATE_CASTING))
+                return;
+
+            while (uint32 eventId = events.ExecuteEvent())
+            {
+                switch (eventId)
+                {
+                    case EVENT_BOMB_SUMMON:
+                        {
+                            Position pPosition;
+                            me->GetPosition(&pPosition);
+
+                            for (uint8 i = 0; i <= (postPull ? 3 : 0); i++)
+                            {
+                                me->GetRandomNearPosition(pPosition, float(urand(0, 10)));
+                                me->SummonCreature(NPC_UNSTABLE_SPHERE, pPosition);
+                            }
+                        }
+                        events.ScheduleEvent(EVENT_BOMB_SUMMON, 2000);
+                        break;
+                    case EVENT_MAGIC_PULL:
+                        DoCast(SPELL_MAGIC_PULL);
+                        postPull = true;
+                        events.ScheduleEvent(EVENT_MAGIC_PULL, 15000);
+                        break;
+                    case EVENT_STOMP:
+                        Talk(SAY_STOMP);
+                        DoCast(SPELL_THUNDERING_STOMP);
+                        events.ScheduleEvent(EVENT_STOMP, 17000);
+                        break;
+                }
+            }
+
+            DoMeleeAttackIfReady();
+        }
+
+        void JustDied(Unit* /*killer*/) OVERRIDE
+        {
+            _JustDied();
+
+            Talk(SAY_DEATH);
+
+            // start achievement timer (kill Eregos within 20 min)
+            instance->DoStartTimedAchievement(ACHIEVEMENT_TIMED_TYPE_EVENT, ACHIEV_TIMED_START_EVENT);
+        }
+
+        void KilledUnit(Unit* /*victim*/) OVERRIDE
+        {
+            Talk(SAY_KILL);
+        }
+    private:
+        bool postPull;
+    };
 };
 
 class npc_unstable_sphere : public CreatureScript
 {
-    public:
-        npc_unstable_sphere() : CreatureScript("npc_unstable_sphere") { }
+public:
+    npc_unstable_sphere() : CreatureScript("npc_unstable_sphere") { }
 
-        struct npc_unstable_sphereAI : public ScriptedAI
+    CreatureAI* GetAI(Creature* creature) const OVERRIDE
+    {
+        return new npc_unstable_sphereAI(creature);
+    }
+
+    struct npc_unstable_sphereAI : public ScriptedAI
+    {
+        npc_unstable_sphereAI(Creature* creature) : ScriptedAI(creature) { }
+
+        void Reset() OVERRIDE
         {
-            npc_unstable_sphereAI(Creature* creature) : ScriptedAI(creature) { }
+            me->SetReactState(REACT_PASSIVE);
+            me->GetMotionMaster()->MoveRandom(40.0f);
 
-            void Reset() override
-            {
-                me->SetReactState(REACT_PASSIVE);
-                me->GetMotionMaster()->MoveRandom(40.0f);
+            me->AddAura(SPELL_UNSTABLE_SPHERE_PASSIVE, me);
+            me->AddAura(SPELL_UNSTABLE_SPHERE_TIMER, me);
 
-                me->AddAura(SPELL_UNSTABLE_SPHERE_PASSIVE, me);
-                me->AddAura(SPELL_UNSTABLE_SPHERE_TIMER, me);
-
-                pulseTimer = 3000;
-
-                me->DespawnOrUnsummon(19000);
-            }
-
-            void UpdateAI(uint32 diff) override
-            {
-                if (pulseTimer <= diff)
-                {
-                    DoCast(SPELL_UNSTABLE_SPHERE_PULSE);
-                    pulseTimer = 3 * IN_MILLISECONDS;
-                }
-                else
-                    pulseTimer -= diff;
-            }
-
-        private:
-            uint32 pulseTimer;
-        };
-
-        CreatureAI* GetAI(Creature* creature) const override
-        {
-            return GetInstanceAI<npc_unstable_sphereAI>(creature);
+            pulseTimer = 3000;
+            deathTimer = 19000;
         }
+
+        void UpdateAI(uint32 diff) OVERRIDE
+        {
+            if (pulseTimer <= diff)
+            {
+                DoCast(SPELL_UNSTABLE_SPHERE_PULSE);
+                pulseTimer = 3*IN_MILLISECONDS;
+            } else pulseTimer -= diff;
+
+            if (deathTimer <= diff)
+                me->DisappearAndDie();
+            else deathTimer -= diff;
+        }
+    private:
+        uint32 pulseTimer;
+        uint32 deathTimer;
+    };
 };
 
 void AddSC_boss_drakos()

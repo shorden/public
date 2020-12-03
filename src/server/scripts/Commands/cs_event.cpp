@@ -1,9 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -22,30 +24,29 @@ Comment: All event related commands
 Category: commandscripts
 EndScriptData */
 
-#include "ScriptMgr.h"
-#include "GameEventMgr.h"
 #include "Chat.h"
+#include "GameEventMgr.h"
+#include "Language.h"
+#include "Player.h"
+#include "ScriptMgr.h"
 
 class event_commandscript : public CommandScript
 {
 public:
     event_commandscript() : CommandScript("event_commandscript") { }
 
-    ChatCommand* GetCommands() const override
+    std::vector<ChatCommand> GetCommands() const OVERRIDE
     {
-        static ChatCommand eventCommandTable[] =
+        static std::vector<ChatCommand> eventCommandTable =
         {
-            { "activelist",     SEC_GAMEMASTER,     true,  &HandleEventActiveListCommand,     "", NULL },
-            { "start",          SEC_GAMEMASTER,     true,  &HandleEventStartCommand,          "", NULL },
-            { "stop",           SEC_GAMEMASTER,     true,  &HandleEventStopCommand,           "", NULL },
-            { "",               SEC_GAMEMASTER,     true,  &HandleEventInfoCommand,           "", NULL },
-            { NULL,             0,                  false, NULL,                              "", NULL }
+            { "activelist", rbac::RBAC_PERM_COMMAND_EVENT_ACTIVELIST, true, &HandleEventActiveListCommand, "", },
+            { "start",      rbac::RBAC_PERM_COMMAND_EVENT_START,      true, &HandleEventStartCommand,      "", },
+            { "stop",       rbac::RBAC_PERM_COMMAND_EVENT_STOP,       true, &HandleEventStopCommand,       "", },
+            { "",           rbac::RBAC_PERM_COMMAND_EVENT,            true, &HandleEventInfoCommand,       "", },
         };
-        static ChatCommand commandTable[] =
+        static std::vector<ChatCommand> commandTable =
         {
-            { "event",          SEC_GAMEMASTER,     false, NULL,                  "", eventCommandTable },
-            { "events",         SEC_GAMEMASTER,     false, &HandleEventsListCommand,           "", NULL },
-            { NULL,             0,                  false, NULL,                               "", NULL }
+            { "event", rbac::RBAC_PERM_COMMAND_EVENT, false, NULL, "", eventCommandTable },
         };
         return commandTable;
     }
@@ -57,7 +58,7 @@ public:
         GameEventMgr::GameEventDataMap const& events = sGameEventMgr->GetEventMap();
         GameEventMgr::ActiveEvents const& activeEvents = sGameEventMgr->GetActiveEventList();
 
-        char const* active = handler->GetTrinityString(LANG_ACTIVE);
+        char const* active = handler->GetSkyFireString(LANG_ACTIVE);
 
         for (GameEventMgr::ActiveEvents::const_iterator itr = activeEvents.begin(); itr != activeEvents.end(); ++itr)
         {
@@ -110,7 +111,7 @@ public:
 
         GameEventMgr::ActiveEvents const& activeEvents = sGameEventMgr->GetActiveEventList();
         bool active = activeEvents.find(eventId) != activeEvents.end();
-        char const* activeStr = active ? handler->GetTrinityString(LANG_ACTIVE) : "";
+        char const* activeStr = active ? handler->GetSkyFireString(LANG_ACTIVE) : "";
 
         std::string startTimeStr = TimeToTimestampStr(eventData.start);
         std::string endTimeStr = TimeToTimestampStr(eventData.end);
@@ -208,37 +209,6 @@ public:
         }
 
         sGameEventMgr->StopEvent(eventId, true);
-        return true;
-    }
-
-    static bool HandleEventsListCommand(ChatHandler* handler, char const* /*args*/)
-    {
-        GameEventMgr::GameEventDataMap const& events = sGameEventMgr->GetEventMap();
-        GameEventMgr::ActiveEvents const& activeEvents = sGameEventMgr->GetActiveEventList();
-
-        char const* active = handler->GetTrinityString(LANG_ACTIVE);
-        static uint32 eventsArray[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 26, 29, 32 };
-        static const size_t eventsArraySize = sizeof(eventsArray) / sizeof(uint32);
-
-        for (size_t i = 0; i < eventsArraySize; ++i)
-        {
-            uint32 id = eventsArray[i];
-            GameEventData const& eventData = events[id];
-
-            std::string descr = eventData.description;
-            if (descr.empty())
-                continue;
-
-            char const* active = activeEvents.find(id) != activeEvents.end() ? handler->GetTrinityString(LANG_ACTIVE) : "";
-
-            uint32 delay = sGameEventMgr->NextCheck(id);
-            time_t nextTime = time(NULL) + delay;
-            std::string nextStr = nextTime >= eventData.start && nextTime < eventData.end ? TimeToTimestampStr(time(NULL) + delay) : "-";
-
-            if (handler->GetSession() && nextStr.length() > 1)
-                handler->PSendSysMessage(LANG_EVENTS_INFO, id, id, eventData.description.c_str(), active, nextStr.c_str());
-        }
-
         return true;
     }
 };

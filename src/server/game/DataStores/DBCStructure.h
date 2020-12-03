@@ -2179,24 +2179,6 @@ struct ScalingStatValuesEntry
     uint32 GetDPSAndDamageMultiplier(uint32 subClass, bool isCasterWeapon, float* damageMultiplier) const;
 };
 
-struct ScenarioEntry
-{
-    uint32 id;                                              // 0
-    char* name;                                             // 1
-    uint32 type;                                            // 2
-};
-
-struct ScenarioStepEntry
-{
-    uint32 id;                                              // 0
-    uint32 criteria;                                        // 1
-    uint32 scenario;                                        // 2
-    uint32 order;                                           // 3
-    char* objective;                                        // 4
-    char* name;                                             // 5
-    uint32 type;                                            // 6
-};
-
 //struct SkillLineCategoryEntry{
 //    uint32    id;                                         // 0      m_ID
 //    char*     name[16];                                   // 1-17   m_name_lang

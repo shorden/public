@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -16,14 +17,17 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _UNITEVENTS
-#define _UNITEVENTS
+#ifndef SF_UNITEVENTS
+#define SF_UNITEVENTS
 
 #include "Common.h"
 
 class ThreatContainer;
 class ThreatManager;
 class HostileReference;
+
+//==============================================================
+//==============================================================
 
 enum UNIT_EVENT_TYPE
 {
@@ -46,7 +50,7 @@ enum UNIT_EVENT_TYPE
     UEV_THREAT_SET_NEXT_TARGET          = 1<<5,
 
     // A new victim (target) was set. Could be NULL
-    UEV_THREAT_VICTIM_CHANGED           = 1<<6,
+    UEV_THREAT_VICTIM_CHANGED           = 1<<6
 
     // Future use
     //UEV_UNIT_KILLED                   = 1<<7,
@@ -59,54 +63,65 @@ enum UNIT_EVENT_TYPE
 #define UEV_THREAT_MANAGER_EVENT_MASK (UEV_THREAT_SORT_LIST | UEV_THREAT_SET_NEXT_TARGET | UEV_THREAT_VICTIM_CHANGED)
 #define UEV_ALL_EVENT_MASK (0xffffffff)
 
+// Future use
+//#define UEV_UNIT_EVENT_MASK (UEV_UNIT_KILLED | UEV_UNIT_HEALTH_CHANGE)
+
+//==============================================================
 
 class UnitBaseEvent
 {
-    uint32 iType;
-public:
-    UnitBaseEvent(uint32 pType);
-    uint32 getType() const;
-    bool matchesTypeMask(uint32 pMask) const;
+    private:
+        uint32 iType;
+    public:
+        UnitBaseEvent(uint32 pType) { iType = pType; }
+        uint32 getType() const { return iType; }
+        bool matchesTypeMask(uint32 pMask) const { return iType & pMask; }
 
-    void setType(uint32 pType);
+        void setType(uint32 pType) { iType = pType; }
 };
+
+//==============================================================
 
 class ThreatRefStatusChangeEvent : public UnitBaseEvent
 {
-    HostileReference* iHostileReference;
-    union
-    {
+    private:
+        HostileReference* iHostileReference;
+        ThreatManager* iThreatManager;
         float iFValue;
-        int32 iIValue;
-        bool iBValue;
-    };
-    ThreatManager* iThreatManager;
-public:
-    ThreatRefStatusChangeEvent(uint32 pType);
-    ThreatRefStatusChangeEvent(uint32 pType, HostileReference* pHostileReference);
-    ThreatRefStatusChangeEvent(uint32 pType, HostileReference* pHostileReference, float pValue);
-    ThreatRefStatusChangeEvent(uint32 pType, HostileReference* pHostileReference, bool pValue);
 
-    int32 getIValue() const;
-    float getFValue() const;
-    bool getBValue() const;
-    void setBValue(bool pValue);
+    public:
+        ThreatRefStatusChangeEvent(uint32 pType) :
+            UnitBaseEvent(pType), iThreatManager(NULL), iHostileReference(NULL), iFValue(0.0f) { }
 
-    HostileReference* getReference() const;
+        ThreatRefStatusChangeEvent(uint32 pType, HostileReference* pHostileReference) :
+            UnitBaseEvent(pType), iThreatManager(NULL), iHostileReference(pHostileReference), iFValue(0.0f) { }
 
-    void setThreatManager(ThreatManager* pThreatManager);
-    ThreatManager* getThreatManager() const;
+        ThreatRefStatusChangeEvent(uint32 pType, HostileReference* pHostileReference, float pValue) :
+            UnitBaseEvent(pType), iThreatManager(NULL), iHostileReference(pHostileReference), iFValue(pValue) { }
+
+        float getFValue() const { return iFValue; }
+
+        HostileReference* getReference() const { return iHostileReference; }
+
+        void setThreatManager(ThreatManager* pThreatManager) { iThreatManager = pThreatManager; }
+
+        ThreatManager* getThreatManager() const { return iThreatManager; }
 };
+
+//==============================================================
 
 class ThreatManagerEvent : public ThreatRefStatusChangeEvent
 {
-    ThreatContainer* iThreatContainer;
-public:
-    ThreatManagerEvent(uint32 pType);
-    ThreatManagerEvent(uint32 pType, HostileReference* pHostileReference);
+    private:
+        ThreatContainer* iThreatContainer;
+    public:
+        ThreatManagerEvent(uint32 pType) : ThreatRefStatusChangeEvent(pType), iThreatContainer(NULL) { }
+        ThreatManagerEvent(uint32 pType, HostileReference* pHostileReference) : ThreatRefStatusChangeEvent(pType, pHostileReference), iThreatContainer(NULL) { }
 
-    void setThreatContainer(ThreatContainer* pThreatContainer);
-    ThreatContainer* getThreatContainer() const;
+        void setThreatContainer(ThreatContainer* pThreatContainer) { iThreatContainer = pThreatContainer; }
+
+        ThreatContainer* getThreatContainer() const { return iThreatContainer; }
 };
 
+//==============================================================
 #endif

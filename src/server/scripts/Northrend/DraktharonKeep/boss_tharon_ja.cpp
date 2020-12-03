@@ -1,9 +1,12 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -32,7 +35,7 @@ enum Spells
     SPELL_CURSE_OF_LIFE                           = 49527,
     SPELL_RAIN_OF_FIRE                            = 49518,
     SPELL_SHADOW_VOLLEY                           = 49528,
-    SPELL_DECAY_FLESH                             = 49356, // cast at end of phase 1, starts phase 2
+    SPELL_DECAY_FLESH                             = 49356, // casted at end of phase 1, starts phase 2
     // Flesh Spells (phase 2)
     SPELL_GIFT_OF_THARON_JA                       = 52509,
     SPELL_CLEAR_GIFT_OF_THARON_JA                 = 53242,
@@ -84,13 +87,13 @@ class boss_tharon_ja : public CreatureScript
         {
             boss_tharon_jaAI(Creature* creature) : BossAI(creature, DATA_THARON_JA) { }
 
-            void Reset() override
+            void Reset() OVERRIDE
             {
                 _Reset();
                 me->RestoreDisplayId();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void EnterCombat(Unit* /*who*/) OVERRIDE
             {
                 Talk(SAY_AGGRO);
                 _EnterCombat();
@@ -101,22 +104,22 @@ class boss_tharon_ja : public CreatureScript
                 events.ScheduleEvent(EVENT_SHADOW_VOLLEY, urand(8000, 10000));
             }
 
-            void KilledUnit(Unit* who) override
+            void KilledUnit(Unit* who) OVERRIDE
             {
-                if (who->GetTypeId() == TYPEID_PLAYER)
+                if (who->GetTypeId() == TypeID::TYPEID_PLAYER)
                     Talk(SAY_KILL);
             }
 
-            void JustDied(Unit* /*killer*/) override
+            void JustDied(Unit* /*killer*/) OVERRIDE
             {
                 _JustDied();
 
                 Talk(SAY_DEATH);
-                DoCast(me, SPELL_CLEAR_GIFT_OF_THARON_JA, true);
-                DoCast(me, SPELL_ACHIEVEMENT_CHECK, true);
+                DoCastAOE(SPELL_CLEAR_GIFT_OF_THARON_JA, true);
+                DoCastAOE(SPELL_ACHIEVEMENT_CHECK, true);
             }
 
-            void UpdateAI(uint32 diff) override
+            void UpdateAI(uint32 diff) OVERRIDE
             {
                 if (!UpdateVictim())
                     return;
@@ -155,17 +158,17 @@ class boss_tharon_ja : public CreatureScript
                             events.ScheduleEvent(EVENT_EYE_BEAM, urand(4000, 6000));
                             return;
                         case EVENT_POISON_CLOUD:
-                            DoCast(SPELL_POISON_CLOUD);
+                            DoCastAOE(SPELL_POISON_CLOUD);
                             events.ScheduleEvent(EVENT_POISON_CLOUD, urand(10000, 12000));
                             return;
                         case EVENT_DECAY_FLESH:
-                            DoCast(SPELL_DECAY_FLESH);
+                            DoCastAOE(SPELL_DECAY_FLESH);
                             events.ScheduleEvent(EVENT_GOING_FLESH, 6000);
                             return;
                         case EVENT_GOING_FLESH:
                             Talk(SAY_FLESH);
                             me->SetDisplayId(MODEL_FLESH);
-                            DoCast(me, SPELL_GIFT_OF_THARON_JA, true);
+                            DoCastAOE(SPELL_GIFT_OF_THARON_JA, true);
                             DoCast(me, SPELL_FLESH_VISUAL, true);
                             DoCast(me, SPELL_DUMMY, true);
 
@@ -176,13 +179,13 @@ class boss_tharon_ja : public CreatureScript
                             events.ScheduleEvent(EVENT_POISON_CLOUD, urand(6000, 7000));
                             break;
                         case EVENT_RETURN_FLESH:
-                            DoCast(SPELL_RETURN_FLESH);
+                            DoCastAOE(SPELL_RETURN_FLESH);
                             events.ScheduleEvent(EVENT_GOING_SKELETAL, 6000);
                             return;
                         case EVENT_GOING_SKELETAL:
                             Talk(SAY_SKELETON);
                             me->RestoreDisplayId();
-                            DoCast(me, SPELL_CLEAR_GIFT_OF_THARON_JA, true);
+                            DoCastAOE(SPELL_CLEAR_GIFT_OF_THARON_JA, true);
 
                             events.Reset();
                             events.ScheduleEvent(EVENT_DECAY_FLESH, 20000);
@@ -199,9 +202,9 @@ class boss_tharon_ja : public CreatureScript
             }
         };
 
-        CreatureAI* GetAI(Creature* creature) const override
+        CreatureAI* GetAI(Creature* creature) const OVERRIDE
         {
-            return GetInstanceAI<boss_tharon_jaAI>(creature);
+            return GetDrakTharonKeepAI<boss_tharon_jaAI>(creature);
         }
 };
 
@@ -214,7 +217,7 @@ class spell_tharon_ja_clear_gift_of_tharon_ja : public SpellScriptLoader
         {
             PrepareSpellScript(spell_tharon_ja_clear_gift_of_tharon_ja_SpellScript);
 
-            bool Validate(SpellInfo const* /*spellInfo*/) override
+            bool Validate(SpellInfo const* /*spellInfo*/) OVERRIDE
             {
                 if (!sSpellMgr->GetSpellInfo(SPELL_GIFT_OF_THARON_JA))
                     return false;
@@ -227,13 +230,13 @@ class spell_tharon_ja_clear_gift_of_tharon_ja : public SpellScriptLoader
                     target->RemoveAura(SPELL_GIFT_OF_THARON_JA);
             }
 
-            void Register() override
+            void Register() OVERRIDE
             {
                 OnEffectHitTarget += SpellEffectFn(spell_tharon_ja_clear_gift_of_tharon_ja_SpellScript::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
             }
         };
 
-        SpellScript* GetSpellScript() const override
+        SpellScript* GetSpellScript() const OVERRIDE
         {
             return new spell_tharon_ja_clear_gift_of_tharon_ja_SpellScript();
         }

@@ -1,9 +1,11 @@
 /*
- * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -25,31 +27,30 @@ EndScriptData */
 #include "ScriptMgr.h"
 #include "Chat.h"
 #include "SpellAuraEffects.h"
+#include "Language.h"
+#include "ObjectAccessor.h"
 #include "ObjectMgr.h"
-#include "DatabaseEnv.h"
+#include "Player.h"
+#include <iostream>
 
 class list_commandscript : public CommandScript
 {
 public:
     list_commandscript() : CommandScript("list_commandscript") { }
 
-    ChatCommand* GetCommands() const override
+    std::vector<ChatCommand> GetCommands() const OVERRIDE
     {
-        static ChatCommand listCommandTable[] =
+        static std::vector<ChatCommand> listCommandTable =
         {
-            { "creature",       SEC_ADMINISTRATOR,  true,  &HandleListCreatureCommand,           "", NULL },
-            { "item",           SEC_ADMINISTRATOR,  true,  &HandleListItemCommand,               "", NULL },
-            { "object",         SEC_ADMINISTRATOR,  true,  &HandleListObjectCommand,             "", NULL },
-            { "auras",          SEC_ADMINISTRATOR,  false, &HandleListAurasCommand,              "", NULL },
-            { "mail",           SEC_ADMINISTRATOR,  true,  &HandleListMailCommand,               "", NULL },
-            { "aminfo",         SEC_ADMINISTRATOR,  true,  &HandleListAurasMiniInfoCommand,      "", NULL },
-            { "attacker",       SEC_ADMINISTRATOR,  true,  &HandleListAttacker,                  "", NULL },
-            { NULL,             0,                  false, NULL,                                 "", NULL }
+            { "creature", rbac::RBAC_PERM_COMMAND_LIST_CREATURE, true, &HandleListCreatureCommand, "", },
+            { "item",     rbac::RBAC_PERM_COMMAND_LIST_ITEM,     true, &HandleListItemCommand,     "", },
+            { "object",   rbac::RBAC_PERM_COMMAND_LIST_OBJECT,   true, &HandleListObjectCommand,   "", },
+            { "auras",    rbac::RBAC_PERM_COMMAND_LIST_AURAS,   false, &HandleListAurasCommand,    "", },
+            { "mail",     rbac::RBAC_PERM_COMMAND_LIST_MAIL,     true, &HandleListMailCommand,     "", },
         };
-        static ChatCommand commandTable[] =
+        static std::vector<ChatCommand> commandTable =
         {
-            { "list",          SEC_ADMINISTRATOR,   true, NULL,                                 "", listCommandTable },
-            { NULL,            0,                   false, NULL,                                "", NULL }
+            { "list", rbac::RBAC_PERM_COMMAND_LIST,true, NULL, "", listCommandTable },
         };
         return commandTable;
     }
@@ -108,16 +109,16 @@ public:
             do
             {
                 Field* fields   = result->Fetch();
-                uint32 guid     = fields[0].GetUInt64();
+                uint32 guid     = fields[0].GetUInt32();
                 float x         = fields[1].GetFloat();
                 float y         = fields[2].GetFloat();
                 float z         = fields[3].GetFloat();
                 uint16 mapId    = fields[4].GetUInt16();
 
                 if (handler->GetSession())
-                    handler->PSendSysMessage(LANG_CREATURE_LIST_CHAT, guid, guid, cInfo->Name[0].c_str(), x, y, z, mapId);
+                    handler->PSendSysMessage(LANG_CREATURE_LIST_CHAT, guid, guid, cInfo->Name.c_str(), x, y, z, mapId);
                 else
-                    handler->PSendSysMessage(LANG_CREATURE_LIST_CONSOLE, guid, cInfo->Name[0].c_str(), x, y, z, mapId);
+                    handler->PSendSysMessage(LANG_CREATURE_LIST_CONSOLE, guid, cInfo->Name.c_str(), x, y, z, mapId);
             }
             while (result->NextRow());
         }
@@ -180,10 +181,10 @@ public:
             do
             {
                 Field* fields           = result->Fetch();
-                uint32 itemGuid         = fields[0].GetUInt64();
-                uint8 itemBag          = fields[1].GetUInt8();
+                uint32 itemGuid         = fields[0].GetUInt32();
+                uint32 itemBag          = fields[1].GetUInt32();
                 uint8 itemSlot          = fields[2].GetUInt8();
-                uint32 ownerGuid        = fields[3].GetUInt64();
+                uint32 ownerGuid        = fields[3].GetUInt32();
                 uint32 ownerAccountId   = fields[4].GetUInt32();
                 std::string ownerName   = fields[5].GetString();
 
@@ -234,9 +235,9 @@ public:
             do
             {
                 Field* fields                   = result->Fetch();
-                uint32 itemGuid                 = fields[0].GetUInt64();
-                uint32 itemSender               = fields[1].GetUInt64();
-                uint32 itemReceiver             = fields[2].GetUInt64();
+                uint32 itemGuid                 = fields[0].GetUInt32();
+                uint32 itemSender               = fields[1].GetUInt32();
+                uint32 itemReceiver             = fields[2].GetUInt32();
                 uint32 itemSenderAccountId      = fields[3].GetUInt32();
                 std::string itemSenderName      = fields[4].GetString();
                 uint32 itemReceiverAccount      = fields[5].GetUInt32();
@@ -281,8 +282,8 @@ public:
             do
             {
                 Field* fields           = result->Fetch();
-                uint32 itemGuid         = fields[0].GetUInt64();
-                uint32 owner            = fields[1].GetUInt64();
+                uint32 itemGuid         = fields[0].GetUInt32();
+                uint32 owner            = fields[1].GetUInt32();
                 uint32 ownerAccountId   = fields[2].GetUInt32();
                 std::string ownerName   = fields[3].GetString();
 
@@ -313,8 +314,8 @@ public:
             do
             {
                 Field* fields = result->Fetch();
-                uint32 itemGuid = fields[0].GetUInt64();
-                uint32 guildGuid = fields[1].GetUInt64();
+                uint32 itemGuid = fields[0].GetUInt32();
+                uint32 guildGuid = fields[1].GetUInt32();
                 std::string guildName = fields[2].GetString();
 
                 char const* itemPos = "[in guild bank]";
@@ -397,7 +398,7 @@ public:
             do
             {
                 Field* fields   = result->Fetch();
-                uint32 guid     = fields[0].GetUInt64();
+                uint32 guid     = fields[0].GetUInt32();
                 float x         = fields[1].GetFloat();
                 float y         = fields[2].GetFloat();
                 float z         = fields[3].GetFloat();
@@ -427,16 +428,16 @@ public:
             return false;
         }
 
-        char const* talentStr = handler->GetTrinityString(LANG_TALENT);
-        char const* passiveStr = handler->GetTrinityString(LANG_PASSIVE);
+        char const* talentStr = handler->GetSkyFireString(LANG_TALENT);
+        char const* passiveStr = handler->GetSkyFireString(LANG_PASSIVE);
 
         Unit::AuraApplicationMap const& auras = unit->GetAppliedAuras();
         handler->PSendSysMessage(LANG_COMMAND_TARGET_LISTAURAS, auras.size());
         for (Unit::AuraApplicationMap::const_iterator itr = auras.begin(); itr != auras.end(); ++itr)
         {
-            bool talent = false;// GetTalentSpellCost(itr->second->GetBase()->GetId()) > 0;
+            bool talent = GetTalentSpellCost(itr->second->GetBase()->GetId()) > 0;
 
-            AuraApplicationPtr aurApp = itr->second;
+            AuraApplication const* aurApp = itr->second;
             Aura const* aura = aurApp->GetBase();
             char const* name = aura->GetSpellInfo()->SpellName;
 
@@ -446,243 +447,56 @@ public:
             handler->PSendSysMessage(LANG_COMMAND_TARGET_AURADETAIL, aura->GetId(), (handler->GetSession() ? ss_name.str().c_str() : name),
                 aurApp->GetEffectMask(), aura->GetCharges(), aura->GetStackAmount(), aurApp->GetSlot(),
                 aura->GetDuration(), aura->GetMaxDuration(), (aura->IsPassive() ? passiveStr : ""),
-                (talent ? talentStr : ""), aura->GetCasterGUID().IsPlayer() ? "player" : "creature",
-                aura->GetCasterGUID().GetGUIDLow());
+                (talent ? talentStr : ""), IS_PLAYER_GUID(aura->GetCasterGUID()) ? "player" : "creature",
+                GUID_LOPART(aura->GetCasterGUID()));
         }
 
         for (uint16 i = 0; i < TOTAL_AURAS; ++i)
         {
-            Unit::AuraEffectList const* auraList = unit->GetAuraEffectsByType(AuraType(i));
-            if (!auraList || auraList->begin() == auraList->end())
+            Unit::AuraEffectList const& auraList = unit->GetAuraEffectsByType(AuraType(i));
+            if (auraList.empty())
                 continue;
 
-            handler->PSendSysMessage(LANG_COMMAND_TARGET_LISTAURATYPE, auraList->size(), i);
+            handler->PSendSysMessage(LANG_COMMAND_TARGET_LISTAURATYPE, auraList.size(), i);
 
-            for (Unit::AuraEffectList::const_iterator itr = auraList->begin(); itr != auraList->end(); ++itr)
+            for (Unit::AuraEffectList::const_iterator itr = auraList.begin(); itr != auraList.end(); ++itr)
                 handler->PSendSysMessage(LANG_COMMAND_TARGET_AURASIMPLE, (*itr)->GetId(), (*itr)->GetEffIndex(), (*itr)->GetAmount());
         }
 
         return true;
     }
-
-    static bool HandleListAurasMiniInfoCommand(ChatHandler* handler, char const* /*args*/)
-    {
-        Unit* unit = handler->getSelectedUnit();
-        if (!unit)
-        {
-            handler->SendSysMessage(LANG_SELECT_CHAR_OR_CREATURE);
-            handler->SetSentErrorMessage(true);
-            return false;
-        }
-
-        std::vector<Aura const*> myAura;
-        std::vector<Aura const*> othersAura;
-        uint32 targetGUID = unit->GetGUID().GetGUIDLow();
-        char const* tool = "|cff808080id:|cffffff00%d%s%s";
-        Player* plr = unit->ToPlayer();
-
-        Unit::AuraApplicationMap const& auras = unit->GetAppliedAuras();
-        handler->PSendSysMessage("Total auras %d:", auras.size());
-        for (Unit::AuraApplicationMap::const_iterator itr = auras.begin(); itr != auras.end(); ++itr)
-        {
-            AuraApplicationPtr aurApp = itr->second;
-            
-            Aura const* aura = aurApp->GetBase();
-            uint32 casterGUID = aura->GetCasterGUID().GetGUIDLow();
-            uint32 quality = 2;
-            
-            if (plr && aura->GetCastItemGUID())
-            {
-                if (Item* item = plr->GetItemByGuid(aura->GetCastItemGUID()))
-                {
-                    if (BonusData const* bdata = item->GetBonus())
-                    {
-                        quality = bdata->Quality;
-                    }
-                }
-            }
-            else if (targetGUID == casterGUID)
-            {
-                myAura.push_back(aura);
-                continue;
-            }
-            else
-            {
-                othersAura.push_back(aura);
-                continue;
-            }
-
-            std::ostringstream ss_info;
-            bool _find = false;
-
-            for (size_t i = 0; i < MAX_SPELL_EFFECTS; i++)
-            {
-                if (AuraEffect* eff = aura->GetEffect(i))
-                {
-                    if (float a = eff->GetAmount())
-                    {
-                        if (!_find)
-                        {
-                            ss_info << "|cff808080bp:" << "|cffffffff" << i << ":|cffff0000" << a << "  ";
-                            _find = true;
-                            continue;
-                        }
-                        ss_info << "|cffffffff" << i << ":|cffff0000" << a << "  ";
-                    }
-                }
-            }
-
-            int32 dur = aura->GetDuration();
-            if (dur > 0)
-                ss_info << "|cff808080dur:" << "|cffffff00" << dur;
-
-            char const* nameColor = "|cffffffff|Hspell:";
-
-            switch (quality)
-            {
-                case 6: // art
-                {
-                    nameColor = "|cffe6d386|Hspell:";
-                    break;
-                }
-                case 5: // legend
-                {
-                    nameColor = "|cffff7f00|Hspell:";
-                    break;
-                }
-                case 4: // epic
-                {
-                    nameColor = "|cffa335ee|Hspell:";
-                    break;
-                }
-                case 3: // rare
-                {
-                    nameColor = "|cff0070e0|Hspell:";
-                    break;
-                }
-            }
-
-            char const* name = aura->GetSpellInfo()->SpellName;
-            std::ostringstream ss_name;
-            ss_name << nameColor << aura->GetId() << "|h[" << name << "]|h|r";
-
-            handler->PSendSysMessage(tool, aura->GetId(), (handler->GetSession() ? ss_name.str().c_str() : name),
-                (handler->GetSession() ? ss_info.str().c_str() : ""));
-
-        }
-
-        if (!myAura.empty())
-        {
-            handler->PSendSysMessage("Their auras %d: ", myAura.size());
-
-            for (auto itr : myAura)
-            {
-                std::ostringstream ss_info;
-                bool _find = false;
-
-                for (size_t i = 0; i < MAX_SPELL_EFFECTS; i++)
-                {
-                    if (AuraEffect* eff = itr->GetEffect(i))
-                    {
-                        if (float a = eff->GetAmount())
-                        {
-                            if (!_find)
-                            {
-                                ss_info << "|cff808080bp:" << "|cffffffff" << i << ":|cffff0000" << a << "  ";
-                                _find = true;
-                                continue;
-                            }
-                            ss_info << "|cffffffff" << i << ":|cffff0000" << a << "  ";
-                        }
-                    }
-                }
-
-                int32 dur = itr->GetDuration();
-                if (dur > 0)
-                    ss_info << "|cff808080dur:" << "|cffffff00" << dur;
-
-                char const* name = itr->GetSpellInfo()->SpellName;
-                std::ostringstream ss_name;
-                ss_name << "|cff7dd0ff|Hspell:" << itr->GetId() << "|h[" << name << "]|h|r";
-
-                handler->PSendSysMessage(tool, itr->GetId(), (handler->GetSession() ? ss_name.str().c_str() : name),
-                    (handler->GetSession() ? ss_info.str().c_str() : ""));
-            }
-        }
-
-        if (!othersAura.empty())
-        {
-            handler->PSendSysMessage("Other auras %d: ", othersAura.size());
-
-            for (auto itr : othersAura)
-            {
-                std::ostringstream ss_info;
-                bool _find = false;
-
-                for (size_t i = 0; i < MAX_SPELL_EFFECTS; i++)
-                {
-                    if (AuraEffect* eff = itr->GetEffect(i))
-                    {
-                        if (float a = eff->GetAmount())
-                        {
-                            if (!_find)
-                            {
-                                ss_info << "|cff808080bp:" << "|cffffffff" << i << ":|cffff0000" << a << "  ";
-                                _find = true;
-                                continue;
-                            }
-                            ss_info << "|cffffffff" << i << ":|cffff0000" << a << "  ";
-                        }
-                    }
-                }
-
-                int32 dur = itr->GetDuration();
-                if (dur > 0)
-                    ss_info << "|cff808080dur:" << "|cffffff00" << dur;
-
-                char const* name = itr->GetSpellInfo()->SpellName;
-                std::ostringstream ss_name;
-                ss_name << "|cffffffff|Hspell:" << itr->GetId() << "|h[" << name << "]|h|r";
-
-                handler->PSendSysMessage(tool, itr->GetId(), (handler->GetSession() ? ss_name.str().c_str() : name),
-                    (handler->GetSession() ? ss_info.str().c_str() : ""));
-            }
-        }
-        return true;
-    }
-
     // handle list mail command
     static bool HandleListMailCommand(ChatHandler* handler, char const* args)
     {
         Player* target;
-        ObjectGuid targetGuid;
+        uint64 targetGuid;
         std::string targetName;
 
         if (!*args)
             return false;
 
-        ObjectGuid parseGUID = ObjectGuid::Create<HighGuid::Player>(atol((char*)args));
+        uint32 parseGUID = MAKE_NEW_GUID(atol((char*)args), 0, HIGHGUID_PLAYER);
 
-        if (ObjectMgr::GetPlayerNameByGUID(parseGUID, targetName))
+        if (sObjectMgr->GetPlayerNameByGUID(parseGUID, targetName))
         {
-            target = sObjectMgr->GetPlayerByLowGUID(parseGUID.GetGUIDLow());
+            target = sObjectMgr->GetPlayerByLowGUID(parseGUID);
             targetGuid = parseGUID;
         }
         else if (!handler->extractPlayerTarget((char*)args, &target, &targetGuid, &targetName))
             return false;
 
         PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_MAIL_LIST_COUNT);
-        stmt->setUInt64(0, targetGuid.GetGUIDLow());
+        stmt->setUInt32(0, targetGuid);
         PreparedQueryResult result = CharacterDatabase.Query(stmt);
         if (result)
         {
             Field* fields = result->Fetch();
-            uint32 countMail = fields[0].GetUInt32();
+            uint32 countMail = fields[0].GetUInt64();
             std::string nameLink = handler->playerLink(targetName);
             handler->PSendSysMessage(LANG_LIST_MAIL_HEADER, countMail, nameLink.c_str(), targetGuid);
             handler->PSendSysMessage(LANG_ACCOUNT_LIST_BAR);
             PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_MAIL_LIST_INFO);
-            stmt->setUInt64(0, targetGuid.GetGUIDLow());
+            stmt->setUInt32(0, targetGuid);
             PreparedQueryResult result = CharacterDatabase.Query(stmt);
             if (result)
             {
@@ -690,9 +504,9 @@ public:
                 {
                     Field* fields           = result->Fetch();
                     uint32 messageId        = fields[0].GetUInt32();
-                    uint32 senderId         = fields[1].GetUInt64();
+                    uint32 senderId         = fields[1].GetUInt32();
                     std::string sender      = fields[2].GetString();
-                    uint32 receiverId       = fields[3].GetUInt64();
+                    uint32 receiverId       = fields[3].GetUInt32();
                     std::string receiver    = fields[4].GetString();
                     std::string subject     = fields[5].GetString();
                     uint64 deliverTime      = fields[6].GetUInt32();
@@ -704,7 +518,7 @@ public:
                     uint32 copp = (money % GOLD) % SILVER;
                     std::string receiverStr = handler->playerLink(receiver);
                     std::string senderStr = handler->playerLink(sender);
-                    handler->PSendSysMessage(LANG_LIST_MAIL_INFO_1 , messageId, subject.c_str(),gold, silv, copp);
+                    handler->PSendSysMessage(LANG_LIST_MAIL_INFO_1, messageId, subject.c_str(), gold, silv, copp);
                     handler->PSendSysMessage(LANG_LIST_MAIL_INFO_2, senderStr.c_str(), senderId, receiverStr.c_str(), receiverId);
                     handler->PSendSysMessage(LANG_LIST_MAIL_INFO_3, TimeToTimestampStr(deliverTime).c_str(), TimeToTimestampStr(expireTime).c_str());
                     if (hasItem == 1)
@@ -715,9 +529,9 @@ public:
                         {
                             do
                             {
-                                uint32 item_guid        = (*result2)[0].GetUInt64();
+                                uint32 item_guid        = (*result2)[0].GetUInt32();
                                 PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_MAIL_LIST_ITEMS);
-                                stmt->setUInt64(0, item_guid);
+                                stmt->setUInt32(0, item_guid);
                                 PreparedQueryResult result3 = CharacterDatabase.Query(stmt);
                                 if (result3)
                                 {
@@ -727,7 +541,7 @@ public:
                                         uint32 item_entry       = fields[0].GetUInt32();
                                         uint32 item_count       = fields[1].GetUInt32();
                                         QueryResult result4;
-                                        result4 = WorldDatabase.PQuery("SELECT name,quality FROM item_template WHERE entry = '%u'", item_entry);
+                                        result4 = WorldDatabase.PQuery("SELECT name, quality FROM item_template WHERE entry = '%u'", item_entry);
                                         Field* fields1          = result4->Fetch();
                                         std::string item_name   = fields1[0].GetString();
                                         int item_quality        = fields1[1].GetUInt8();
@@ -755,20 +569,8 @@ public:
                 handler->PSendSysMessage(LANG_LIST_MAIL_NOT_FOUND);
             return true;
         }
-        handler->PSendSysMessage(LANG_LIST_MAIL_NOT_FOUND);
-        return true;
-    }
-
-    static bool HandleListAttacker(ChatHandler* handler, char const* args)
-    {
-        if (Unit* unit = handler->getSelectedUnit())
-        {
-            for (UnitSet::iterator itr = unit->getAttackers()->begin(); itr != unit->getAttackers()->end(); ++itr)
-                handler->PSendSysMessage("Attacker targets %s", (*itr)->GetGUID().ToString().c_str());
-        }
-        else for (UnitSet::iterator itr = handler->GetSession()->GetPlayer()->getAttackers()->begin(); itr != handler->GetSession()->GetPlayer()->getAttackers()->end(); ++itr)
-            handler->PSendSysMessage("Attacker my %s", (*itr)->GetGUID().ToString().c_str());
-
+        else
+            handler->PSendSysMessage(LANG_LIST_MAIL_NOT_FOUND);
         return true;
     }
 };

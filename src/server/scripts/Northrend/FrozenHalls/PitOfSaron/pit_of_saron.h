@@ -1,9 +1,12 @@
 /*
- * Copyright (C) 2008-2011 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2011-2020 Project SkyFire <http://www.projectskyfire.org/>
+ * Copyright (C) 2008-2020 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2020 MaNGOS <https://www.getmangos.eu/>
+ * Copyright (C) 2006-2014 ScriptDev2 <https://github.com/scriptdev2/scriptdev2/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
@@ -15,11 +18,12 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef DEF_PIT_OF_SARON_H
-#define DEF_PIT_OF_SARON_H
+#ifndef PIT_OF_SARON_H_
+#define PIT_OF_SARON_H_
 
 #define PoSScriptName "instance_pit_of_saron"
-#define MAX_ENCOUNTER 3
+
+uint32 const EncounterCount = 3;
 
 enum DataTypes
 {
@@ -34,10 +38,7 @@ enum DataTypes
     DATA_JAINA_SYLVANAS_1   = 5,    // GUID of either Jaina or Sylvanas part 1, depending on team, as it's the same spawn.
     DATA_JAINA_SYLVANAS_2   = 6,    // GUID of either Jaina or Sylvanas part 2, depending on team, as it's the same spawn.
     DATA_TYRANNUS_EVENT     = 7,
-    DATA_TEAM_IN_INSTANCE   = 8,
-    DATA_RIMEFLANG          = 9,
-    DATA_SINDRA             = 10,
-    DATA_GAUNTLET           = 11,
+    DATA_TEAM_IN_INSTANCE   = 8
 };
 
 enum CreatureIds
@@ -79,14 +80,11 @@ enum CreatureIds
     NPC_FREED_SLAVE_3_HORDE                     = 37577,
     NPC_RESCUED_SLAVE_ALLIANCE                  = 36888,
     NPC_RESCUED_SLAVE_HORDE                     = 36889,
-    
     NPC_MARTIN_VICTUS_1                         = 37591,
-    NPC_GORKUN_IRONSKULL_1                      = 37592,
+    NPC_MARTIN_VICTUS_2                         = 37580,
+    NPC_GORKUN_IRONSKULL_1                      = 37581,
+    NPC_GORKUN_IRONSKULL_2                      = 37592,
 
-
-    NPC_MARTIN_VICTUS_END                       = 37580,
-    NPC_GORKUN_IRONSKULL_END                    = 37581, 
-    
     NPC_FORGEMASTER_STALKER                     = 36495,
     NPC_EXPLODING_ORB                           = 36610,
     NPC_YMIRJAR_DEATHBRINGER                    = 36892,
@@ -97,6 +95,13 @@ enum GameObjectIds
 {
     GO_SARONITE_ROCK                            = 196485,
     GO_ICE_WALL                                 = 201885,
+    GO_HALLS_OF_REFLECTION_PORTCULLIS           = 201848
 };
 
-#endif
+template<class AI>
+AI* GetPitOfSaronAI(Creature* creature)
+{
+    return GetInstanceAI<AI>(creature, PoSScriptName);
+}
+
+#endif // PIT_OF_SARON_H_

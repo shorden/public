@@ -36,7 +36,7 @@ namespace VMAP
     {
         static const float EPS = 1e-5f;
 
-        / See RTR2 ch. 13.7 for the algorithm.
+        // See RTR2 ch. 13.7 for the algorithm.
 
         const Vector3 e1 = points[tri.idx1] - points[tri.idx0];
         const Vector3 e2 = points[tri.idx2] - points[tri.idx0];
@@ -44,7 +44,7 @@ namespace VMAP
         const float a = e1.dot(p);
 
         if (fabs(a) < EPS) {
-            / Determinant is ill-conditioned; abort early
+            // Determinant is ill-conditioned; abort early
             return false;
         }
 
@@ -53,7 +53,7 @@ namespace VMAP
         const float u = f * s.dot(p);
 
         if ((u < 0.0f) || (u > 1.0f)) {
-            / We hit the plane of the m_geometry, but outside the m_geometry
+            // We hit the plane of the m_geometry, but outside the m_geometry
             return false;
         }
 
@@ -61,7 +61,7 @@ namespace VMAP
         const float v = f * ray.direction().dot(q);
 
         if ((v < 0.0f) || ((u + v) > 1.0f)) {
-            / We hit the plane of the triangle, but outside the triangle
+            // We hit the plane of the triangle, but outside the triangle
             return false;
         }
 
@@ -69,16 +69,16 @@ namespace VMAP
 
         if ((t > 0.0f) && (t < distance))
         {
-            / This is a new hit, closer than the previous one
+            // This is a new hit, closer than the previous one
             distance = t;
 
-            / baryCoord[0] = 1.0 - u - v;
+            /* baryCoord[0] = 1.0 - u - v;
             baryCoord[1] = u;
-            baryCoord[2] = v; /
+            baryCoord[2] = v; */
 
             return true;
         }
-        / This hit is after the previous hit, so ignore it
+        // This hit is after the previous hit, so ignore it
         return false;
     }
 
@@ -100,7 +100,7 @@ namespace VMAP
             const std::vector<Vector3>::const_iterator vertices;
     };
 
-    / ===================== WmoLiquid ==================================
+    // ===================== WmoLiquid ==================================
 
     WmoLiquid::WmoLiquid(uint32 width, uint32 height, const Vector3 &corner, uint32 type):
         iTilesX(width), iTilesY(height), iCorner(corner), iType(type)
@@ -111,7 +111,7 @@ namespace VMAP
 
     WmoLiquid::WmoLiquid(const WmoLiquid &other): iHeight(0), iFlags(0)
     {
-        *this = other; / use assignment operator...
+        *this = other; // use assignment operator...
     }
 
     WmoLiquid::~WmoLiquid()
@@ -158,16 +158,16 @@ namespace VMAP
         if (ty_f < 0.0f || ty >= iTilesY)
             return false;
 
-        / check if tile shall be used for liquid level
-        / checking for 0x08 *might* be enough, but disabled tiles always are 0x?F:
+        // check if tile shall be used for liquid level
+        // checking for 0x08 *might* be enough, but disabled tiles always are 0x?F:
         if ((iFlags[tx + ty*iTilesX] & 0x0F) == 0x0F)
             return false;
 
-        / (dx, dy) coordinates inside tile, in [0, 1]^2
+        // (dx, dy) coordinates inside tile, in [0, 1]^2
         float dx = tx_f - (float)tx;
         float dy = ty_f - (float)ty;
 
-        / Tesselate tile to two triangles (not sure if client does it exactly like this)
+        /* Tesselate tile to two triangles (not sure if client does it exactly like this)
 
             ^ dy
             |
@@ -178,16 +178,16 @@ namespace VMAP
             | /   (a) |
             x---------x---> dx
           0           1
-        /
+        */
 
         const uint32 rowOffset = iTilesX + 1;
-        if (dx > dy) / case (a)
+        if (dx > dy) // case (a)
         {
             float sx = iHeight[tx+1 +  ty    * rowOffset] - iHeight[tx   + ty * rowOffset];
             float sy = iHeight[tx+1 + (ty+1) * rowOffset] - iHeight[tx+1 + ty * rowOffset];
             liqHeight = iHeight[tx + ty * rowOffset] + dx * sx + dy * sy;
         }
-        else / case (b)
+        else // case (b)
         {
             float sx = iHeight[tx+1 + (ty+1) * rowOffset] - iHeight[tx + (ty+1) * rowOffset];
             float sy = iHeight[tx   + (ty+1) * rowOffset] - iHeight[tx +  ty    * rowOffset];
@@ -251,7 +251,7 @@ namespace VMAP
         return result;
     }
 
-    / ===================== GroupModel ==================================
+    // ===================== GroupModel ==================================
 
     GroupModel::GroupModel(const GroupModel &other):
         iBound(other.iBound), iMogpFlags(other.iMogpFlags), iGroupWMOID(other.iGroupWMOID),
@@ -278,17 +278,17 @@ namespace VMAP
         if (result && fwrite(&iMogpFlags, sizeof(uint32), 1, wf) != 1) result = false;
         if (result && fwrite(&iGroupWMOID, sizeof(uint32), 1, wf) != 1) result = false;
 
-        / write vertices
+        // write vertices
         if (result && fwrite("VERT", 1, 4, wf) != 4) result = false;
         count = vertices.size();
         chunkSize = sizeof(uint32)+ sizeof(Vector3)*count;
         if (result && fwrite(&chunkSize, sizeof(uint32), 1, wf) != 1) result = false;
         if (result && fwrite(&count, sizeof(uint32), 1, wf) != 1) result = false;
-        if (!count) / models without (collision) geometry end here, unsure if they are useful
+        if (!count) // models without (collision) geometry end here, unsure if they are useful
             return result;
         if (result && fwrite(&vertices[0], sizeof(Vector3), count, wf) != count) result = false;
 
-        / write triangle mesh
+        // write triangle mesh
         if (result && fwrite("TRIM", 1, 4, wf) != 4) result = false;
         count = triangles.size();
         chunkSize = sizeof(uint32)+ sizeof(MeshTriangle)*count;
@@ -296,11 +296,11 @@ namespace VMAP
         if (result && fwrite(&count, sizeof(uint32), 1, wf) != 1) result = false;
         if (result && fwrite(&triangles[0], sizeof(MeshTriangle), count, wf) != count) result = false;
 
-        / write mesh BIH
+        // write mesh BIH
         if (result && fwrite("MBIH", 1, 4, wf) != 4) result = false;
         if (result) result = meshTree.writeToFile(wf);
 
-        / write liquid data
+        // write liquid data
         if (result && fwrite("LIQU", 1, 4, wf) != 4) result = false;
         if (!iLiquid)
         {
@@ -330,27 +330,27 @@ namespace VMAP
         if (result && fread(&iMogpFlags, sizeof(uint32), 1, rf) != 1) result = false;
         if (result && fread(&iGroupWMOID, sizeof(uint32), 1, rf) != 1) result = false;
 
-        / read vertices
+        // read vertices
         if (result && !readChunk(rf, chunk, "VERT", 4)) result = false;
         if (result && fread(&chunkSize, sizeof(uint32), 1, rf) != 1) result = false;
         if (result && fread(&count, sizeof(uint32), 1, rf) != 1) result = false;
-        if (!count) / models without (collision) geometry end here, unsure if they are useful
+        if (!count) // models without (collision) geometry end here, unsure if they are useful
             return result;
         if (result) vertices.resize(count);
         if (result && fread(&vertices[0], sizeof(Vector3), count, rf) != count) result = false;
 
-        / read triangle mesh
+        // read triangle mesh
         if (result && !readChunk(rf, chunk, "TRIM", 4)) result = false;
         if (result && fread(&chunkSize, sizeof(uint32), 1, rf) != 1) result = false;
         if (result && fread(&count, sizeof(uint32), 1, rf) != 1) result = false;
         if (result) triangles.resize(count);
         if (result && fread(&triangles[0], sizeof(MeshTriangle), count, rf) != count) result = false;
 
-        / read mesh BIH
+        // read mesh BIH
         if (result && !readChunk(rf, chunk, "MBIH", 4)) result = false;
         if (result) result = meshTree.readFromFile(rf);
 
-        / write liquid data
+        // write liquid data
         if (result && !readChunk(rf, chunk, "LIQU", 4)) result = false;
         if (result && fread(&chunkSize, sizeof(uint32), 1, rf) != 1) result = false;
         if (result && chunkSize > 0)
@@ -411,7 +411,7 @@ namespace VMAP
         return 0;
     }
 
-    / ===================== WorldModel ==================================
+    // ===================== WorldModel ==================================
 
     void WorldModel::setGroupModels(std::vector<GroupModel> &models)
     {
@@ -434,8 +434,8 @@ namespace VMAP
 
     bool WorldModel::IntersectRay(const G3D::Ray &ray, float &distance, bool stopAtFirstHit) const
     {
-        / small M2 workaround, maybe better make separate class with virtual intersection funcs
-        / in any case, there's no need to use a bound tree if we only have one submodel
+        // small M2 workaround, maybe better make separate class with virtual intersection funcs
+        // in any case, there's no need to use a bound tree if we only have one submodel
         if (groupModels.size() == 1)
             return groupModels[0].IntersectRay(ray, distance, stopAtFirstHit);
 

@@ -1,279 +1,394 @@
-/==============
-    world
-==============/
+/*
+ * Copyright (C) 2008-2012 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
-#include "gate_setting_sun.h"
+#include "gate_setting_sun.hpp"
 
 enum eSpells
 {
-    / Commander Rimok
+    // Commander Rimok
     SPELL_VISCOUS_FLUID_SUMMON      = 107078,
     SPELL_VISCOUS_FLUID_DMG_UP      = 107091,
     SPELL_VISCOUS_FLUID_DMG_DOWN    = 107122,
     SPELL_FRENZIED_ASSAULT          = 107120,
 
-    / Add Generator
+    // Add Generator
     SPELL_PERIODIC_SPAWN_SWARMER    = 115052,
     SPELL_PERIODIC_SPAWN_SABOTEUR   = 116621,
 
-    / Saboteur
+    // Saboteur
     SPELL_BOMBARD                   = 120559
-}
+};
 
 enum eEvents
 {
     EVENT_FRENZIED_ASSAULT  = 1,
     EVENT_VISCOUS_FLUID     = 2
-}
+};
 
-Position const posGenerator[6] =
+class boss_commander_rimok : public CreatureScript
 {
-    { 1295.67f, 2324.82f, 382.075f, 0.0f },
-    { 1300.45f, 2324.82f, 383.688f, 0.0f },
-    { 1304.64f, 2324.52f, 384.497f, 0.0f },
-    { 1275.06f, 2325.04f, 378.163f, 0.0f },
-    { 1278.64f, 2324.42f, 376.938f, 0.0f },
-    { 1289.14f, 2325.06f, 383.151f, 0.0f }
-}
+    public:
+        boss_commander_rimok() : CreatureScript("boss_commander_rimok") {}
 
-struct boss_commander_rimok : public BossAI
-{
-    explicit boss_commander_rimok(Creature* creature) : BossAI(creature, DATA_RIMOK) {
-
-    void Reset() override
-    {
-        _Reset();
-        summons.DespawnAll();
-        DespawnAllSummons();
-    }
-
-    void EnterCombat(Unit* /who/) override
-    {
-        _EnterCombat();
-        SummonCreatures();
-        events.RescheduleEvent(EVENT_FRENZIED_ASSAULT, urand(5000, 10000));
-        events.RescheduleEvent(EVENT_VISCOUS_FLUID, urand(10000, 15000));
-    }
-
-    void SummonCreatures()
-    {
-        for (uint8 i = 0; i < 5; ++i)
-            me->SummonCreature(59834, posGenerator[i], TEMPSUMMON_MANUAL_DESPAWN, 0);
-    }
-
-    void JustDied(Unit* /who/) override
-    {
-        _JustDied();
-        DespawnAllSummons();
-    }
-
-    void DespawnAllSummons()
-    {
-        std::list<Creature*> list;
-        list.clear();
-        me->GetCreatureListWithEntryInGrid(list, 59835, 200.0f);
-        me->GetCreatureListWithEntryInGrid(list, 60447, 200.0f);
-        if (!list.empty())
-            for (auto& cre : list)
-                cre->DespawnOrUnsummon();
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        summons.Summon(summoned);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        events.Update(diff);
-
-        if (me->HasUnitState(UNIT_STATE_CASTING))
-            return;
-
-        switch (events.ExecuteEvent())
+        struct boss_commander_rimokAI : public BossAI
         {
-        case EVENT_FRENZIED_ASSAULT:
-            if (auto victim = me->getVictim())
-                DoCast(victim, SPELL_FRENZIED_ASSAULT, false);
-
-            events.RescheduleEvent(EVENT_FRENZIED_ASSAULT, urand(10000, 15000));
-            break;
-        case EVENT_VISCOUS_FLUID:
-            Position pos;
-            me->GetPosition(&pos);
-            me->SummonCreature(56883, pos, TEMPSUMMON_TIMED_DESPAWN, 30000);
-            events.RescheduleEvent(EVENT_VISCOUS_FLUID, urand(5000, 10000));
-            break;
-        }
-        DoMeleeAttackIfReady();
-    }
-}
-
-struct npc_krikthik_swarmer : public ScriptedAI
-{
-    explicit npc_krikthik_swarmer(Creature* creature) : ScriptedAI(creature) {
-
-    uint32 attackTimer;
-
-    void Reset() override
-    {
-        attackTimer = 2000;
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (attackTimer)
-        {
-            if (attackTimer <= diff)
+            boss_commander_rimokAI(Creature* creature) : BossAI(creature, DATA_RIMOK)
             {
-                DoZoneInCombat();
-                if (auto target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100.0f, true))
-                    AttackStart(target);
-
-                attackTimer = 0;
+                m_Instance = creature->GetInstanceScript();
             }
-            else
-                attackTimer -= diff;
-        }
-        DoMeleeAttackIfReady();
-    }
-}
 
-struct npc_krikthik_saboteur : public ScriptedAI
-{
-    explicit npc_krikthik_saboteur(Creature* creature) : ScriptedAI(creature) {
+            InstanceScript* m_Instance;
 
-    uint32 attackTimer;
-    uint32 checkTimer;
-
-    void Reset() override
-    {
-        attackTimer = 2000;
-        checkTimer = urand(17500, 22500);
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (attackTimer)
-        {
-            if (attackTimer <= diff)
+            void Reset()
             {
-                DoZoneInCombat();
+                _Reset();
 
-                if (auto target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100.0f, true))
-                    AttackStart(target);
+                events.ScheduleEvent(EVENT_FRENZIED_ASSAULT, urand(5000, 10000));
+                events.ScheduleEvent(EVENT_VISCOUS_FLUID,    urand(10000, 15000));
 
-                attackTimer = 0;
+                if (m_Instance != nullptr)
+                {
+                    if (m_Instance->GetData(DATA_BRASIER_CLICKED) != DONE)
+                    {
+                        me->SetDisplayId(INVISIBLE_CREATURE_MODEL);
+                        me->SetFlag(EUnitFields::UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_NOT_SELECTABLE);
+                        me->SetReactState(ReactStates::REACT_PASSIVE);
+                    }
+                    else
+                    {
+                        me->RestoreDisplayId();
+                        me->RemoveFlag(EUnitFields::UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_NOT_SELECTABLE);
+                        me->SetReactState(ReactStates::REACT_AGGRESSIVE);
+                    }
+                }
             }
-            else
-                attackTimer -= diff;
-        }
 
-        if (checkTimer <= diff)
-        {
-            DoCast(SPELL_BOMBARD);
-            checkTimer = urand(7500, 12500);
-        }
-        else
-            checkTimer -= diff;
-
-        DoMeleeAttackIfReady();
-    }
-}
-
-struct npc_add_generator : public ScriptedAI
-{
-    npc_add_generator(Creature* creature) : ScriptedAI(creature), summons(creature) {
-
-    SummonList summons;
-
-    void Reset() override
-    {
-        me->RemoveAurasDueToSpell(SPELL_PERIODIC_SPAWN_SWARMER);
-        me->RemoveAurasDueToSpell(SPELL_PERIODIC_SPAWN_SABOTEUR);
-        summons.DespawnAll();
-    }
-
-    void IsSummonedBy(Unit* /who/) override
-    {
-        DoCast(me, SPELL_PERIODIC_SPAWN_SABOTEUR, true);
-        DoCast(me, SPELL_PERIODIC_SPAWN_SWARMER, true);
-    }
-
-    void JustSummoned(Creature* summoned) override
-    {
-        summons.Summon(summoned);
-
-        float x = me->GetPositionX();
-        float y = me->GetPositionY() - 10;
-        float z = me->GetMap()->GetHeight(x, y, 400.0f);
-        summoned->GetMotionMaster()->MoveJump(x, y, z, 10, 20);
-
-        if (summoned->GetEntry() == 63992)
-            summoned->SetReactState(REACT_PASSIVE);
-    }
-}
-
-struct npc_viscous_fluid : public ScriptedAI
-{
-    explicit npc_viscous_fluid(Creature* creature) : ScriptedAI(creature)
-    {
-        me->SetReactState(REACT_PASSIVE);
-        me->SetDisplayId(11686);
-        me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_REMOVE_CLIENT_CONTROL);
-    }
-
-    void Reset() override
-    {
-        DoCast(107092);
-        DoCast(107088);
-    }
-}
-
-class spell_rimok_saboteur_bombard : public AuraScript
-{
-    PrepareAuraScript(spell_rimok_saboteur_bombard);
-
-    void OnPeriodic(AuraEffect const* /aurEff/)
-    {
-        PreventDefaultAction();
-
-        if (Unit* caster = GetCaster())
-        {
-            if (InstanceScript* instance = caster->GetInstanceScript())
+            void EnterCombat(Unit* /*who*/)
             {
-                Map::PlayerList const &PlayerList = instance->instance->GetPlayers();
+                _EnterCombat();
+            }
 
-                if (PlayerList.isEmpty())
+            void JustReachedHome()
+            {
+                if (m_Instance)
+                    m_Instance->SetBossState(DATA_RIMOK, FAIL);
+
+                summons.DespawnAll();
+            }
+
+            void JustSummoned(Creature* summoned)
+            {
+                summons.Summon(summoned);
+            }
+
+            void UpdateAI(const uint32 diff)
+            {
+                if (!UpdateVictim())
                     return;
 
-                Map::PlayerList::const_iterator it = PlayerList.begin();
-                for (uint8 i = 0; i < urand(0, PlayerList.getSize() - 1); ++i, ++it);
+                events.Update(diff);
 
-                if (it == PlayerList.end())
+                if (me->HasUnitState(UNIT_STATE_CASTING))
                     return;
 
-                if (Player* player = it->getSource())
-                    caster->CastSpell(player, GetSpellInfo()->Effects[0]->TriggerSpell, true);
-            }
-        }
-    }
+                switch(events.ExecuteEvent())
+                {
+                    case EVENT_FRENZIED_ASSAULT:
+                        if (me->getVictim())
+                            me->CastSpell(me->getVictim(), SPELL_FRENZIED_ASSAULT, false);
 
-    void Register() override
-    {
-        OnEffectPeriodic += AuraEffectPeriodicFn(spell_rimok_saboteur_bombard::OnPeriodic, EFFECT_0, SPELL_AURA_PERIODIC_TRIGGER_SPELL);
-    }
-}
+                        events.ScheduleEvent(EVENT_FRENZIED_ASSAULT, urand(10000, 15000));
+                        break;
+                    case EVENT_VISCOUS_FLUID:
+                        me->CastSpell(me, 107077, true);
+                        events.ScheduleEvent(EVENT_VISCOUS_FLUID, urand(5000, 10000));
+                        break;
+                }
+
+                DoMeleeAttackIfReady();
+            }
+
+            void JustDied(Unit* /*killer*/)
+            {
+                _JustDied();
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const
+        {
+            return new boss_commander_rimokAI(creature);
+        }
+};
+
+class npc_krikthik_swarmer : public CreatureScript
+{
+    public:
+        npc_krikthik_swarmer() : CreatureScript("npc_krikthik_swarmer") {}
+
+        struct npc_krikthik_swarmerAI : public ScriptedAI
+        {
+            npc_krikthik_swarmerAI(Creature* creature) : ScriptedAI(creature) {}
+
+            uint32 attackTimer;
+
+            void Reset()
+            {
+                attackTimer = 2000;
+            }
+
+            void UpdateAI(const uint32 diff)
+            {
+                if (attackTimer)
+                {
+                    if (attackTimer <= diff)
+                    {
+                        DoZoneInCombat();
+                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM))
+                            AttackStart(target);
+
+                        attackTimer = 0;
+                    }
+                    else attackTimer -= diff;
+                }
+
+                DoMeleeAttackIfReady();
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const
+        {
+            return new npc_krikthik_swarmerAI(creature);
+        }
+};
+
+class npc_krikthik_saboteur : public CreatureScript
+{
+    public:
+        npc_krikthik_saboteur() : CreatureScript("npc_krikthik_saboteur") {}
+
+        struct npc_krikthik_saboteurAI : public ScriptedAI
+        {
+            npc_krikthik_saboteurAI(Creature* creature) : ScriptedAI(creature) {}
+
+            uint32 attackTimer;
+            uint32 checkTimer;
+
+            void Reset()
+            {
+                attackTimer = 2000;
+                checkTimer = urand(17500, 22500);
+            }
+
+            void UpdateAI(const uint32 diff)
+            {
+                if (attackTimer)
+                {
+                    if (attackTimer <= diff)
+                    {
+                        DoZoneInCombat();
+                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM))
+                            AttackStart(target);
+
+                        attackTimer = 0;
+                    }
+                    else attackTimer -= diff;
+                }
+
+                if (checkTimer <= diff)
+                {
+                    me->CastSpell(me, SPELL_BOMBARD, false);
+                    checkTimer = urand(7500, 12500);
+                }
+                else checkTimer -= diff;
+
+                DoMeleeAttackIfReady();
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const
+        {
+            return new npc_krikthik_saboteurAI(creature);
+        }
+};
+
+class npc_add_generator : public CreatureScript
+{
+    public:
+        npc_add_generator() : CreatureScript("npc_add_generator") {}
+
+        struct npc_add_generatorAI : public ScriptedAI
+        {
+            npc_add_generatorAI(Creature* creature) : ScriptedAI(creature), summons(creature)
+            {
+                instance = creature->GetInstanceScript();
+            }
+
+            InstanceScript* instance;
+            SummonList summons;
+
+            void Reset()
+            {
+                me->RemoveAurasDueToSpell(SPELL_PERIODIC_SPAWN_SWARMER);
+                me->RemoveAurasDueToSpell(SPELL_PERIODIC_SPAWN_SABOTEUR);
+                summons.DespawnAll();
+            }
+
+            void DoAction(int32 const action)
+            {
+                switch (action)
+                {
+                    case NOT_STARTED:
+                    case FAIL:
+                        summons.DespawnAll();
+                        // no break
+                    case DONE:
+                        me->RemoveAurasDueToSpell(SPELL_PERIODIC_SPAWN_SWARMER);
+                        me->RemoveAurasDueToSpell(SPELL_PERIODIC_SPAWN_SABOTEUR);
+                        break;
+                    case SPECIAL: // Only one must spawn saboteurs
+                        me->CastSpell(me, SPELL_PERIODIC_SPAWN_SABOTEUR, true);
+                        break;
+                    case IN_PROGRESS:
+                        me->CastSpell(me, SPELL_PERIODIC_SPAWN_SWARMER, true);
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            void JustSummoned(Creature* summoned)
+            {
+                summons.Summon(summoned);
+
+                float x = me->GetPositionX();
+                float y = me->GetPositionY() - 10;
+                float z = me->GetMap()->GetHeight(x, y, 400.0f);
+                summoned->GetMotionMaster()->MoveJump(x, y, z, 10, 20);
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const
+        {
+            return new npc_add_generatorAI(creature);
+        }
+};
+
+class npc_viscous_fluid : public CreatureScript
+{
+    public:
+        npc_viscous_fluid() : CreatureScript("npc_viscous_fluid") {}
+
+        struct npc_viscous_fluidAI : public ScriptedAI
+        {
+            npc_viscous_fluidAI(Creature* creature) : ScriptedAI(creature)
+            {
+                pInstance = creature->GetInstanceScript();
+            }
+
+            InstanceScript* pInstance;
+            uint32 checkTimer;
+
+            void Reset()
+            {
+                me->SetReactState(REACT_PASSIVE);
+                checkTimer = 1000;
+            }
+
+            void UpdateAI(const uint32 diff)
+            {
+                if (checkTimer <= diff)
+                {
+                    if (Player* player = me->SelectNearestPlayer())
+                    {
+                        if (me->GetDistance(player) < 5.0f)
+                        {
+                            if (Creature* rimok = pInstance->instance->GetCreature(pInstance->GetData64(NPC_RIMOK)))
+                            {
+                                me->AddAura(SPELL_VISCOUS_FLUID_DMG_UP, rimok);
+                                me->AddAura(SPELL_VISCOUS_FLUID_DMG_DOWN, player);
+                            }
+                        }
+                    }
+
+                    checkTimer = 1000;
+                }
+                else checkTimer -= diff;
+            }
+        };
+
+        CreatureAI* GetAI(Creature* creature) const
+        {
+            return new npc_viscous_fluidAI(creature);
+        }
+};
+
+class spell_rimok_saboteur_bombard : public SpellScriptLoader
+{
+    public:
+        spell_rimok_saboteur_bombard() :  SpellScriptLoader("spell_rimok_saboteur_bombard") { }
+
+        class spell_rimok_saboteur_bombard_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_rimok_saboteur_bombard_AuraScript);
+
+            void OnPeriodic(AuraEffect const* /*aurEff*/)
+            {
+                PreventDefaultAction();
+
+                if (Unit* caster = GetCaster())
+                {
+                    if (InstanceScript* pInstance = caster->GetInstanceScript())
+                    {
+                        Map::PlayerList const &PlayerList = pInstance->instance->GetPlayers();
+
+                        if (PlayerList.isEmpty())
+                            return;
+
+                        Map::PlayerList::const_iterator it = PlayerList.begin();
+                        for (uint8 i = 0; i < urand(0, PlayerList.getSize() - 1); ++i, ++it);
+
+                        if (it == PlayerList.end())
+                            return;
+
+                        if (Player* player = it->getSource())
+                            caster->CastSpell(player, GetSpellInfo()->Effects[0].TriggerSpell, true);
+                    }
+                }
+            }
+
+            void Register()
+            {
+                OnEffectPeriodic += AuraEffectPeriodicFn(spell_rimok_saboteur_bombard_AuraScript::OnPeriodic, EFFECT_0, SPELL_AURA_PERIODIC_TRIGGER_SPELL);
+            }
+        };
+
+        AuraScript* GetAuraScript() const
+        {
+            return new spell_rimok_saboteur_bombard_AuraScript();
+        }
+};
 
 void AddSC_boss_commander_rimok()
 {
-    RegisterCreatureAI(boss_commander_rimok);
-    RegisterCreatureAI(npc_krikthik_swarmer);
-    RegisterCreatureAI(npc_krikthik_saboteur);
-    RegisterCreatureAI(npc_add_generator);
-    RegisterCreatureAI(npc_viscous_fluid);
-    RegisterAuraScript(spell_rimok_saboteur_bombard);
+    new boss_commander_rimok();
+    new npc_krikthik_swarmer();
+    new npc_krikthik_saboteur();
+    new npc_add_generator();
+    new npc_viscous_fluid();
+    new spell_rimok_saboteur_bombard();
 }

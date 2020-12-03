@@ -1,346 +1,718 @@
-/*==============
-    uwow.biz
-==============*/
+//////////////////////////////////////////////////////////////////////////////
+///
+///  MILLENIUM-STUDIO
+///  Copyright 2015 Millenium-studio SARL
+///  All Rights Reserved.
+///
+////////////////////////////////////////////////////////////////////////////////
 
-#include "siege_of_the_niuzoa_temple.h"
+#include "siege_of_the_niuzoa_temple.hpp"
 
-enum Yells
+enum eSpells
 {
-    SAY_AGGRO,
-    SAY_FLIGHT,
-    SAY_WIPE,
-    SAY_DEATH,
-    SAY_SLAY,
-    EMOTE_WINDS
+    HURL_BRICK = 121762,
+    CAUSTIC_PITCH = 121443,
+    QUICK_DRY_RESIN = 3242352,
+    GUSTING_WINDS = 121282,
+    GUSTING_WINDS_2 = 121284,
+    TRIGGER_CAUSTIC = 987745
 };
 
-enum Spells
+enum eEvents
 {
-    SPELL_HURL_BRICK        = 121762,
-    SPELL_CAUSTIC_PITCH     = 121443,
-    SPELL_QUICK_DRY_RESIN   = 121447,
-    SPELL_GUSTING_WINDS     = 121282,
-    SPELL_ENCASED_IN_RESIN  = 121448,
-    SPELL_SCREEN_EFFECT     = 122063
+    EVENT_HURL_BRICK = 200,
+    EVENT_CAUSTIC_PITCH = 201,
+    EVENT_CAUSTIC_PITCH_FLY_BACK = 204,
+    EVENT_CAUSTIC_PITCH_FLY_FORWARD = 205,
+    EVENT_QUICK_DRY_REISIN = 202,
+    EVENT_GUSTING_WIND = 203,
+
+    EVENT_GUSTING_WIND_B = 209
 };
 
-enum Events
+enum Pre_Fight_Events
 {
-    EVENT_HAUL_BRICK        = 1,
-    EVENT_CAUSTIC_PITCH,
-    EVENT_QUICK_DRY_RESIN,
-    EVENT_SWITCH_PHASE,
-    EVENT_GUSTING_WINDS,
-    EVENT_FLY_OTHER_END,
-    EVENT_LAND,
-    EVENT_RE_ENGAGE,
+    EVENT_FLY_SIDE_A = 100,
+    EVENT_FLY_SIDE_A_1 = 101,
+    EVENT_FLY_SIDE_A_2 = 102,
+    EVENT_FLY_SIDE_A_3 = 104,
+    EVENT_FLY_SIDE_A_4 = 105,
 
-    EVENT_GROUP_MOVEMENT    = 1,
-    EVENT_GROUP_COMBAT
+    EVENT_FLY_SIDE_B = 110,
+    EVENT_FLY_SIDE_B_1 = 111,
+    EVENT_FLY_SIDE_B_2 = 112,
+    EVENT_FLY_SIDE_B_3 = 113,
+    EVENT_FLY_SIDE_B_4 = 114
 };
 
-enum Other
+enum Triggers
 {
-    ACTION_INTERRUPT = 1,
-    NPC_CHUM_KIU = 64517
+    TRIGGER_GUSTWIND_A = 5436337,
+    TRIGGER_GUSTWIND_B = 5436338,
 };
 
-struct boss_wing_leader_neronok : public BossAI
+class boss_neronok : public CreatureScript
 {
-    explicit boss_wing_leader_neronok(Creature * creature) : BossAI(creature, DATA_NERONOK) {}
+public:
+    boss_neronok() : CreatureScript("boss_neronok") {}
 
-    uint8 phase;
-    ObjectGuid victimGuid;
-    bool interrupted;
-    bool pct_70;
-    bool pct_40;
-    bool winds;
-
-    void Reset() override
+    struct boss_neronokAI : public BossAI
     {
-        pct_70 = false;
-        pct_40 = false;
-        winds = false;
-        interrupted = false;
-        SetCombatMovement(false);
-        events.Reset();
-        me->SetCanFly(false);
-        me->SetReactState(REACT_AGGRESSIVE);
-        me->SetSpeed(MOVE_FLIGHT, 3.5f);
-        me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_INTERRUPT, true);
-        me->ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_INTERRUPT_CAST, true);
-        _Reset();
-    }
-
-    void ClearDebuffs()
-    {
-        if (auto trigger = me->GetAreaObject(SPELL_GUSTING_WINDS))
-            trigger->SetDuration(0);
-
-        instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_QUICK_DRY_RESIN);
-        std::list<DynamicObject *> dList;
-        me->GetDynObjectList(dList, 121443);
-
-        for (auto itr : dList)
-            itr->SetDuration(0);
-    }
-
-    void DoAction(int32 const action) override
-    {
-        if (action == ACTION_INTERRUPT)
+        boss_neronokAI(Creature* creature) : BossAI(creature, DATA_NERONOK),
+            instance(creature->GetInstanceScript())// Is this needed here? please test
         {
-            interrupted = true;
-            events.CancelEvent(EVENT_GUSTING_WINDS);
-            if (auto trigger = me->GetAreaObject(SPELL_GUSTING_WINDS))
-                trigger->SetDuration(0);
-        }
-    }
+            instance = creature->GetInstanceScript();
 
-    void AttackStart(Unit* target) override
-    {
-        if (!target)
-            return;
-
-        if (me->Attack(target, true))
-            DoStartNoMovement(target);
-    }
-
-    void DamageTaken(Unit* /*who*/, uint32& damage, DamageEffectType /*dmgType*/) override
-    {
-        if (me->HealthBelowPct(70) && !pct_70)
-        {
-            pct_70 = true;
-            interrupted = false;
-            winds = true;
-            Talk(SAY_FLIGHT);
-            Talk(EMOTE_WINDS);
-            me->SetReactState(REACT_PASSIVE);
-            me->AttackStop();
-            me->SetCanFly(true);
-            events.CancelEventGroup(EVENT_GROUP_COMBAT);
-            events.CancelEventGroup(EVENT_GROUP_MOVEMENT);
-            me->GetMotionMaster()->MoveTakeoff(0, 1808.063f, 5251.847f, 142.6636f);
-            events.RescheduleEvent(EVENT_LAND, 5000);
-            events.RescheduleEvent(EVENT_RE_ENGAGE, 6000);
-        }
-
-        if (me->HealthBelowPct(40) && !pct_40)
-        {
-            winds = false;
-            pct_40 = true;
-            interrupted = false;
-            Talk(SAY_FLIGHT);
-            Talk(EMOTE_WINDS);
-            me->SetReactState(REACT_PASSIVE);
-            me->AttackStop();
-            me->SetCanFly(true);
-            events.CancelEventGroup(EVENT_GROUP_COMBAT);
-            events.CancelEventGroup(EVENT_GROUP_MOVEMENT);
-            me->GetMotionMaster()->MoveTakeoff(0, 1888.998f, 5177.15f, 143.3173f);
-            events.RescheduleEvent(EVENT_LAND, 5000);
-            events.RescheduleEvent(EVENT_RE_ENGAGE, 6000);
-        }
-    }
-
-    void KilledUnit(Unit* victim) override
-    {
-        if (victim && victim->IsPlayer())
-            Talk(SAY_SLAY);
-    }
-
-    void JustReachedHome() override
-    {
-        Talk(SAY_WIPE);
-        _JustReachedHome();
-    }
-
-    void EnterEvadeMode() override
-    {
-        ClearDebuffs();
-        BossAI::EnterEvadeMode();
-    }
-
-    void JustDied(Unit* /*who*/) override
-    {
-        ClearDebuffs();
-        Talk(SAY_DEATH);
-        _JustDied();
-
-        me->SummonCreature(NPC_CHUM_KIU, 1851.226f, 5214.163f, 131.2519f, 4.03f);
-    }
-
-    void EnterCombat(Unit* /*who*/) override
-    {
-        Talk(SAY_AGGRO);
-        events.RescheduleEvent(EVENT_HAUL_BRICK, 1000, EVENT_GROUP_COMBAT);
-        events.RescheduleEvent(EVENT_CAUSTIC_PITCH, 3000, EVENT_GROUP_COMBAT);
-        events.RescheduleEvent(EVENT_QUICK_DRY_RESIN, 8000, EVENT_GROUP_COMBAT);
-        _EnterCombat();
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (!UpdateVictim())
-            return;
-
-        events.Update(diff);
-
-        if (me->HasUnitState(UNIT_STATE_CASTING))
-            return;
-
-        if (uint32 eventId = events.ExecuteEvent())
-        {
-            switch (eventId)
+            if (IsHeroic())
             {
-            case EVENT_HAUL_BRICK:
-                if (auto victim = me->getVictim())
-                    if (!victim->IsWithinMeleeRange(me))
-                        DoCast(victim, SPELL_HURL_BRICK, false);
-
-                events.RescheduleEvent(EVENT_HAUL_BRICK, 2000, EVENT_GROUP_COMBAT);
-                break;
-            case EVENT_CAUSTIC_PITCH:
-                if (auto target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100.0f, true))
-                    DoCast(target, SPELL_CAUSTIC_PITCH, true);
-
-                events.RescheduleEvent(EVENT_CAUSTIC_PITCH, 10000, EVENT_GROUP_COMBAT);
-                break;
-            case EVENT_QUICK_DRY_RESIN:
-                if (auto target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100.0f, true))
-                    DoCast(target, SPELL_QUICK_DRY_RESIN, false);
-
-                events.RescheduleEvent(EVENT_QUICK_DRY_RESIN, 8000, EVENT_GROUP_COMBAT);
-                break;
-            case EVENT_GUSTING_WINDS:
-                if (interrupted)
-                    break;
-                if (winds)
-                    DoCast(me, SPELL_GUSTING_WINDS, false);
-                else
-                    DoCast(me, 121284, false);
-
-                events.RescheduleEvent(EVENT_GUSTING_WINDS, 10000, EVENT_GROUP_COMBAT);
-                break;
-            case EVENT_LAND:
-                me->GetMotionMaster()->MoveLand(0, { me->GetPositionX(), me->GetPositionY(), 131.1689f });
-                break;
-            case EVENT_RE_ENGAGE:
-                me->SetReactState(REACT_AGGRESSIVE);
-
-                if (auto victim = me->getVictim())
-                {
-                    AttackStart(victim);
-                    victimGuid = victim->GetGUID();
-                    me->SetTarget(victimGuid);
-                }
-
-                events.RescheduleEvent(EVENT_HAUL_BRICK, 1000, EVENT_GROUP_COMBAT);
-                events.RescheduleEvent(EVENT_CAUSTIC_PITCH, 3000, EVENT_GROUP_COMBAT);
-                events.RescheduleEvent(EVENT_QUICK_DRY_RESIN, 8000, EVENT_GROUP_COMBAT);
-                events.RescheduleEvent(EVENT_GUSTING_WINDS, 2000, EVENT_GROUP_COMBAT);
-                break;
-
-            default:
-                break;
+                me->SetHealth(12647760);
+                me->SetMaxHealth(12647760);
+                me->SetLevel(93);
+            }
+            else
+            {
+                me->SetHealth(10188300);
+                me->SetMaxHealth(10188300);
+                me->SetLevel(91);
             }
         }
-        DoMeleeAttackIfReady();
-    }
-};
 
-// 121447
-class spell_quick_dry_resin : public AuraScript
-{
-    PrepareAuraScript(spell_quick_dry_resin)
+        bool side_1;
+        bool side_2;
+        bool StartFlyA;
+        bool move;
+        bool StartFlyB;
+        bool IsGustingWind;
+        InstanceScript* instance;
+        std::list<Player*> PL_LIST;
+        bool haswipe;
 
-    void PeriodicTick(AuraEffect const * aurEff)
-    {
-        Unit* target = GetUnitOwner();
-        if (!target)
-            return;
-
-        int32 powerAmt = target->GetPower(POWER_ALTERNATE) + 2;
-
-        if (powerAmt >= 100)
+        void Reset()
         {
-            target->RemoveAurasDueToSpell(aurEff->GetId());
-            target->RemoveAurasDueToSpell(SPELL_SCREEN_EFFECT);
-            target->CastSpell(target, SPELL_ENCASED_IN_RESIN, true);
-            return;
+            side_1 = true;
+            side_2 = false;
+            IsGustingWind = false;
+            move = true;
+            StartFlyA = false;
+            haswipe = true;
+            StartFlyB = false;
+            events.Reset();
+            _Reset();
+
+            if (!me->FindNearestCreature(95944, 20.0f, true))
+                me->SummonCreature(95944, 1866.937500f, 5197.359863f, 131.170166f);
+
+            if (!me->FindNearestCreature(95945, 60.0f, true))
+                me->SummonCreature(95945, 1824.406006f, 5235.410645f, 131.170166f);
         }
-        else if (powerAmt >= 80)
+
+        void SpellHit(Unit* caster, SpellInfo const* spell)
         {
-            if (!target->HasAura(SPELL_SCREEN_EFFECT))
-                target->CastSpell(target, SPELL_SCREEN_EFFECT, true);
+            if (spell->Id == 6552 || spell->Id == 96231 || spell->Id == 57994 || spell->Id == 1766 ||
+                spell->Id == 78675 || spell->Id == 2139 || spell->Id == 47528 || spell->Id == 106839 ||
+                spell->Id == 34490 || spell->Id == 19647 || spell->Id == 102060 || spell->Id == 116705)
+            {
+                if (IsGustingWind)
+                {
+                    IsGustingWind = false;
+                    events.CancelEvent(EVENT_GUSTING_WIND_B);
+                    events.CancelEvent(EVENT_CAUSTIC_PITCH_FLY_FORWARD);
+
+                    events.ScheduleEvent(EVENT_QUICK_DRY_REISIN, 13000);
+                    events.ScheduleEvent(EVENT_HURL_BRICK, 4000);
+                    events.ScheduleEvent(EVENT_CAUSTIC_PITCH, 5000);
+
+                    me->SetReactState(REACT_AGGRESSIVE);
+                    me->FinishSpell(CURRENT_CHANNELED_SPELL, false);
+                    me->SetSpeed(MOVE_FLIGHT, 3.0f, true);
+                    me->SetSpeed(MOVE_RUN, 3.0f, true);
+
+                    me->ClearUnitState(UNIT_STATE_CANNOT_AUTOATTACK);
+                }
+            }
         }
-        else if (target->HasAura(SPELL_SCREEN_EFFECT))
-            target->RemoveAurasDueToSpell(SPELL_SCREEN_EFFECT);
 
-        target->SetPower(POWER_ALTERNATE, powerAmt);
-    }
+        void EnterCombat(Unit* /*who*/)
+        {
+            haswipe = false;
+            _EnterCombat();
+            events.ScheduleEvent(EVENT_QUICK_DRY_REISIN, 7000);
+            events.ScheduleEvent(EVENT_CAUSTIC_PITCH, 5000);
+            events.ScheduleEvent(EVENT_HURL_BRICK, 4000);
+            DoPlaySoundToSet(me, 30359);
+            me->MonsterYell("You may have comed this far, you may have carved a path through my army.. but I.. I will kill you! And I will build the bridge!", LANG_UNIVERSAL, me->GetGUID()); // Upon Combat 
+        }
 
-    void OnProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
+        void JustReachedHome()
+        {
+            instance->SetBossState(DATA_NERONOK, FAIL);
+            summons.DespawnAll();
+        }
+
+        void DamageTaken(Unit* attacker, uint32& damage)
+        {
+        }
+
+        void JustSummoned(Creature* summoned)
+        {
+            summons.Summon(summoned);
+        }
+
+        void KilledUnit(Unit* victim)
+        {
+            if (victim->GetTypeId() == TYPEID_PLAYER)
+            {
+                DoPlaySoundToSet(me, 30362);
+                me->MonsterYell("Argh! Out of my way!", LANG_UNIVERSAL, me->GetGUID());
+            }
+        }
+
+        void UpdateAI(const uint32 diff)
+        {
+            events.Update(diff);
+
+            // Different Wiping Mechanism, current one is just weird.
+            if (!haswipe)
+            {
+                Map::PlayerList const& players = me->GetMap()->GetPlayers();
+                if (players.isEmpty())
+                {
+                    if (Creature* Boss = me->FindNearestCreature(62205, 300.0f, true))
+                    {
+                        Boss->DespawnOrUnsummon(50);
+                        summons.DespawnAll();
+                    }
+                    events.Reset();
+                }
+                for (Map::PlayerList::const_iterator itr = players.begin(); itr != players.end(); ++itr)
+                {
+                    if (InstanceScript* instance = me->GetInstanceScript())
+                    {
+                        if (Player* dead_first = players.getFirst()->getSource())
+                        {
+                            if (Player* dead_last = players.getLast()->getSource())
+                            {
+                                if (dead_first->isDead() || !dead_first && dead_last->isDead() || !dead_last)
+                                {
+                                    if (Creature* Boss = me->FindNearestCreature(62205, 300.0f, true))
+                                    {
+                                        Boss->DespawnOrUnsummon(50);
+                                        summons.DespawnAll();
+                                        dead_last->SummonCreature(62205, 1886.143555f, 5180.187500f, 131.169083f, 2.517381f, TEMPSUMMON_CORPSE_DESPAWN, 0);
+                                    }
+                                    events.Reset();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // flying conditions
+            if (me->GetHealthPct() <= 66 && !StartFlyA)
+            {
+                StartFlyA = true;
+                events.ScheduleEvent(EVENT_FLY_SIDE_A, 1000);
+            }
+            if (me->GetHealthPct() <= 33 && !StartFlyB)
+            {
+                StartFlyB = true;
+                events.ScheduleEvent(EVENT_FLY_SIDE_B, 1000);
+            }
+
+            while (uint32 eventId = events.ExecuteEvent())
+            {
+                switch (eventId)
+                {
+                case EVENT_QUICK_DRY_REISIN:
+                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.f, true))
+                    {
+                        me->CastSpell(target, 121447);
+                        events.ScheduleEvent(EVENT_QUICK_DRY_REISIN, 11000);
+                    }
+                    break;
+                case EVENT_GUSTING_WIND:
+                    if (Creature* TargetA = me->FindNearestCreature(95945, 30.f))
+                    {
+                        me->CastSpell(TargetA, GUSTING_WINDS);
+                    }
+                    else if (Creature* TargetB = me->FindNearestCreature(95944, 30.f))
+                    {
+                        me->CastSpell(TargetB, GUSTING_WINDS_2);
+                    }
+                    events.ScheduleEvent(EVENT_GUSTING_WIND_B, 6500);
+                    break;
+                case EVENT_GUSTING_WIND_B:
+                    if (Creature* TargetA = me->FindNearestCreature(95945, 30.f))
+                    {
+                        me->CastSpell(TargetA, GUSTING_WINDS);
+                    }
+                    else if (Creature* TargetB = me->FindNearestCreature(95944, 30.f))
+                    {
+                        me->CastSpell(TargetB, GUSTING_WINDS_2);
+                    }
+                    IsGustingWind = true;
+                    events.ScheduleEvent(EVENT_GUSTING_WIND_B, 6500);
+                    break;
+                case EVENT_HURL_BRICK:
+                    me->CastSpell(me->getVictim(), HURL_BRICK);
+                    events.ScheduleEvent(EVENT_HURL_BRICK, 4000);
+                    break;
+                case EVENT_CAUSTIC_PITCH_FLY_FORWARD:
+                {
+                    // Cancel event to prevent spam
+                    events.CancelEvent(EVENT_CAUSTIC_PITCH_FLY_BACK);
+                    events.CancelEvent(EVENT_CAUSTIC_PITCH);
+
+                    // Spawn Caustics
+                    me->SummonCreature(TRIGGER_CAUSTIC, 1860.961548f, 5208.999512f, 131.170151f, 1.573783f, TEMPSUMMON_TIMED_DESPAWN, 30000);
+                    me->SummonCreature(TRIGGER_CAUSTIC, 1856.734619f, 5218.906250f, 131.170151f, 3.187776f, TEMPSUMMON_TIMED_DESPAWN, 30000);
+                    me->SummonCreature(TRIGGER_CAUSTIC, 1841.378662f, 5220.346191f, 131.170151f, 3.244325f, TEMPSUMMON_TIMED_DESPAWN, 30000);
+                    me->SummonCreature(TRIGGER_CAUSTIC, 1832.898682f, 5224.446777f, 131.170151f, 1.576924f, TEMPSUMMON_TIMED_DESPAWN, 30000);
+                    me->SummonCreature(TRIGGER_CAUSTIC, 1833.775146f, 5233.766113f, 131.170151f, 2.350542f, TEMPSUMMON_TIMED_DESPAWN, 30000);
+                    me->SummonCreature(TRIGGER_CAUSTIC, 1828.995239f, 5237.943848f, 131.170151f, 2.968650f, TEMPSUMMON_TIMED_DESPAWN, 30000);
+                    me->SummonCreature(TRIGGER_CAUSTIC, 1818.927856f, 5231.863770f, 131.170166f, 2.059945f, TEMPSUMMON_TIMED_DESPAWN, 30000);
+                    events.ScheduleEvent(EVENT_CAUSTIC_PITCH_FLY_FORWARD, 30000);
+                }
+                break;
+                case EVENT_CAUSTIC_PITCH_FLY_BACK:
+                {
+                    // Cancel event to prevent spam
+                    events.CancelEvent(EVENT_CAUSTIC_PITCH_FLY_FORWARD);
+                    events.CancelEvent(EVENT_CAUSTIC_PITCH);
+
+                    // Spawn Caustics
+                    me->SummonCreature(TRIGGER_CAUSTIC, 1839.698242f, 5218.154297f, 131.170151f, 0.123931f, TEMPSUMMON_TIMED_DESPAWN, 30000);
+                    me->SummonCreature(TRIGGER_CAUSTIC, 1848.982788f, 5218.161621f, 131.170151f, 3.187776f, TEMPSUMMON_TIMED_DESPAWN, 30000);
+                    me->SummonCreature(TRIGGER_CAUSTIC, 1847.752808f, 5210.481934f, 131.170151f, 3.244325f, TEMPSUMMON_TIMED_DESPAWN, 30000);
+                    me->SummonCreature(TRIGGER_CAUSTIC, 1848.748413f, 5203.428223f, 131.170151f, 1.576924f, TEMPSUMMON_TIMED_DESPAWN, 30000);
+                    me->SummonCreature(TRIGGER_CAUSTIC, 1833.775146f, 5233.766113f, 131.170151f, 2.350542f, TEMPSUMMON_TIMED_DESPAWN, 30000);
+                    me->SummonCreature(TRIGGER_CAUSTIC, 1858.990967f, 5199.759277f, 131.170151f, 2.968650f, TEMPSUMMON_TIMED_DESPAWN, 30000);
+                    me->SummonCreature(TRIGGER_CAUSTIC, 1869.899902f, 5189.296387f, 131.170166f, 2.059945f, TEMPSUMMON_TIMED_DESPAWN, 30000);
+                    events.ScheduleEvent(EVENT_CAUSTIC_PITCH_FLY_BACK, 30000);
+                }
+                break;
+                case EVENT_CAUSTIC_PITCH:
+                {
+                    // Cancel event to prevent spam
+                    events.CancelEvent(EVENT_CAUSTIC_PITCH_FLY_BACK);
+                    events.CancelEvent(EVENT_CAUSTIC_PITCH_FLY_FORWARD);
+                    events.CancelEvent(EVENT_CAUSTIC_PITCH);
+
+                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.0f, true))
+                    {
+                        // Spawn Caustics
+                        me->SummonCreature(TRIGGER_CAUSTIC, target->GetPositionX() + frand(0.0f, 6.0f), target->GetPositionY() + frand(0.0f, 3.0f), 131.169418f, target->GetOrientation(), TEMPSUMMON_TIMED_DESPAWN, 12000);
+                        events.ScheduleEvent(EVENT_CAUSTIC_PITCH, 5000);
+                    }
+                }
+                break;
+
+                //////////////////////////////////////////////////////////////////
+                // Flying Events
+                case EVENT_FLY_SIDE_A:
+                {
+                    if (MotionMaster* motion = me->GetMotionMaster())
+                    {
+                        events.CancelEvent(EVENT_HURL_BRICK);
+                        events.CancelEvent(EVENT_QUICK_DRY_REISIN);
+                        events.CancelEvent(EVENT_CAUSTIC_PITCH);
+
+                        me->SetReactState(REACT_PASSIVE);
+                        me->InterruptNonMeleeSpells(false);
+                        me->FinishSpell(CURRENT_CHANNELED_SPELL, false);
+                        me->AttackStop();
+                        me->SetSpeed(MOVE_FLIGHT, 3.0f, true);
+                        me->SetSpeed(MOVE_RUN, 3.0f, true);
+
+                        me->MonsterTextEmote("Wing Leader nero'onok lifts off and flies to the other end of the bridge!", LANG_UNIVERSAL, me->GetGUID());
+
+                        //move = true;
+
+                        // Remove the ability to attack
+                        me->AddUnitState(UNIT_STATE_CANNOT_AUTOATTACK);
+
+
+                        // Clear motionmaster
+                        motion->Clear(true);
+
+                        // Move to side B of the bridge
+                        motion->MovePoint(1, 1881.100586f, 5183.056641f, 146.267258f);
+
+                        events.ScheduleEvent(EVENT_FLY_SIDE_A_1, 1500);
+                        // Schedule Caustic Event
+                        events.ScheduleEvent(EVENT_CAUSTIC_PITCH_FLY_FORWARD, 1000);
+                    }
+                }
+                break;
+                case EVENT_FLY_SIDE_A_1:
+                {
+                    if (MotionMaster* motion = me->GetMotionMaster())
+                    {
+                        // Z COORDS FOR JUMPING
+                        side_1 = false;
+                        side_2 = true;
+                        events.ScheduleEvent(EVENT_FLY_SIDE_A_2, 4500);
+                        motion->MovePoint(2, 1812.813477f, 5245.202148f, 146.193878f);
+                    }
+                }
+                break;
+                case EVENT_FLY_SIDE_A_2:
+                {
+                    // Add the ability to attack
+                    me->ClearUnitState(UNIT_STATE_CANNOT_AUTOATTACK);
+                    me->SetReactState(REACT_AGGRESSIVE);
+
+                    if (MotionMaster* motion = me->GetMotionMaster())
+                    {
+                        move = true;
+
+                        // Clear motionmaster
+                        //motion->Clear(true);
+                        me->SetSpeed(MOVE_FLIGHT, 2.0f, true);
+                        me->SetSpeed(MOVE_RUN, 1.6f, true);
+                        motion->MovePoint(3, 1815.002930f, 5244.597656f, 131.170441f);
+                    }
+                    events.ScheduleEvent(EVENT_GUSTING_WIND, 3000);
+                }
+                break;
+                case EVENT_FLY_SIDE_B:
+                {
+                    me->MonsterTextEmote("Wing Leader nero'onok lifts off and flies to the other end of the bridge!", LANG_UNIVERSAL, me->GetGUID());
+
+                    // Schedule Caustic Event
+                    events.ScheduleEvent(EVENT_CAUSTIC_PITCH_FLY_BACK, 1000);
+                    events.CancelEvent(EVENT_CAUSTIC_PITCH);
+                    events.CancelEvent(EVENT_QUICK_DRY_REISIN);
+                    events.CancelEvent(EVENT_HURL_BRICK);
+
+                    // Remove the ability to attack
+                    me->AddUnitState(UNIT_STATE_CANNOT_AUTOATTACK);
+                    me->SetReactState(REACT_PASSIVE);
+
+                    me->InterruptNonMeleeSpells(false);
+                    me->FinishSpell(CURRENT_CHANNELED_SPELL, false);
+                    me->AttackStop();
+
+                    if (MotionMaster* motion = me->GetMotionMaster())
+                    {
+                        move = true;
+
+                        events.ScheduleEvent(EVENT_FLY_SIDE_B_1, 1500);
+                        // Schedule Caustic Event
+                        events.ScheduleEvent(EVENT_CAUSTIC_PITCH_FLY_BACK, 1000);
+
+                        // Clear motionmaster
+                        motion->Clear(true);
+
+                        motion->MovePoint(4, 1813.656738f, 5245.903809f, 147.996879f);
+                    }
+                    break;
+                }
+                case EVENT_FLY_SIDE_B_1:
+                {
+                    if (MotionMaster* motion = me->GetMotionMaster())
+                    {
+                        move = true;
+
+                        side_1 = true;
+                        side_2 = false;
+                        events.ScheduleEvent(EVENT_FLY_SIDE_B_2, 4500);
+                        motion->MovePoint(5, 1885.431641f, 5179.691406f, 149.663666f);
+                    }
+                    break;
+                }
+                case EVENT_FLY_SIDE_B_2:
+                {
+                    // Add the ability to attack
+                    me->ClearUnitState(UNIT_STATE_CANNOT_AUTOATTACK);
+                    me->SetReactState(REACT_AGGRESSIVE);
+
+                    if (MotionMaster* motion = me->GetMotionMaster())
+                    {
+                        move = true;
+
+                        // Clear motionmaster
+                        motion->Clear(true);
+
+                        motion->MovePoint(6, 1884.880005f, 5180.540039f, 131.169006f);
+                        events.ScheduleEvent(EVENT_GUSTING_WIND, 6000);
+                    }
+                    break;
+                }
+                }
+            }
+        }
+        void JustDied(Unit* /*killer*/)
+        {
+            _JustDied();
+
+            instance->SetBossState(DATA_NERONOK, DONE);
+            summons.DespawnAll();
+
+            DoPlaySoundToSet(me, 30361);
+            me->MonsterYell("Kah.... The.. Bridge!", LANG_UNIVERSAL, me->GetGUID());
+        }
+    private:
+        EventMap events;
+    };
+
+    CreatureAI* GetAI(Creature* creature) const
     {
-        // NEED FIX PROC FLAG.
-
-        Unit* owner = GetTarget();
-        if (!owner)
-            return;
-        if (owner->GetPower(POWER_ALTERNATE) <= 10)
-            owner->RemoveAurasDueToSpell(121447);
-        else
-            owner->ModifyPower(POWER_ALTERNATE, -10);
-    }
-
-    void Register() override
-    {
-        OnEffectProc += AuraEffectProcFn(spell_quick_dry_resin::OnProc, EFFECT_0, SPELL_AURA_ENABLE_ALT_POWER);
-        OnEffectPeriodic += AuraEffectPeriodicFn(spell_quick_dry_resin::PeriodicTick, EFFECT_0, SPELL_AURA_PERIODIC_DAMAGE);
+        return new boss_neronokAI(creature);
     }
 };
 
-// 121282
-class spell_neronok_gusting_winds : public AuraScript
+class Reisin_Boss_Traps : public CreatureScript
 {
-    PrepareAuraScript(spell_neronok_gusting_winds);
+public:
+    Reisin_Boss_Traps() : CreatureScript("Reisin_Boss_Traps") { }
 
-    void OnApply(AuraEffect const* aurEff, AuraEffectHandleModes /*mode*/)
+    struct Resin_Trigger_AI : public CreatureAI
     {
-        Unit* owner = GetCaster();
-        if (!owner)
-            return;
+        Resin_Trigger_AI(Creature* creature) : CreatureAI(creature)
+        {
+            me->AddExtraUnitMovementFlag(MOVEMENTFLAG_ROOT);
+            me->SetObjectScale(1.0);
+        }
+        bool Used;
 
-        owner->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_INTERRUPT, false);
-        owner->ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_INTERRUPT_CAST, false);
-    }
+        void Reset()
+        {
+            Used = false;
+            events.Reset();
+            if (TempSummon* temp = me->ToTempSummon())
+                if (Creature* Summoner = temp->GetSummoner()->ToCreature())
+                {
+                    me->setFaction(Summoner->getFaction());
+                    me->CastSpell(me, CAUSTIC_PITCH);
+                }
+        }
+        void UpdateAI(uint32 const diff)
+        {
+            events.Update(diff);
 
-    void OnRemove(AuraEffect const* aurEff, AuraEffectHandleModes /*mode*/)
+            if (Player* pl = me->SelectNearestPlayer(1.0))
+            {
+                if (pl->IsWithinDistInMap(me, 1.0f, true) && !Used)
+                {
+                    if (MotionMaster* motion = pl->GetMotionMaster())
+                    {
+                        //motion->Clear(true);
+                    }
+                }
+            }
+        }
+    private:
+        EventMap events;
+    };
+    CreatureAI* GetAI(Creature* creature) const
     {
-        Unit* owner = GetCaster();
-        if (!owner)
-            return;
-
-        owner->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_INTERRUPT, true);
-        owner->ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_INTERRUPT_CAST, true);
-
-        if (GetTargetApplication()->GetRemoveMode() != AURA_REMOVE_BY_CANCEL
-            && GetTargetApplication()->GetRemoveMode() != AURA_REMOVE_BY_ENEMY_SPELL)
-            return;
-
-        if (auto creature = owner->ToCreature())
-            creature->AI()->DoAction(ACTION_1);
-    }
-
-    void Register() override
-    {
-        OnEffectApply += AuraEffectRemoveFn(spell_neronok_gusting_winds::OnApply, EFFECT_0, SPELL_AURA_DUMMY, AURA_EFFECT_HANDLE_REAL);
-        OnEffectRemove += AuraEffectRemoveFn(spell_neronok_gusting_winds::OnRemove, EFFECT_0, SPELL_AURA_DUMMY, AURA_EFFECT_HANDLE_REAL);
+        return new Resin_Trigger_AI(creature);
     }
 };
 
-void AddSC_boss_wing_leader_neronok()
+class quick_dry_resin_after_effect : public SpellScriptLoader
 {
-    RegisterCreatureAI(boss_wing_leader_neronok);
-    RegisterAuraScript(spell_quick_dry_resin);
-    RegisterAuraScript(spell_neronok_gusting_winds);
+public:
+    quick_dry_resin_after_effect() : SpellScriptLoader("quick_dry_resin_after_effect") { }
+
+    class spell_carrying_caustic_tar_AuraScript : public AuraScript
+    {
+        PrepareAuraScript(spell_carrying_caustic_tar_AuraScript);
+
+        void OnRemove(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
+        {
+            if (!GetTarget())
+                return;
+
+            if (!GetTarget()->HasAura(122063))
+            {
+                GetTarget()->AddAura(121116, GetTarget());
+            }
+
+        }
+        void Register()
+        {
+            AfterEffectRemove += AuraEffectRemoveFn(spell_carrying_caustic_tar_AuraScript::OnRemove, EFFECT_0, SPELL_AURA_PERIODIC_DAMAGE, AURA_EFFECT_HANDLE_REAL);
+        }
+    };
+
+    AuraScript* GetAuraScript() const
+    {
+        return new spell_carrying_caustic_tar_AuraScript();
+    }
+};
+
+class spell_gusting_wind_left : public SpellScriptLoader
+{
+public:
+    spell_gusting_wind_left() : SpellScriptLoader("spell_gusting_wind_left") { }
+
+    class spell_gusting_wind_spell_script : public SpellScript
+    {
+        PrepareSpellScript(spell_gusting_wind_spell_script);
+
+        std::list<Player*> PL_LIST;
+
+        void HandleOnCast()
+        {
+            if (!GetCaster())
+                return;
+            Creature* boss = GetCaster()->ToCreature();
+
+            if (!boss)
+                return;
+
+
+            JadeCore::AnyPlayerInObjectRangeCheck check(boss, 14.0f);
+            JadeCore::PlayerListSearcher<JadeCore::AnyPlayerInObjectRangeCheck> searcher(boss, PL_LIST, check);
+            boss->VisitNearbyObject(14.0f, searcher);
+
+            for (std::list<Player*>::const_iterator itr = PL_LIST.begin(); itr != PL_LIST.end(); itr++)
+            {
+                if (!(*itr))
+                    return;
+
+                (*itr)->GetMotionMaster()->MoveBackward(1, 1834.417725f, 5232.359375f, 131.169464f);
+            }
+        }
+        void Unload() override
+        {
+            for (std::list<Player*>::const_iterator itr = PL_LIST.begin(); itr != PL_LIST.end(); itr++)
+            {
+                if (!(*itr))
+                    return;
+
+                if (MotionMaster* motion = (*itr)->GetMotionMaster())
+                    motion->Clear(true);
+            }
+        }
+
+        void Register()
+        {
+            OnCast += SpellCastFn(spell_gusting_wind_spell_script::HandleOnCast);
+        }
+    };
+
+    SpellScript* GetSpellScript() const
+    {
+        return new spell_gusting_wind_spell_script;
+    }
+};
+
+class spell_gusting_wind_right : public SpellScriptLoader
+{
+public:
+    spell_gusting_wind_right() : SpellScriptLoader("spell_gusting_wind_right") { }
+
+    class spell_gusting_wind_spell_script : public SpellScript
+    {
+        PrepareSpellScript(spell_gusting_wind_spell_script);
+
+        std::list<Player*> PL_LIST;
+
+        void HandleOnCast()
+        {
+            if (!GetCaster())
+                return;
+
+            Creature* boss = GetCaster()->ToCreature();
+            if (!boss)
+                return;
+
+            JadeCore::AnyPlayerInObjectRangeCheck check(boss, 22.0f);
+            JadeCore::PlayerListSearcher<JadeCore::AnyPlayerInObjectRangeCheck> searcher(boss, PL_LIST, check);
+            boss->VisitNearbyObject(22.0f, searcher);
+
+            for (std::list<Player*>::const_iterator itr = PL_LIST.begin(); itr != PL_LIST.end(); itr++)
+            {
+                if (!(*itr))
+                    return;
+
+                if (urand(1, 2) == 1)
+                    (*itr)->GetMotionMaster()->MoveBackward(2, 1857.359131f, 5206.055664f, 131.169647f);
+                else
+                    (*itr)->GetMotionMaster()->MoveBackward(2, 1867.288940f, 5203.192871f, 131.169434f);
+            }
+        }
+        void Unload() override
+        {
+            for (std::list<Player*>::const_iterator itr = PL_LIST.begin(); itr != PL_LIST.end(); itr++)
+            {
+                if (!(*itr))
+                    return;
+
+                if (MotionMaster* motion = (*itr)->GetMotionMaster())
+                    motion->Clear(true);
+            }
+        }
+
+
+        void Register()
+        {
+            OnCast += SpellCastFn(spell_gusting_wind_spell_script::HandleOnCast);
+        }
+    };
+
+    SpellScript* GetSpellScript() const
+    {
+        return new spell_gusting_wind_spell_script;
+    }
+};
+
+class quick_dry_reisin_dummy : public SpellScriptLoader
+{
+public:
+    quick_dry_reisin_dummy() : SpellScriptLoader("quick_dry_reisin_dummy") { }
+
+    class quick_dry_reisin_dummy_spell_Script : public SpellScript
+    {
+        PrepareSpellScript(quick_dry_reisin_dummy_spell_Script);
+
+        std::list<Player*> PL_LIST;
+
+        void HandleAfterCast()
+        {
+            if (!GetCaster())
+                return;
+            Creature* boss = GetCaster()->ToCreature();
+
+            if (!boss)
+                return;
+
+            Unit* target = GetExplTargetUnit();
+
+            if (!target)
+                return;
+
+            boss->AddAura(121447, target);
+        }
+
+        void Register()
+        {
+            AfterCast += SpellCastFn(quick_dry_reisin_dummy_spell_Script::HandleAfterCast);
+        }
+    };
+
+    SpellScript* GetSpellScript() const
+    {
+        return new quick_dry_reisin_dummy_spell_Script;
+    }
+};
+
+void AddSC_WING_LEADER()
+{
+    // boss
+    new boss_neronok();
+    // npcs
+    new Reisin_Boss_Traps();
+    // spells
+    new quick_dry_reisin_dummy();
+    new quick_dry_resin_after_effect();
+    // gusting wind
+    // right
+    new spell_gusting_wind_right();
+    //left
+    new spell_gusting_wind_left();
 }
